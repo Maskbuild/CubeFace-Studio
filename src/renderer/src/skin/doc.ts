@@ -1,4 +1,5 @@
 import { faceAt, faceRect, type Rect, type Variant } from './layout'
+import { faceOrigin, figuraDefaults, generateFrames, scaleConfig, type FaceFrame, type FiguraConfig } from './figura'
 import { hairDefaults, hairTexSize, rescale, type HairInfo, type HairLength, type HairPlane, type HairSide } from './hair'
 import { mirrorTexel } from './mirror'
 import {
@@ -51,6 +52,8 @@ export interface ProjectJson {
   activeLayerId: string
   layers: LayerInfo[]
   hair?: HairInfo[]
+  figura?: FiguraConfig
+  faceFrames?: FaceFrame[]
 }
 
 interface DocState {
@@ -59,13 +62,18 @@ interface DocState {
   activeId: string
   layers: Layer[]
   hair: HairPlane[]
+  figura: FiguraConfig
+  faces: Partial<Record<FaceFrame, Img>>
 }
 
 type Entry =
   | { kind: 'pixels'; targetId: string; rect: Rect; before: Uint8ClampedArray; after: Uint8ClampedArray }
   | { kind: 'state'; before: DocState; after: DocState; tag?: string; time: number }
 
-export type DocEvent = { type: 'pixels'; rect: Rect } | { type: 'hair'; id: string } | { type: 'structure' }
+export type DocEvent = { type: 'pixels'; rect: Rect } | { type: 'hair'; id: string } | { type: 'face'; frame: FaceFrame } | { type: 'structure' }
+
+/** History/storage id for a face frame texture. */
+export const faceId = (f: FaceFrame) => 'face_' + f
 
 const cloneHair = (h: HairPlane): HairPlane => ({ ...h, pos: [...h.pos], rot: [...h.rot], phys: { ...h.phys } })
 
@@ -89,6 +97,11 @@ export class SkinDoc {
   hair: HairPlane[] = []
   /** Selected hair plane (for the properties panel); not part of history. */
   hairId: string | null = null
+  figura: FiguraConfig
+  /** Face overlay frames (expressions, blink, talk), each the size of the head's front face. */
+  faces: Partial<Record<FaceFrame, Img>> = {}
+  /** Face frame shown/painted in the UV panel; not part of history. */
+  faceFrame: FaceFrame | null = null
   composite: Img
   version = 0
   savedVersion = 0
@@ -103,6 +116,7 @@ export class SkinDoc {
     this.variant = opts.variant
     this.createdAt = opts.createdAt ?? Date.now()
     this.composite = createImg(this.res, this.res)
+    this.figura = figuraDefaults(this.res)
   }
 
   // ---- events --------------------------------------------------------------------------
@@ -146,7 +160,7 @@ export class SkinDoc {
   }
 
   private state(): DocState {
-    return { res: this.res, variant: this.variant, activeId: this.activeId, layers: this.layers.map((l) => ({ ...l, meta: { ...l.meta } })), hair: this.hair.map(cloneHair) }
+    return { res: this.res, variant: this.variant, activeId: this.activeId, layers: this.layers.map((l) => ({ ...l, meta: { ...l.meta } })), hair: this.hair.map(cloneHair), figura: { ...this.figura }, faces: { ...this.faces } }
   }
 
   private restore(s: DocState) {
@@ -155,6 +169,8 @@ export class SkinDoc {
     this.activeId = s.activeId
     this.layers = s.layers.map((l) => ({ ...l, meta: { ...l.meta } }))
     this.hair = s.hair.map(cloneHair)
+    this.figura = { ...s.figura }
+    this.faces = { ...s.faces }
     if (this.hairId && !this.hair.some((h) => h.id === this.hairId)) this.hairId = null
     if (this.composite.w !== this.res) this.composite = createImg(this.res, this.res)
     this.recomposite()
@@ -193,6 +209,11 @@ export class SkinDoc {
 
   private applyEntry(e: Entry, side: 'before' | 'after') {
     if (e.kind === 'state') return this.restore(e[side])
+    const face = this.faceById(e.targetId)
+    if (face) {
+      writeRect(face.img, e.rect, e[side])
+      return this.emit({ type: 'face', frame: face.frame })
+    }
     const h = this.hairPlane(e.targetId)
     if (h) {
       writeRect(h.img, e.rect, e[side])
@@ -311,6 +332,9 @@ export class SkinDoc {
     this.change(() => {
       this.layers = this.layers.map((l) => ({ ...l, img: resample(l.img, res) }))
       this.hair = this.hair.map((h) => ({ ...cloneHair(h), img: rescale(h.img, ...hairTexSize(h.w, h.h, res)) }))
+      const n = faceOrigin(res).size
+      this.faces = Object.fromEntries(Object.entries(this.faces).map(([f, img]) => [f, rescale(img!, n, n)]))
+      this.figura = scaleConfig(this.figura, this.res, res)
       this.res = res
       this.composite = createImg(res, res)
     })
@@ -339,6 +363,7 @@ export class SkinDoc {
 
   selectHair(id: string | null) {
     this.hairId = id
+    if (id) this.faceFrame = null
     this.emit({ type: 'structure' })
   }
 
@@ -412,6 +437,56 @@ export class SkinDoc {
     return true
   }
 
+  // ---- figura ----------------------------------------------------------------------------
+  private faceByImg(img: Img): FaceFrame | undefined {
+    return (Object.keys(this.faces) as FaceFrame[]).find((f) => this.faces[f] === img)
+  }
+
+  private faceById(id: string) {
+    const frame = (Object.keys(this.faces) as FaceFrame[]).find((f) => faceId(f) === id)
+    return frame ? { frame, img: this.faces[frame]! } : undefined
+  }
+
+  /** Initial Figura data (no history). */
+  initFigura(cfg: FiguraConfig | undefined, faces: Partial<Record<FaceFrame, Img>>) {
+    if (cfg) this.figura = { ...figuraDefaults(this.res), ...cfg }
+    this.faces = faces
+    this.emit({ type: 'structure' })
+  }
+
+  updateFigura(props: Partial<FiguraConfig>) {
+    this.change(() => (this.figura = { ...this.figura, ...props }), `figura:${Object.keys(props).join(',')}`)
+  }
+
+  /** The head's front face cut out of the composite (reference for face frames). */
+  faceImage(): Img {
+    const o = faceOrigin(this.res)
+    const out = createImg(o.size, o.size)
+    writeRect(out, { x: 0, y: 0, w: o.size, h: o.size }, readRect(this.composite, { x: o.x, y: o.y, w: o.size, h: o.size }))
+    return out
+  }
+
+  /** (Re)generate default expression/blink/talk frames from the eye and mouth rects. */
+  generateFaces(only?: FaceFrame[]) {
+    const frames = generateFrames(this.faceImage(), this.figura)
+    this.change(() => {
+      const next = { ...this.faces }
+      for (const f of only ?? (Object.keys(frames) as FaceFrame[])) next[f] = frames[f]
+      this.faces = next
+    })
+  }
+
+  selectFace(f: FaceFrame | null) {
+    this.faceFrame = f
+    if (f) this.hairId = null
+    this.emit({ type: 'structure' })
+  }
+
+  beginFaceStroke(f: FaceFrame, color: RGBA, opacity: number, mode: 'paint' | 'erase'): Stroke | null {
+    const img = this.faces[f]
+    return img ? new Stroke(img, cloneImg(img), color, opacity, mode) : null
+  }
+
   // ---- painting ------------------------------------------------------------------------
   /** Returns null if the active layer can't be painted (missing, hidden or locked). */
   beginStroke(color: RGBA, opacity: number, mode: 'paint' | 'erase'): Stroke | null {
@@ -434,7 +509,10 @@ export class SkinDoc {
         if (clip && (px < clip.x || py < clip.y || px >= clip.x + clip.w || py >= clip.y + clip.h)) continue
         if (!stroke.cover(px, py, v)) continue
         a = unionRect(a, { x: px, y: py, w: 1, h: 1 })
-        if (mirror && stroke.target.w === this.res && stroke.target.h === this.res && this.layers.some((l) => l.img === stroke.target)) {
+        if (mirror && this.faceByImg(stroke.target)) {
+          const mx = stroke.target.w - 1 - px
+          if (stroke.cover(mx, py, v)) a = unionRect(a, { x: mx, y: py, w: 1, h: 1 })
+        } else if (mirror && stroke.target.w === this.res && stroke.target.h === this.res && this.layers.some((l) => l.img === stroke.target)) {
           const m = mirrorTexel(this.variant, this.res, px, py)
           if (m && stroke.cover(m[0], m[1], v)) b = unionRect(b, { x: m[0], y: m[1], w: 1, h: 1 })
         }
@@ -443,6 +521,11 @@ export class SkinDoc {
     if (hair) {
       if (a) stroke.apply(a)
       return this.emit({ type: 'hair', id: hair.id })
+    }
+    const face = this.faceByImg(stroke.target)
+    if (face) {
+      if (a) stroke.apply(a)
+      return this.emit({ type: 'face', frame: face })
     }
     for (const r of [a, b]) {
       if (!r) continue
@@ -466,7 +549,8 @@ export class SkinDoc {
   endStroke(stroke: Stroke) {
     const r = stroke.dirty
     if (!r) return
-    const id = this.layers.find((l) => l.img === stroke.target)?.id ?? this.hair.find((h) => h.img === stroke.target)?.id
+    const f = this.faceByImg(stroke.target)
+    const id = this.layers.find((l) => l.img === stroke.target)?.id ?? this.hair.find((h) => h.img === stroke.target)?.id ?? (f && faceId(f))
     if (!id) return
     this.push({ kind: 'pixels', targetId: id, rect: r, before: readRect(stroke.snapshot, r), after: readRect(stroke.target, r) })
     this.emit({ type: 'structure' })
@@ -519,7 +603,9 @@ export class SkinDoc {
       updatedAt: Date.now(),
       activeLayerId: this.activeId,
       layers: this.layers.map(({ img: _img, ...info }) => info),
-      hair: this.hair.map(({ img: _img, ...info }) => info)
+      hair: this.hair.map(({ img: _img, ...info }) => info),
+      figura: this.figura,
+      faceFrames: Object.keys(this.faces) as FaceFrame[]
     }
   }
 

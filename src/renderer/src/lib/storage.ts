@@ -21,6 +21,8 @@ export interface Storage {
   getAsset(kind: string, id: string): Promise<string | null>
   setAsset(kind: string, id: string, dataUrl: string): Promise<boolean>
   deleteAsset(kind: string, id: string): Promise<boolean>
+  exportFigura(folder: string, files: Record<string, string>): Promise<string | null>
+  mergeFigura(): Promise<{ out: string; count: number; renamed: { from: string; to: string }[] } | { error: 'need2' } | null>
   openImage(): Promise<{ name: string; dataUrl: string } | null>
   savePng(dataUrl: string, name: string): Promise<string | null>
 }
@@ -104,6 +106,19 @@ const webStorage: Storage = {
   async deleteAsset(kind, id) {
     await kv('readwrite', (s) => s.delete(`asset:${kind}:${id}`))
     return true
+  },
+  // the browser build has no folder access: offer each file as a download instead
+  async exportFigura(folder, files) {
+    for (const [name, text] of Object.entries(files)) {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(new Blob([text]))
+      a.download = folder + '_' + name
+      a.click()
+    }
+    return folder
+  },
+  async mergeFigura() {
+    return null
   },
   openImage: pickFile,
   async savePng(dataUrl, name) {

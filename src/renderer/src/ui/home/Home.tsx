@@ -10,6 +10,7 @@ import { NewSkinDialog } from './NewSkinDialog'
 import { SettingsDialog } from './SettingsDialog'
 import { PaletteManager } from './PaletteManager'
 import { PresetList } from '../common/FiguraPresets'
+import { readDroppedImages } from '../../lib/files'
 import { useLibrary, WardrobeLibrary, WardrobeWindow } from '../wardrobe/Wardrobe'
 
 type Tab = 'skins' | 'palettes' | 'figura' | 'wardrobe'
@@ -41,7 +42,10 @@ export function Home() {
 
   const importPng = async () => {
     const file = await storage.openImage()
-    if (!file) return
+    if (file) importFile(file)
+  }
+
+  const importFile = async (file: { name: string; dataUrl: string }) => {
     const r = await decodeSkin(file.dataUrl)
     if (!r.ok) return toast(t('home.badSize', { w: r.w, h: r.h }))
     if (r.legacy) toast(t('home.legacyUpgraded'))
@@ -57,6 +61,7 @@ export function Home() {
     const copy = new SkinDoc({ name: src.name + ' copy', res: src.res, variant: src.variant })
     copy.initLayers(src.layers.map((l) => ({ ...l })), src.activeId)
     copy.initHair(src.hair)
+    copy.initFigura(src.figura, src.faces)
     await saveDoc(copy)
     refresh()
   }
@@ -99,7 +104,16 @@ export function Home() {
         <button disabled title={t('common.comingSoon')}>{t('home.tabEmotes')}</button>
       </nav>
 
-      <div className="home-body">
+      <div
+        className="home-body"
+        onDragOver={(e) => tab === 'skins' && [...e.dataTransfer.types].includes('Files') && e.preventDefault()}
+        onDrop={async (e) => {
+          if (tab !== 'skins') return
+          e.preventDefault()
+          const [first] = await readDroppedImages(e.dataTransfer.files)
+          if (first) importFile(first)
+        }}
+      >
         {tab === 'palettes' && <PaletteManager />}
         {tab === 'wardrobe' && <WardrobeTab />}
         {tab === 'figura' && (

@@ -14,11 +14,13 @@ const LICENSES: License[] = ['free', 'commercial-nomod', 'commercial-mod', 'excl
 export function ItemDialog({
   item,
   upload,
+  defaultCategory,
   onClose,
   onSave
 }: {
   item?: WardrobeItem
   upload?: { name: string; img: Img; variant: Variant }
+  defaultCategory?: WardrobeCategory
   onClose: () => void
   onSave: (item: WardrobeItem, img?: Img) => void
 }) {
@@ -29,7 +31,7 @@ export function ItemDialog({
       item ?? {
         id: newId(),
         name: upload!.name,
-        category: 'outfit',
+        category: defaultCategory ?? 'outfit',
         res: upload!.img.w,
         variant: upload!.variant,
         credit: '',

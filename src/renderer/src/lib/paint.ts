@@ -2,6 +2,7 @@ import i18n from '../i18n'
 import { isNoModify, type SkinDoc } from '../skin/doc'
 import type { Rect } from '../skin/layout'
 import { getPixel, type Stroke } from '../skin/pixels'
+import type { FaceFrame } from '../skin/figura'
 import { useEditor } from '../store/editor'
 import { confirmBox, toast } from '../ui/common/dialogs'
 
@@ -22,13 +23,14 @@ export class PaintSession {
   }
 
   /** Returns true if the pointer should be captured for a drag stroke. */
-  down(x: number, y: number, clip: Rect | null, hairId: string | null = null): boolean {
+  down(x: number, y: number, clip: Rect | null, hairId: string | null = null, face = false): boolean {
     const ed = useEditor.getState()
     const { doc } = this
     this.hairId = hairId
     // painting stops the test motion so the model holds still while you draw
     if (ed.motion !== 'off' && ed.tool !== 'orbit') ed.set({ motion: 'off' })
     if (hairId) return this.downHair(hairId, x, y, clip)
+    if (doc.faceFrame && face) return this.downFace(doc.faceFrame, x, y)
     if (ed.tool === 'picker') {
       const c = doc.pick(x, y)
       if (c[3] > 0) ed.set({ color: [c[0], c[1], c[2], 255] })
@@ -78,6 +80,26 @@ export class PaintSession {
     return true
   }
 
+  /** Face frames (expressions etc.) mirror across the face centre when Mirror is on. */
+  private downFace(f: FaceFrame, x: number, y: number): boolean {
+    const ed = useEditor.getState()
+    const img = this.doc.faces[f]
+    if (!img) return false
+    if (ed.tool === 'picker') {
+      const c = getPixel(img, x, y)
+      if (c[3] > 0) ed.set({ color: [c[0], c[1], c[2], 255] })
+      return false
+    }
+    if (ed.tool !== 'brush' && ed.tool !== 'eraser') return false
+    const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
+    this.stroke = this.doc.beginFaceStroke(f, ed.color, b.opacity, ed.tool === 'eraser' ? 'erase' : 'paint')
+    if (!this.stroke) return false
+    this.doc.stamp(this.stroke, x, y, b, null, ed.mirror)
+    this.last = [x, y]
+    this.lastClip = null
+    return true
+  }
+
   /** The hair plane the current stroke paints on (strokes never jump between targets). */
   get strokeHair() {
     return this.hairId
@@ -89,7 +111,7 @@ export class PaintSession {
     const ed = useEditor.getState()
     const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
     const sameFace = clip === this.lastClip || (clip && this.lastClip && clip.x === this.lastClip.x && clip.y === this.lastClip.y)
-    const mirror = ed.mirror && !this.hairId
+    const mirror = ed.mirror && !this.hairId // face frames mirror inside doc.stamp
     if (sameFace) this.doc.strokeLine(this.stroke, this.last, [x, y], b, clip, mirror)
     else this.doc.stamp(this.stroke, x, y, b, clip, mirror)
     this.last = [x, y]

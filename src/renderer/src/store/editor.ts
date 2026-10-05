@@ -5,6 +5,7 @@ import { toHex } from '../skin/color'
 import { BUILTIN_PALETTES, type Palette } from '../skin/palette'
 import { storage } from '../lib/storage'
 import type { MotionMode } from '../three/motion'
+import type { Expression } from '../skin/figura'
 
 export type Tool = 'brush' | 'eraser' | 'bucket' | 'picker' | 'orbit'
 export type PaintTarget = 'auto' | 'base' | 'overlay'
@@ -29,6 +30,11 @@ interface EditorStore {
   preview: boolean
   /** Show Figura extras (hair planes + physics) in the viewport. */
   figura: boolean
+  /** Workspace mode chosen with the top-right buttons. */
+  mode: 'skin' | 'figura'
+  /** Figura preview state (not saved). */
+  figExpr: Expression | null
+  figTalk: boolean
   motion: MotionMode
   hairOutlines: boolean
   color: RGBA
@@ -60,6 +66,9 @@ export const useEditor = create<EditorStore>((set, get) => ({
   target: 'auto',
   preview: true,
   figura: true,
+  mode: 'skin',
+  figExpr: null,
+  figTalk: false,
   motion: 'off',
   hairOutlines: true,
   color: [64, 196, 200, 255],
@@ -69,7 +78,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   paletteId: BUILTIN_PALETTES[0].id,
   approvedNoMod: new Set(),
 
-  setDoc: (doc) => set({ doc, tick: get().tick + 1, approvedNoMod: new Set() }),
+  setDoc: (doc) => set({ doc, tick: get().tick + 1, approvedNoMod: new Set(), mode: 'skin', figExpr: null, figTalk: false }),
   bump: () => set({ tick: get().tick + 1 }),
   set: (p) => set(p),
   // brush/eraser keep separate settings; the active one depends on the current tool

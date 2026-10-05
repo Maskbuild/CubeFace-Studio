@@ -11,12 +11,18 @@ import { UVPanel } from './UVPanel'
 import { LayerPanel } from './LayerPanel'
 import { Viewport } from './Viewport'
 import { RightPanel } from './RightPanel'
+import { FacePanel } from '../figura/FacePanel'
+import { FiguraPanel } from '../figura/FiguraPanel'
 
 const KEY_TOOLS: Record<string, Tool> = { b: 'brush', e: 'eraser', g: 'bucket', i: 'picker' }
 
 export function Instance({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
-  const { setDoc, bump } = useEditor()
+  const { setDoc, bump, mode, set } = useEditor()
+  const switchMode = (m: 'skin' | 'figura') => {
+    if (m === 'skin') doc.selectFace(null)
+    set({ mode: m })
+  }
   useEditor((s) => s.tick)
   const [name, setName] = useState(doc.name)
 
@@ -78,18 +84,18 @@ export function Instance({ doc }: { doc: SkinDoc }) {
         <button className="btn ghost" onClick={() => storage.savePng(imgToDataUrl(doc.composite), exportFileName(doc.name))}><Icon name="download" />{t('top.exportPng')}</button>
         <div className="grow" />
         <div className="seg">
-          <button className="on">{t('mode.skin')}</button>
-          <button disabled title={t('common.comingSoon')}>{t('mode.figura')}</button>
+          <button className={mode === 'skin' ? 'on' : ''} onClick={() => switchMode('skin')}>{t('mode.skin')}</button>
+          <button className={mode === 'figura' ? 'on' : ''} onClick={() => switchMode('figura')}>{t('mode.figura')}</button>
           <button disabled title={t('common.comingSoon')}>{t('mode.pose')}</button>
         </div>
       </header>
       <div className="workspace">
         <aside className="side left">
           <UVPanel doc={doc} />
-          <LayerPanel doc={doc} />
+          {mode === 'skin' ? <LayerPanel doc={doc} /> : <FacePanel doc={doc} />}
         </aside>
         <Viewport doc={doc} />
-        <RightPanel doc={doc} />
+        {mode === 'skin' ? <RightPanel doc={doc} /> : <FiguraPanel doc={doc} />}
       </div>
     </div>
   )

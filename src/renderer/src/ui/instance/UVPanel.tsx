@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
 import { cuboids, RESOLUTIONS, scaleRect, type Variant } from '../../skin/layout'
 import { mirrorTexel } from '../../skin/mirror'
+import { faceOrigin, type FaceFrame } from '../../skin/figura'
+import type { Img } from '../../skin/pixels'
 import { PaintSession } from '../../lib/paint'
 import { useEditor } from '../../store/editor'
 import { confirmBox } from '../common/dialogs'
@@ -21,10 +23,21 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
     const off = document.createElement('canvas')
     const offCtx = off.getContext('2d')!
     let imgData: ImageData | null = null
-    // The panel shows the skin, or the selected hair plane's own texture.
-    const source = () => {
+    // The panel shows the skin, the selected hair plane's texture, or a Figura face frame.
+    type Src = { img: Img; hairId: string | null; face: FaceFrame | null }
+    const source = (): Src => {
       const h = doc.hairPlane(doc.hairId)
-      return h ? { img: h.img, hairId: h.id as string | null } : { img: doc.composite, hairId: null as string | null }
+      if (h) return { img: h.img, hairId: h.id, face: null }
+      const f = doc.faceFrame
+      const fi = f ? doc.faces[f] : undefined
+      if (f && fi) return { img: fi, hairId: null, face: f }
+      return { img: doc.composite, hairId: null, face: null }
+    }
+    // the skin itself, drawn under face frames as a painting reference
+    const skinRef = document.createElement('canvas')
+    const syncSkinRef = () => {
+      skinRef.width = skinRef.height = doc.res
+      skinRef.getContext('2d')!.putImageData(new ImageData(doc.composite.data, doc.res, doc.res), 0, 0)
     }
     let src = source()
 
@@ -34,7 +47,8 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
 
     const syncOffscreen = (r?: { x: number; y: number; w: number; h: number }) => {
       const next = source()
-      if (next.hairId !== src.hairId) view.fitted = false
+      if (next.hairId !== src.hairId || next.face !== src.face) view.fitted = false
+      if (next.face) syncSkinRef()
       src = next
       if (!imgData || imgData.data !== src.img.data) {
         off.width = src.img.w
@@ -69,7 +83,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       const { scale: s, ox, oy } = view
       const W = src.img.w, H = src.img.h
       const sw = W * s, sh = H * s
-      const isSkin = !src.hairId
+      const isSkin = !src.hairId && !src.face
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, w, h)
       // checkerboard behind the texture
@@ -84,7 +98,28 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       for (let y = 0, j = 0; y < sh; y += cell, j++) for (let x = (j % 2) * cell; x < sw; x += cell * 2) ctx.fillRect(ox + x, oy + y, cell, cell)
       ctx.restore()
       ctx.imageSmoothingEnabled = false
+      if (src.face) {
+        const o = faceOrigin(doc.res)
+        ctx.globalAlpha = 0.55
+        ctx.drawImage(skinRef, o.x, o.y, o.size, o.size, ox, oy, sw, sh)
+        ctx.globalAlpha = 1
+      }
       ctx.drawImage(off, ox, oy, sw, sh)
+      if (src.face) {
+        // eye / mouth guides
+        const fc = doc.figura
+        ctx.setLineDash([4, 3])
+        ctx.lineWidth = 1.5
+        ctx.strokeStyle = css.getPropertyValue('--accent')
+        for (const r of [fc.eyeR, fc.eyeL, fc.mouth]) ctx.strokeRect(ox + r.x * s, oy + r.y * s, r.w * s, r.h * s)
+        if (useEditor.getState().mirror) {
+          ctx.beginPath()
+          ctx.moveTo(ox + sw / 2, oy)
+          ctx.lineTo(ox + sw / 2, oy + sh)
+          ctx.stroke()
+        }
+        ctx.setLineDash([])
+      }
 
       const ed = useEditor.getState()
       const lineColor = css.getPropertyValue('--text-3')
@@ -168,7 +203,12 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
     schedule()
     const unsubDoc = doc.on((e) => {
       if (e.type === 'pixels' && src.hairId) return
+      if (e.type === 'pixels' && src.face) {
+        syncSkinRef()
+        return schedule()
+      }
       if (e.type === 'hair' && e.id !== src.hairId) return
+      if (e.type === 'face' && e.frame !== src.face) return
       syncOffscreen(e.type === 'pixels' ? e.rect : undefined)
       schedule()
     })
@@ -197,7 +237,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       if (ev.button !== 0) return
       const [x, y] = texel(ev)
       if (x < 0 || y < 0 || x >= src.img.w || y >= src.img.h) return
-      session.down(x, y, null, src.hairId)
+      session.down(x, y, null, src.hairId, !!src.face)
     }
     const onMove = (ev: PointerEvent) => {
       if (pan) {
@@ -262,6 +302,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
   }
 
   const hair = doc.hairPlane(doc.hairId)
+  const frame = !hair && doc.faceFrame && doc.faces[doc.faceFrame] ? doc.faceFrame : null
   return (
     <div className="uv-wrap">
       <div className="section" style={{ borderBottom: 0, paddingBottom: 8 }}>
@@ -273,6 +314,12 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
             ))}
           </select>
         </div>
+        {frame && (
+          <div className="uv-chip">
+            <span>{t('figura.frame')}: <b>{t(`figura.frames.${frame}`)}</b></span>
+            <button className="icon-btn sm" title={t('uv.backToSkin')} onClick={() => doc.selectFace(null)}><Icon name="x" size={13} /></button>
+          </div>
+        )}
         {hair && (
           <div className="uv-chip">
             <span>{t('hair.title')}: <b>{hair.name}</b></span>

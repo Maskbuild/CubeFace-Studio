@@ -8,6 +8,8 @@ import { faceRect, type Rect } from '../../skin/layout'
 import { SkinModel, type MeshInfo } from '../../three/model'
 import { HairRig, type HairMeshInfo } from '../../three/hairRig'
 import { MotionDriver } from '../../three/motion'
+import { FiguraRig } from '../../three/figuraRig'
+import type { Motion } from '../../skin/hair'
 import { PaintSession } from '../../lib/paint'
 import { useEditor } from '../../store/editor'
 import { Toolbar } from './Toolbar'
@@ -56,6 +58,10 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
 
     // ---- hair planes + physics preview --------------------------------------------------
     const rig = new HairRig(model.parts.head)
+    const fig = new FiguraRig(model.parts.head, model.parts.body)
+    let lastMotion: Motion | null = null
+    const smoothHead = new THREE.Quaternion()
+    let smoothInit = false
     const driver = new MotionDriver()
     const gizmo = new TransformControls(camera, renderer.domElement)
     gizmo.setSize(0.7)
@@ -81,6 +87,10 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       if (root) gizmo.attach(root)
       else gizmo.detach()
       gizmoHelper.visible = !!root
+      fig.enabled = s.figura && s.mode === 'figura'
+      fig.expr = s.figExpr
+      fig.talk = s.figTalk
+      fig.sync(doc)
       driver.mode = s.figura ? s.motion : 'off'
       if (driver.mode !== 'off') model.mirrorLines.visible = false // the guide doesn't follow the animated head
       if (driver.mode === 'off') {
@@ -109,6 +119,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     let variant = doc.variant
     const unsubDoc = doc.on((e) => {
       if (e.type === 'hair') rig.textureChanged(e.id)
+      else if (e.type === 'face') fig.textureChanged(e.frame)
       else if (e.type === 'structure') {
         syncHair()
         model.setImage(doc.composite)
@@ -204,12 +215,36 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     let w = 0, h = 0
     const t0 = performance.now()
     let last = performance.now()
+    let figAcc = 0
     const frame = () => {
       raf = requestAnimationFrame(frame)
       const now = performance.now()
+      const dt = Math.min(0.25, (now - last) / 1000)
+      let alpha = 1
       if (driver.mode !== 'off') {
-        const alpha = driver.update((now - last) / 1000, model, (m) => rig.tick(m))
+        alpha = driver.update(dt, model, (m) => {
+          rig.tick(m)
+          lastMotion = m
+        })
         rig.applyPhysics(alpha, true)
+        dirty = true
+      } else lastMotion = null
+      if (fig.enabled) {
+        const cfg = doc.figura
+        // the Figura preview runs its own 20 Hz clock for blinking / talking / tail physics
+        figAcc += dt
+        while (figAcc >= 0.05) {
+          figAcc -= 0.05
+          fig.tick(doc, lastMotion, cfg.blinkMin, cfg.blinkMax)
+        }
+        // smooth head: the head lags behind where the animation points it
+        const head = model.parts.head
+        if (cfg.smoothHead && driver.mode !== 'off') {
+          if (!smoothInit) smoothHead.copy(head.quaternion), (smoothInit = true)
+          smoothHead.slerp(head.quaternion, 1 - Math.pow(1 - cfg.headSpeed, dt * 20))
+          head.quaternion.copy(smoothHead)
+        } else smoothInit = false
+        fig.frame(driver.mode !== 'off' ? alpha : figAcc / 0.05, [head.rotation.y, head.rotation.x], cfg.eyeShift, dt)
         dirty = true
       }
       last = now
@@ -271,6 +306,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       gizmo.dispose()
       controls.dispose()
       rig.disposeAll()
+      fig.dispose()
       model.dispose()
       floor.geometry.dispose()
       renderer.dispose()

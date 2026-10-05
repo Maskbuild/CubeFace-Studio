@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('nkw', {
   getAsset: (kind: string, id: string) => ipcRenderer.invoke('asset:get', kind, id),
   setAsset: (kind: string, id: string, dataUrl: string) => ipcRenderer.invoke('asset:set', kind, id, dataUrl),
   deleteAsset: (kind: string, id: string) => ipcRenderer.invoke('asset:delete', kind, id),
+  exportFigura: (folder: string, files: Record<string, string>) => ipcRenderer.invoke('figura:export', folder, files),
+  mergeFigura: () => ipcRenderer.invoke('figura:merge'),
   openImage: () => ipcRenderer.invoke('dialog:openImage'),
   savePng: (dataUrl: string, name: string) => ipcRenderer.invoke('dialog:savePng', dataUrl, name)
 })

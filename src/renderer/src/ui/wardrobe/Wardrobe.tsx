@@ -19,6 +19,7 @@ import {
 import { decodePreset, loadPresets } from '../../lib/presets'
 import { decodeSkin } from '../../lib/project'
 import { storage } from '../../lib/storage'
+import { readDroppedImages } from '../../lib/files'
 import { confirmBox, toast } from '../common/dialogs'
 import { Icon } from '../common/Icon'
 import { ItemDialog } from './ItemDialog'
@@ -96,19 +97,45 @@ export function WardrobeLibrary({
 }) {
   const { t } = useTranslation()
   const [cat, setCat] = useState<WardrobeCategory | 'all'>('all')
-  const [dialog, setDialog] = useState<{ item?: WardrobeItem; upload?: { name: string; img: Img; variant: Variant } } | null>(null)
+  const [edit, setEdit] = useState<WardrobeItem | null>(null)
+  // uploads waiting for their details dialog (several files can be dropped at once)
+  const [queue, setQueue] = useState<{ name: string; img: Img; variant: Variant }[]>([])
+  const [dragOver, setDragOver] = useState(false)
+  const dialog = edit ? { item: edit } : queue[0] ? { upload: queue[0] } : null
+  const closeDialog = () => (edit ? setEdit(null) : setQueue((q) => q.slice(1)))
+
+  const addFiles = async (files: { name: string; dataUrl: string }[]) => {
+    const ok: typeof queue = []
+    for (const f of files) {
+      const r = await decodeSkin(f.dataUrl)
+      if (r.ok) ok.push({ name: f.name, img: r.img, variant: r.variant })
+      else toast(`${f.name}: ${t('home.badSize', { w: r.w, h: r.h })}`)
+    }
+    setQueue((q) => [...q, ...ok])
+  }
 
   const upload = async () => {
     const f = await storage.openImage()
-    if (!f) return
-    const r = await decodeSkin(f.dataUrl)
-    if (!r.ok) return toast(t('home.badSize', { w: r.w, h: r.h }))
-    setDialog({ upload: { name: f.name, img: r.img, variant: r.variant } })
+    if (f) addFiles([f])
   }
 
   const shown = (items ?? []).filter((i) => cat === 'all' || i.category === cat)
   return (
-    <div className="wardrobe-lib">
+    <div
+      className={'wardrobe-lib drop-zone' + (dragOver ? ' over' : '')}
+      onDragOver={(e) => {
+        if (![...e.dataTransfer.types].includes('Files')) return
+        e.preventDefault()
+        setDragOver(true)
+      }}
+      onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDragOver(false)}
+      onDrop={async (e) => {
+        e.preventDefault()
+        setDragOver(false)
+        addFiles(await readDroppedImages(e.dataTransfer.files))
+      }}
+    >
+      {dragOver && <div className="drop-hint"><Icon name="image" size={28} />{t('wardrobe.dropHere')}</div>}
       <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
         <div className="seg" style={{ flexWrap: 'wrap' }}>
           <button className={cat === 'all' ? 'on' : ''} onClick={() => setCat('all')}>{t('wardrobe.all')}</button>
@@ -120,6 +147,7 @@ export function WardrobeLibrary({
           ))}
         </div>
         <div className="grow" />
+        <span className="muted" style={{ fontSize: 12 }}>{t('wardrobe.dropHint')}</span>
         <button className="btn" onClick={upload}><Icon name="plus" />{t('wardrobe.upload')}</button>
       </div>
       {items && shown.length === 0 && <div className="empty" style={{ padding: '40px 0' }}>{t('wardrobe.empty')}</div>}
@@ -130,7 +158,7 @@ export function WardrobeLibrary({
             item={it}
             selected={selection?.[it.category]?.id === it.id}
             onClick={onToggle && (() => onToggle(it))}
-            onEdit={() => setDialog({ item: it })}
+            onEdit={() => setEdit(it)}
             onDelete={async () => {
               if (!(await confirmBox(t('wardrobe.confirmDelete', { name: it.name }), t('common.delete'), t('common.cancel'), true))) return
               update((items ?? []).filter((x) => x.id !== it.id))
@@ -142,13 +170,15 @@ export function WardrobeLibrary({
       {dialog && (
         <ItemDialog
           item={dialog.item}
+          key={dialog.item?.id ?? queue.length}
           upload={dialog.upload}
-          onClose={() => setDialog(null)}
+          defaultCategory={cat === 'all' ? undefined : cat}
+          onClose={closeDialog}
           onSave={async (item, img) => {
             if (img) await putItemImage(item.id, img)
             const list = items ?? []
             update(list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [...list, item])
-            setDialog(null)
+            closeDialog()
           }}
         />
       )}

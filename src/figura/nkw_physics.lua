@@ -83,7 +83,7 @@ events.RENDER:register(function(delta)
     for i = 1, c.n do
       local o = c.po[i] + (c.out[i] - c.po[i]) * delta
       local r = c.pr[i] + (c.roll[i] - c.pr[i]) * delta
-      c.parts[i]:setRot(c.rest[i] + vec(o * R2D * c.axis, 0, r * R2D))
+      c.parts[i]:setRot(c.rest[i] + vec(o * R2D * c.axis, 0, -r * R2D))
     end
   end
 end)
