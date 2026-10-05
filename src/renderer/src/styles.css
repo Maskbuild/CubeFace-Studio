@@ -247,3 +247,18 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .parts .ph { font-size: 11px; color: var(--text-3); text-align: center; width: 52px; }
 .extra-btn { justify-content: flex-start; width: 100%; }
 .badge { font-size: 10px; padding: 0 6px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-3); margin-left: auto; }
+
+/* ---------- hair / figura ---------- */
+.hair-list { display: flex; flex-direction: column; gap: 3px; }
+.hair-props { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); }
+.prop-grid { display: grid; grid-template-columns: 74px 1fr; gap: 6px; align-items: center; }
+.prop-grid .seg button { padding: 0 7px; flex: 1; }
+.prop-grid .seg { display: flex; }
+.input.num { height: 26px; padding: 0 6px; width: 100%; font-variant-numeric: tabular-nums; }
+.vec3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.phys-row { display: grid; grid-template-columns: 92px 1fr 36px; gap: 6px; align-items: center; font-size: 12px; }
+.phys-row .val { text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.btn.sm-btn { height: 24px; padding: 0 8px; font-size: 12px; }
+.preset-list { display: flex; flex-direction: column; gap: 8px; }
+.preset-list .palette-row { padding: 8px 10px; }
+.uv-chip { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 8px; background: var(--accent-soft); border: 1px solid var(--accent); font-size: 12px; }

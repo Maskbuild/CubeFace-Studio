@@ -1,7 +1,7 @@
 import i18n from '../i18n'
 import { isNoModify, type SkinDoc } from '../skin/doc'
 import type { Rect } from '../skin/layout'
-import type { Stroke } from '../skin/pixels'
+import { getPixel, type Stroke } from '../skin/pixels'
 import { useEditor } from '../store/editor'
 import { confirmBox, toast } from '../ui/common/dialogs'
 
@@ -13,6 +13,7 @@ export class PaintSession {
   private stroke: Stroke | null = null
   private last: [number, number] | null = null
   private lastClip: Rect | null = null
+  private hairId: string | null = null
 
   constructor(private doc: SkinDoc) {}
 
@@ -21,9 +22,11 @@ export class PaintSession {
   }
 
   /** Returns true if the pointer should be captured for a drag stroke. */
-  down(x: number, y: number, clip: Rect | null): boolean {
+  down(x: number, y: number, clip: Rect | null, hairId: string | null = null): boolean {
     const ed = useEditor.getState()
     const { doc } = this
+    this.hairId = hairId
+    if (hairId) return this.downHair(hairId, x, y, clip)
     if (ed.tool === 'picker') {
       const c = doc.pick(x, y)
       if (c[3] > 0) ed.set({ color: [c[0], c[1], c[2], 255] })
@@ -47,14 +50,46 @@ export class PaintSession {
     return true
   }
 
+  /** Hair planes have their own textures: no mirror, no license check, select on click. */
+  private downHair(id: string, x: number, y: number, clip: Rect | null): boolean {
+    const ed = useEditor.getState()
+    const { doc } = this
+    const h = doc.hairPlane(id)
+    if (!h) return false
+    if (doc.hairId !== id) doc.selectHair(id)
+    if (ed.tool === 'picker') {
+      const c = getPixel(h.img, x, y)
+      if (c[3] > 0) ed.set({ color: [c[0], c[1], c[2], 255] })
+      return false
+    }
+    if (ed.tool === 'bucket') {
+      if (doc.fillHair(id, ed.color, ed.brush.opacity)) ed.pushRecent(ed.color)
+      return false
+    }
+    if (ed.tool !== 'brush' && ed.tool !== 'eraser') return false
+    const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
+    this.stroke = doc.beginHairStroke(id, ed.color, b.opacity, ed.tool === 'eraser' ? 'erase' : 'paint')
+    if (!this.stroke) return false
+    doc.stamp(this.stroke, x, y, b, clip, false)
+    this.last = [x, y]
+    this.lastClip = clip
+    return true
+  }
+
+  /** The hair plane the current stroke paints on (strokes never jump between targets). */
+  get strokeHair() {
+    return this.hairId
+  }
+
   move(x: number, y: number, clip: Rect | null) {
     if (!this.stroke || !this.last) return
     if (this.last[0] === x && this.last[1] === y) return
     const ed = useEditor.getState()
     const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
     const sameFace = clip === this.lastClip || (clip && this.lastClip && clip.x === this.lastClip.x && clip.y === this.lastClip.y)
-    if (sameFace) this.doc.strokeLine(this.stroke, this.last, [x, y], b, clip, ed.mirror)
-    else this.doc.stamp(this.stroke, x, y, b, clip, ed.mirror)
+    const mirror = ed.mirror && !this.hairId
+    if (sameFace) this.doc.strokeLine(this.stroke, this.last, [x, y], b, clip, mirror)
+    else this.doc.stamp(this.stroke, x, y, b, clip, mirror)
     this.last = [x, y]
     this.lastClip = clip
   }

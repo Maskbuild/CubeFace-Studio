@@ -5,7 +5,11 @@ import { PARTS } from '../../skin/layout'
 import { allPalettes, useEditor } from '../../store/editor'
 import { storage } from '../../lib/storage'
 import { Icon } from '../common/Icon'
+import { useState } from 'react'
+import type { SkinDoc } from '../../skin/doc'
 import { ColorPicker } from './ColorPicker'
+import { HairPanel } from './HairPanel'
+import { FiguraPresetsDialog } from '../common/FiguraPresets'
 
 function PalettePanel() {
   const { t } = useTranslation()
@@ -121,11 +125,7 @@ function ModelParts() {
 
 function Extras() {
   const { t } = useTranslation()
-  const items: [string, string][] = [
-    ['wardrobe', 'shirt'],
-    ['hair', 'hair'],
-    ['figuraPreview', 'sparkle']
-  ]
+  const items: [string, string][] = [['wardrobe', 'shirt']]
   return (
     <div className="section">
       {items.map(([k, icon]) => (
@@ -139,13 +139,16 @@ function Extras() {
   )
 }
 
-export function RightPanel() {
+export function RightPanel({ doc }: { doc: SkinDoc }) {
+  const [presets, setPresets] = useState(false)
   return (
     <aside className="side right">
       <ColorPicker />
       <PalettePanel />
       <ModelParts />
+      <HairPanel doc={doc} onOpenPresets={() => setPresets(true)} />
       <Extras />
+      {presets && <FiguraPresetsDialog doc={doc} onClose={() => setPresets(false)} />}
     </aside>
   )
 }

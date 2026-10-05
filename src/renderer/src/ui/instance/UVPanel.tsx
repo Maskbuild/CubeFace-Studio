@@ -6,6 +6,7 @@ import { mirrorTexel } from '../../skin/mirror'
 import { PaintSession } from '../../lib/paint'
 import { useEditor } from '../../store/editor'
 import { confirmBox } from '../common/dialogs'
+import { Icon } from '../common/Icon'
 
 export function UVPanel({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
@@ -20,15 +21,25 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
     const off = document.createElement('canvas')
     const offCtx = off.getContext('2d')!
     let imgData: ImageData | null = null
+    // The panel shows the skin, or the selected hair plane's own texture.
+    const source = () => {
+      const h = doc.hairPlane(doc.hairId)
+      return h ? { img: h.img, hairId: h.id as string | null } : { img: doc.composite, hairId: null as string | null }
+    }
+    let src = source()
 
     const view = { scale: 1, ox: 0, oy: 0, fitted: false }
     let hover: [number, number] | null = null
     let raf = 0
 
     const syncOffscreen = (r?: { x: number; y: number; w: number; h: number }) => {
-      if (!imgData || imgData.width !== doc.res || imgData.data !== doc.composite.data) {
-        off.width = off.height = doc.res
-        imgData = new ImageData(doc.composite.data, doc.res, doc.res)
+      const next = source()
+      if (next.hairId !== src.hairId) view.fitted = false
+      src = next
+      if (!imgData || imgData.data !== src.img.data) {
+        off.width = src.img.w
+        off.height = src.img.h
+        imgData = new ImageData(src.img.data, src.img.w, src.img.h)
         r = undefined
         view.fitted = false
       }
@@ -37,10 +48,10 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
     }
 
     const fit = () => {
-      const s = (Math.min(canvas.width, canvas.height) * 0.94) / doc.res
+      const s = Math.min(canvas.width / src.img.w, canvas.height / src.img.h) * 0.94
       view.scale = s
-      view.ox = (canvas.width - doc.res * s) / 2
-      view.oy = (canvas.height - doc.res * s) / 2
+      view.ox = (canvas.width - src.img.w * s) / 2
+      view.oy = (canvas.height - src.img.h * s) / 2
       view.fitted = true
     }
 
@@ -56,22 +67,24 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       if (!view.fitted) fit()
       const css = getComputedStyle(document.documentElement)
       const { scale: s, ox, oy } = view
-      const size = doc.res * s
+      const W = src.img.w, H = src.img.h
+      const sw = W * s, sh = H * s
+      const isSkin = !src.hairId
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, w, h)
       // checkerboard behind the texture
-      const cell = Math.max(4, s * (doc.res / 64) * 1)
+      const cell = Math.max(4, s * (doc.res / 64))
       ctx.fillStyle = css.getPropertyValue('--checker-a')
-      ctx.fillRect(ox, oy, size, size)
+      ctx.fillRect(ox, oy, sw, sh)
       ctx.fillStyle = css.getPropertyValue('--checker-b')
       ctx.save()
       ctx.beginPath()
-      ctx.rect(ox, oy, size, size)
+      ctx.rect(ox, oy, sw, sh)
       ctx.clip()
-      for (let y = 0, j = 0; y < size; y += cell, j++) for (let x = (j % 2) * cell; x < size; x += cell * 2) ctx.fillRect(ox + x, oy + y, cell, cell)
+      for (let y = 0, j = 0; y < sh; y += cell, j++) for (let x = (j % 2) * cell; x < sw; x += cell * 2) ctx.fillRect(ox + x, oy + y, cell, cell)
       ctx.restore()
       ctx.imageSmoothingEnabled = false
-      ctx.drawImage(off, ox, oy, size, size)
+      ctx.drawImage(off, ox, oy, sw, sh)
 
       const ed = useEditor.getState()
       const lineColor = css.getPropertyValue('--text-3')
@@ -79,10 +92,10 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       // 2^n-th line is drawn instead so the lines still land exactly on texel borders
       if (ed.grid) {
         let step = 1
-        while (step * s < 4 && step < doc.res) step *= 2
+        while (step * s < 4 && step < Math.max(W, H)) step *= 2
         const cell = step * s
-        const i0 = Math.max(0, Math.floor(-ox / cell)), i1 = Math.min(doc.res / step, Math.ceil((w - ox) / cell))
-        const j0 = Math.max(0, Math.floor(-oy / cell)), j1 = Math.min(doc.res / step, Math.ceil((h - oy) / cell))
+        const i0 = Math.max(0, Math.floor(-ox / cell)), i1 = Math.min(Math.floor(W / step), Math.ceil((w - ox) / cell))
+        const j0 = Math.max(0, Math.floor(-oy / cell)), j1 = Math.min(Math.floor(H / step), Math.ceil((h - oy) / cell))
         ctx.strokeStyle = lineColor
         ctx.globalAlpha = step === 1 ? 0.3 : 0.18
         ctx.lineWidth = 1
@@ -90,21 +103,22 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
         for (let i = i0; i <= i1; i++) {
           const p = Math.round(ox + i * cell) + 0.5
           ctx.moveTo(p, oy)
-          ctx.lineTo(p, oy + size)
+          ctx.lineTo(p, oy + sh)
         }
         for (let j = j0; j <= j1; j++) {
           const q = Math.round(oy + j * cell) + 0.5
           ctx.moveTo(ox, q)
-          ctx.lineTo(ox + size, q)
+          ctx.lineTo(ox + sw, q)
         }
         ctx.stroke()
         ctx.globalAlpha = 1
       }
-      // face outlines
+      // face outlines (skin only)
       ctx.strokeStyle = lineColor
       ctx.globalAlpha = 0.55
       ctx.lineWidth = 1
-      for (const c of cuboids(doc.variant)) {
+      if (!isSkin) ctx.strokeRect(Math.round(ox) + 0.5, Math.round(oy) + 0.5, Math.round(sw), Math.round(sh))
+      else for (const c of cuboids(doc.variant)) {
         if (ed.hidden[c.key]) continue
         for (const f of c.faces) {
           const r = scaleRect(f.rect, doc.res)
@@ -113,7 +127,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       }
       ctx.globalAlpha = 1
       // mirror axis: centre line of every face that mirrors onto itself (head/body, not limbs or sides)
-      if (ed.mirror) {
+      if (ed.mirror && isSkin) {
         ctx.strokeStyle = css.getPropertyValue('--accent')
         ctx.lineWidth = 1.5
         ctx.setLineDash([4, 3])
@@ -138,7 +152,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
         ctx.strokeStyle = css.getPropertyValue('--accent')
         ctx.lineWidth = 1.5
         ctx.strokeRect(ox + (hover[0] + o) * s, oy + (hover[1] + o) * s, n * s, n * s)
-        const m = ed.mirror ? mirrorTexel(doc.variant, doc.res, hover[0], hover[1]) : null
+        const m = ed.mirror && isSkin ? mirrorTexel(doc.variant, doc.res, hover[0], hover[1]) : null
         if (m) {
           ctx.setLineDash([3, 2])
           ctx.strokeRect(ox + (m[0] - o - n + 1) * s, oy + (m[1] + o) * s, n * s, n * s)
@@ -153,6 +167,8 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
     syncOffscreen()
     schedule()
     const unsubDoc = doc.on((e) => {
+      if (e.type === 'pixels' && src.hairId) return
+      if (e.type === 'hair' && e.id !== src.hairId) return
       syncOffscreen(e.type === 'pixels' ? e.rect : undefined)
       schedule()
     })
@@ -169,15 +185,19 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
     const session = new PaintSession(doc)
     let pan: { x: number; y: number } | null = null
     const onDown = (ev: PointerEvent) => {
-      canvas.setPointerCapture(ev.pointerId)
+      try {
+        canvas.setPointerCapture(ev.pointerId)
+      } catch {
+        // pointer already released (e.g. synthetic events)
+      }
       if (ev.button === 1 || ev.button === 2 || useEditor.getState().tool === 'orbit') {
         pan = { x: ev.clientX, y: ev.clientY }
         return
       }
       if (ev.button !== 0) return
       const [x, y] = texel(ev)
-      if (x < 0 || y < 0 || x >= doc.res || y >= doc.res) return
-      session.down(x, y, null)
+      if (x < 0 || y < 0 || x >= src.img.w || y >= src.img.h) return
+      session.down(x, y, null, src.hairId)
     }
     const onMove = (ev: PointerEvent) => {
       if (pan) {
@@ -189,7 +209,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
         return
       }
       const [x, y] = texel(ev)
-      hover = x >= 0 && y >= 0 && x < doc.res && y < doc.res ? [x, y] : null
+      hover = x >= 0 && y >= 0 && x < src.img.w && y < src.img.h ? [x, y] : null
       if (session.active && hover) session.move(x, y, null)
       schedule()
     }
@@ -241,6 +261,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
     doc.setResolution(res)
   }
 
+  const hair = doc.hairPlane(doc.hairId)
   return (
     <div className="uv-wrap">
       <div className="section" style={{ borderBottom: 0, paddingBottom: 8 }}>
@@ -252,6 +273,12 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
             ))}
           </select>
         </div>
+        {hair && (
+          <div className="uv-chip">
+            <span>{t('hair.title')}: <b>{hair.name}</b></span>
+            <button className="icon-btn sm" title={t('uv.backToSkin')} onClick={() => doc.selectHair(null)}><Icon name="x" size={13} /></button>
+          </div>
+        )}
         <div className="seg" style={{ alignSelf: 'stretch' }}>
           {(['wide', 'slim'] as Variant[]).map((v) => (
             <button key={v} style={{ flex: 1 }} className={doc.variant === v ? 'on' : ''} onClick={() => doc.setVariant(v)}>{t(`model.${v}`)}</button>

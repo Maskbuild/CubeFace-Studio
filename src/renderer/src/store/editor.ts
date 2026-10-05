@@ -4,6 +4,7 @@ import type { RGBA } from '../skin/pixels'
 import { toHex } from '../skin/color'
 import { BUILTIN_PALETTES, type Palette } from '../skin/palette'
 import { storage } from '../lib/storage'
+import type { MotionMode } from '../three/motion'
 
 export type Tool = 'brush' | 'eraser' | 'bucket' | 'picker' | 'orbit'
 export type PaintTarget = 'auto' | 'base' | 'overlay'
@@ -26,6 +27,10 @@ interface EditorStore {
   mirror: boolean
   target: PaintTarget
   preview: boolean
+  /** Show Figura extras (hair planes + physics) in the viewport. */
+  figura: boolean
+  motion: MotionMode
+  hairOutlines: boolean
   color: RGBA
   recent: string[]
   hidden: Record<string, boolean> // cuboid key -> hidden
@@ -54,6 +59,9 @@ export const useEditor = create<EditorStore>((set, get) => ({
   mirror: false,
   target: 'auto',
   preview: true,
+  figura: true,
+  motion: 'off',
+  hairOutlines: true,
   color: [64, 196, 200, 255],
   recent: [],
   hidden: {},

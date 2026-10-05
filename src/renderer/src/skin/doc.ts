@@ -1,4 +1,5 @@
 import { faceAt, faceRect, type Rect, type Variant } from './layout'
+import { hairDefaults, hairTexSize, rescale, type HairInfo, type HairLength, type HairPlane, type HairSide } from './hair'
 import { mirrorTexel } from './mirror'
 import {
   brushKernel,
@@ -49,6 +50,7 @@ export interface ProjectJson {
   updatedAt: number
   activeLayerId: string
   layers: LayerInfo[]
+  hair?: HairInfo[]
 }
 
 interface DocState {
@@ -56,13 +58,16 @@ interface DocState {
   variant: Variant
   activeId: string
   layers: Layer[]
+  hair: HairPlane[]
 }
 
 type Entry =
-  | { kind: 'pixels'; layerId: string; rect: Rect; before: Uint8ClampedArray; after: Uint8ClampedArray }
+  | { kind: 'pixels'; targetId: string; rect: Rect; before: Uint8ClampedArray; after: Uint8ClampedArray }
   | { kind: 'state'; before: DocState; after: DocState; tag?: string; time: number }
 
-export type DocEvent = { type: 'pixels'; rect: Rect } | { type: 'structure' }
+export type DocEvent = { type: 'pixels'; rect: Rect } | { type: 'hair'; id: string } | { type: 'structure' }
+
+const cloneHair = (h: HairPlane): HairPlane => ({ ...h, pos: [...h.pos], rot: [...h.rot], phys: { ...h.phys } })
 
 export const defaultMeta = (): LayerMeta => ({ credit: '', license: 'exclusive', modifyPercent: 100 })
 
@@ -81,6 +86,9 @@ export class SkinDoc {
   createdAt: number
   layers: Layer[] = []
   activeId = ''
+  hair: HairPlane[] = []
+  /** Selected hair plane (for the properties panel); not part of history. */
+  hairId: string | null = null
   composite: Img
   version = 0
   savedVersion = 0
@@ -100,7 +108,9 @@ export class SkinDoc {
   // ---- events --------------------------------------------------------------------------
   on(fn: (e: DocEvent) => void) {
     this.listeners.add(fn)
-    return () => this.listeners.delete(fn)
+    return () => {
+      this.listeners.delete(fn)
+    }
   }
   private emit(e: DocEvent) {
     for (const fn of this.listeners) fn(e)
@@ -136,7 +146,7 @@ export class SkinDoc {
   }
 
   private state(): DocState {
-    return { res: this.res, variant: this.variant, activeId: this.activeId, layers: this.layers.map((l) => ({ ...l, meta: { ...l.meta } })) }
+    return { res: this.res, variant: this.variant, activeId: this.activeId, layers: this.layers.map((l) => ({ ...l, meta: { ...l.meta } })), hair: this.hair.map(cloneHair) }
   }
 
   private restore(s: DocState) {
@@ -144,6 +154,8 @@ export class SkinDoc {
     this.variant = s.variant
     this.activeId = s.activeId
     this.layers = s.layers.map((l) => ({ ...l, meta: { ...l.meta } }))
+    this.hair = s.hair.map(cloneHair)
+    if (this.hairId && !this.hair.some((h) => h.id === this.hairId)) this.hairId = null
     if (this.composite.w !== this.res) this.composite = createImg(this.res, this.res)
     this.recomposite()
   }
@@ -181,7 +193,12 @@ export class SkinDoc {
 
   private applyEntry(e: Entry, side: 'before' | 'after') {
     if (e.kind === 'state') return this.restore(e[side])
-    const l = this.layer(e.layerId)
+    const h = this.hairPlane(e.targetId)
+    if (h) {
+      writeRect(h.img, e.rect, e[side])
+      return this.emit({ type: 'hair', id: h.id })
+    }
+    const l = this.layer(e.targetId)
     if (!l) return
     writeRect(l.img, e.rect, e[side])
     this.recomposite(e.rect)
@@ -282,6 +299,7 @@ export class SkinDoc {
     if (res === this.res) return
     this.change(() => {
       this.layers = this.layers.map((l) => ({ ...l, img: resample(l.img, res) }))
+      this.hair = this.hair.map((h) => ({ ...cloneHair(h), img: rescale(h.img, ...hairTexSize(h.w, h.h, res)) }))
       this.res = res
       this.composite = createImg(res, res)
     })
@@ -295,6 +313,92 @@ export class SkinDoc {
     this.name = name
     this.version++
     this.emit({ type: 'structure' })
+  }
+
+  // ---- hair planes ---------------------------------------------------------------------
+  hairPlane(id: string | null) {
+    return id ? this.hair.find((h) => h.id === id) : undefined
+  }
+
+  /** Initial hair planes (no history). */
+  initHair(hair: HairPlane[]) {
+    this.hair = hair
+    this.emit({ type: 'structure' })
+  }
+
+  selectHair(id: string | null) {
+    this.hairId = id
+    this.emit({ type: 'structure' })
+  }
+
+  addHair(side: HairSide, length: HairLength, name: string): HairPlane {
+    const d = hairDefaults(side, length)
+    const [tw, th] = hairTexSize(d.w, d.h, this.res)
+    const h: HairPlane = { ...d, id: newId(), name, img: createImg(tw, th) }
+    this.change(() => this.hair.push(h))
+    this.hairId = h.id
+    this.emit({ type: 'structure' })
+    return h
+  }
+
+  duplicateHair(id: string) {
+    const src = this.hairPlane(id)
+    if (!src) return
+    const copy: HairPlane = { ...cloneHair(src), id: newId(), name: src.name + ' copy', img: cloneImg(src.img) }
+    copy.pos = [src.pos[0] + 1, src.pos[1], src.pos[2]]
+    this.change(() => this.hair.push(copy))
+    this.selectHair(copy.id)
+  }
+
+  removeHair(id: string) {
+    this.change(() => (this.hair = this.hair.filter((h) => h.id !== id)))
+    if (this.hairId === id) this.selectHair(null)
+  }
+
+  /** Update hair properties; resizing rescales its texture so existing paint is kept. */
+  updateHair(id: string, props: Partial<Omit<HairPlane, 'id' | 'img'>>) {
+    this.change(() => {
+      const i = this.hair.findIndex((h) => h.id === id)
+      if (i < 0) return
+      const h = { ...this.hair[i], ...props }
+      const [tw, th] = hairTexSize(h.w, h.h, this.res)
+      if (tw !== h.img.w || th !== h.img.h) h.img = rescale(h.img, tw, th)
+      this.hair[i] = h
+    }, `hair:${id}:${Object.keys(props).join(',')}`)
+  }
+
+  /** Add a preset's planes (textures already decoded) tagged with the preset id. */
+  applyPreset(presetId: string, planes: HairPlane[]) {
+    this.change(() => {
+      for (const p of planes) {
+        const [tw, th] = hairTexSize(p.w, p.h, this.res)
+        this.hair.push({ ...cloneHair(p), id: newId(), presetId, img: p.img.w === tw && p.img.h === th ? cloneImg(p.img) : rescale(p.img, tw, th) })
+      }
+    })
+  }
+
+  removePreset(presetId: string) {
+    this.change(() => (this.hair = this.hair.filter((h) => h.presetId !== presetId)))
+    if (this.hairId && !this.hairPlane(this.hairId)) this.selectHair(null)
+  }
+
+  beginHairStroke(id: string, color: RGBA, opacity: number, mode: 'paint' | 'erase'): Stroke | null {
+    const h = this.hairPlane(id)
+    if (!h || !h.visible) return null
+    return new Stroke(h.img, cloneImg(h.img), color, opacity, mode)
+  }
+
+  /** Fill a whole hair plane (paint bucket on hair). */
+  fillHair(id: string, color: RGBA, opacity: number) {
+    const h = this.hairPlane(id)
+    if (!h) return false
+    const r = { x: 0, y: 0, w: h.img.w, h: h.img.h }
+    const before = readRect(h.img, r)
+    fillRect(h.img, r, color, opacity)
+    this.push({ kind: 'pixels', targetId: h.id, rect: r, before, after: readRect(h.img, r) })
+    this.emit({ type: 'hair', id: h.id })
+    this.emit({ type: 'structure' })
+    return true
   }
 
   // ---- painting ------------------------------------------------------------------------
@@ -319,11 +423,16 @@ export class SkinDoc {
         if (clip && (px < clip.x || py < clip.y || px >= clip.x + clip.w || py >= clip.y + clip.h)) continue
         if (!stroke.cover(px, py, v)) continue
         a = unionRect(a, { x: px, y: py, w: 1, h: 1 })
-        if (mirror) {
+        if (mirror && stroke.target.w === this.res && stroke.target.h === this.res && this.layers.some((l) => l.img === stroke.target)) {
           const m = mirrorTexel(this.variant, this.res, px, py)
           if (m && stroke.cover(m[0], m[1], v)) b = unionRect(b, { x: m[0], y: m[1], w: 1, h: 1 })
         }
       }
+    const hair = this.hair.find((h) => h.img === stroke.target)
+    if (hair) {
+      if (a) stroke.apply(a)
+      return this.emit({ type: 'hair', id: hair.id })
+    }
     for (const r of [a, b]) {
       if (!r) continue
       stroke.apply(r)
@@ -346,9 +455,9 @@ export class SkinDoc {
   endStroke(stroke: Stroke) {
     const r = stroke.dirty
     if (!r) return
-    const id = this.layers.find((l) => l.img === stroke.target)?.id
+    const id = this.layers.find((l) => l.img === stroke.target)?.id ?? this.hair.find((h) => h.img === stroke.target)?.id
     if (!id) return
-    this.push({ kind: 'pixels', layerId: id, rect: r, before: readRect(stroke.snapshot, r), after: readRect(stroke.target, r) })
+    this.push({ kind: 'pixels', targetId: id, rect: r, before: readRect(stroke.snapshot, r), after: readRect(stroke.target, r) })
     this.emit({ type: 'structure' })
   }
 
@@ -377,7 +486,7 @@ export class SkinDoc {
       seen.add(key)
       fillRect(l.img, r, color, opacity, erase)
     }
-    this.push({ kind: 'pixels', layerId: l.id, rect: b, before, after: readRect(l.img, b) })
+    this.push({ kind: 'pixels', targetId: l.id, rect: b, before, after: readRect(l.img, b) })
     this.recomposite(b)
     this.emit({ type: 'structure' })
     return true
@@ -398,7 +507,8 @@ export class SkinDoc {
       createdAt: this.createdAt,
       updatedAt: Date.now(),
       activeLayerId: this.activeId,
-      layers: this.layers.map(({ img: _img, ...info }) => info)
+      layers: this.layers.map(({ img: _img, ...info }) => info),
+      hair: this.hair.map(({ img: _img, ...info }) => info)
     }
   }
 

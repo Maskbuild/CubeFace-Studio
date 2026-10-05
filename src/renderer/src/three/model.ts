@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { cuboids, type CuboidDef, type FaceName, type Variant } from '../skin/layout'
+import { cuboids, PARTS, type CuboidDef, type FaceName, type PartId, type Variant } from '../skin/layout'
 import type { Img } from '../skin/pixels'
 
 type V3 = [number, number, number]
@@ -97,6 +97,16 @@ function mirrorGeometry(): THREE.BufferGeometry {
   return g
 }
 
+/** Joint positions (model px) — same pivots the game uses, so animations bend correctly. */
+export const PIVOTS: Record<PartId, [number, number, number]> = {
+  head: [0, 24, 0],
+  body: [0, 24, 0],
+  rightArm: [-5, 22, 0],
+  leftArm: [5, 22, 0],
+  rightLeg: [-2, 12, 0],
+  leftLeg: [2, 12, 0]
+}
+
 export interface MeshInfo {
   cuboid: number
   key: string
@@ -105,6 +115,15 @@ export interface MeshInfo {
 
 export class SkinModel {
   readonly group = new THREE.Group()
+  /** One group per body part, placed at its joint; rotate these to pose the model. */
+  readonly parts = Object.fromEntries(
+    PARTS.map((p) => {
+      const g = new THREE.Group()
+      g.position.set(...PIVOTS[p])
+      g.name = p
+      return [p, g]
+    })
+  ) as Record<PartId, THREE.Group>
   meshes: THREE.Mesh[] = []
   private grids: THREE.LineSegments[] = []
   texture: THREE.DataTexture
@@ -132,6 +151,7 @@ export class SkinModel {
     this.mirrorLines.renderOrder = 3
     this.mirrorLines.visible = false
     this.group.add(this.mirrorLines)
+    for (const g of Object.values(this.parts)) this.group.add(g)
     this.build(variant)
   }
 
@@ -173,7 +193,7 @@ export class SkinModel {
     // denser grids get fainter so high-resolution skins stay readable
     this.gridMat.opacity = this.res <= 64 ? 0.3 : this.res <= 256 ? 0.2 : 0.12
     for (const o of [...this.meshes, ...this.grids]) {
-      this.group.remove(o)
+      o.removeFromParent()
       o.geometry.dispose()
     }
     this.meshes = []
@@ -182,14 +202,23 @@ export class SkinModel {
       const m = new THREE.Mesh(cuboidGeometry(c), c.kind === 'base' ? this.baseMat : this.overlayMat)
       m.userData = { cuboid: i, key: c.key, kind: c.kind } satisfies MeshInfo
       m.renderOrder = c.kind === 'overlay' ? 1 : 0
+      const part = this.parts[c.part]
+      m.position.set(-PIVOTS[c.part][0], -PIVOTS[c.part][1], -PIVOTS[c.part][2])
       this.meshes.push(m)
-      this.group.add(m)
+      part.add(m)
       const g = new THREE.LineSegments(gridGeometry(c, this.res), this.gridMat)
       g.renderOrder = 2
+      g.position.copy(m.position)
       this.grids.push(g)
-      this.group.add(g)
+      part.add(g)
     })
     this.applyVisibility()
+  }
+
+  /** Back to the neutral standing pose. */
+  resetPose() {
+    for (const g of Object.values(this.parts)) g.rotation.set(0, 0, 0)
+    this.group.position.y = 0
   }
 
   setHidden(hidden: Record<string, boolean>) {

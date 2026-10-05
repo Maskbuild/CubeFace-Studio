@@ -89,7 +89,7 @@ export function Instance({ doc }: { doc: SkinDoc }) {
           <LayerPanel doc={doc} />
         </aside>
         <Viewport doc={doc} />
-        <RightPanel />
+        <RightPanel doc={doc} />
       </div>
     </div>
   )

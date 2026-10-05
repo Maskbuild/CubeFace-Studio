@@ -9,8 +9,9 @@ import { Icon } from '../common/Icon'
 import { NewSkinDialog } from './NewSkinDialog'
 import { SettingsDialog } from './SettingsDialog'
 import { PaletteManager } from './PaletteManager'
+import { PresetList } from '../common/FiguraPresets'
 
-type Tab = 'skins' | 'palettes'
+type Tab = 'skins' | 'palettes' | 'figura'
 
 export function Home() {
   const { t, i18n } = useTranslation()
@@ -49,6 +50,7 @@ export function Home() {
     if (!src) return
     const copy = new SkinDoc({ name: src.name + ' copy', res: src.res, variant: src.variant })
     copy.initLayers(src.layers.map((l) => ({ ...l })), src.activeId)
+    copy.initHair(src.hair)
     await saveDoc(copy)
     refresh()
   }
@@ -85,12 +87,18 @@ export function Home() {
       <nav className="home-tabs">
         <button className={tab === 'skins' ? 'on' : ''} onClick={() => setTab('skins')}>{t('home.tabSkins')}</button>
         <button className={tab === 'palettes' ? 'on' : ''} onClick={() => setTab('palettes')}>{t('home.tabPalettes')}</button>
-        <button disabled title={t('common.comingSoon')}>{t('home.tabFigura')}</button>
+        <button className={tab === 'figura' ? 'on' : ''} onClick={() => setTab('figura')}>{t('home.tabFigura')}</button>
         <button disabled title={t('common.comingSoon')}>{t('home.tabEmotes')}</button>
       </nav>
 
       <div className="home-body">
         {tab === 'palettes' && <PaletteManager />}
+        {tab === 'figura' && (
+          <div style={{ maxWidth: 760 }}>
+            <p className="muted">{t('presets.help')}</p>
+            <PresetList />
+          </div>
+        )}
         {tab === 'skins' && skins && shown.length === 0 && <div className="empty">{t('home.empty')}</div>}
         {tab === 'skins' && (
           <div className="skin-grid">

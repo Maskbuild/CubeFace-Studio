@@ -46,10 +46,11 @@ function registerIpc() {
 
   ipcMain.handle('lib:load', async (_e, rawId) => {
     const dir = path.join(SKINS, checkId(rawId))
-    const project = await readJson<{ layers: { id: string }[] }>(path.join(dir, 'project.json'))
+    const project = await readJson<{ layers: { id: string }[]; hair?: { id: string }[] }>(path.join(dir, 'project.json'))
     if (!project) return null
+    // hair-plane textures are stored next to the layer PNGs, keyed by their own ids
     const layers: Record<string, string> = {}
-    for (const l of project.layers) {
+    for (const l of [...project.layers, ...(project.hair ?? [])]) {
       const png = await readPng(path.join(dir, 'layers', checkId(l.id) + '.png'))
       if (png) layers[l.id] = png
     }

@@ -1,6 +1,7 @@
 import { SkinDoc, type Layer } from '../skin/doc'
 import { RESOLUTIONS, type Variant } from '../skin/layout'
 import { createImg, type Img } from '../skin/pixels'
+import { hairTexSize, rescale, type HairPlane } from '../skin/hair'
 import { detectVariant, mannequin, upgradeLegacy } from '../skin/templates'
 import { renderThumbnail } from '../three/thumbnail'
 import { dataUrlToImg, imgToDataUrl } from './png'
@@ -39,12 +40,22 @@ export async function loadDoc(id: string): Promise<SkinDoc | null> {
     layers.push({ ...info, img })
   }
   doc.initLayers(layers, p.activeLayerId)
+  const hair: HairPlane[] = []
+  for (const info of p.hair ?? []) {
+    const url = data.layers[info.id]
+    const [tw, th] = hairTexSize(info.w, info.h, p.res)
+    let img = url ? await dataUrlToImg(url) : createImg(tw, th)
+    if (img.w !== tw || img.h !== th) img = rescale(img, tw, th)
+    hair.push({ ...info, img })
+  }
+  doc.initHair(hair)
   return doc
 }
 
 export async function saveDoc(doc: SkinDoc) {
   const layers: Record<string, string> = {}
   for (const l of doc.layers) layers[l.id] = imgToDataUrl(l.img)
+  for (const h of doc.hair) layers[h.id] = imgToDataUrl(h.img)
   await storage.saveSkin({ project: doc.toJson(), layers, thumb: renderThumbnail(doc.composite, doc.variant) })
   doc.markSaved()
 }
