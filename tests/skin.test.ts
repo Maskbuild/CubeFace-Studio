@@ -171,3 +171,14 @@ describe('legacy + colour', () => {
     expect(hsvToRgb(h, s, v).map(Math.round)).toEqual([40, 120, 200])
   })
 })
+
+describe('layer drag reorder', () => {
+  it('moves a layer to an index with undo', () => {
+    const doc = new SkinDoc({ name: 't', res: 64, variant: 'wide' })
+    doc.initLayers([doc.makeLayer('a'), doc.makeLayer('b'), doc.makeLayer('c')])
+    doc.moveLayerTo(doc.layers[2].id, 0)
+    expect(doc.layers.map((l) => l.name)).toEqual(['c', 'a', 'b'])
+    doc.undo()
+    expect(doc.layers.map((l) => l.name)).toEqual(['a', 'b', 'c'])
+  })
+})

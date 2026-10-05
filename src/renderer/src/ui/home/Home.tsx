@@ -10,8 +10,14 @@ import { NewSkinDialog } from './NewSkinDialog'
 import { SettingsDialog } from './SettingsDialog'
 import { PaletteManager } from './PaletteManager'
 import { PresetList } from '../common/FiguraPresets'
+import { useLibrary, WardrobeLibrary, WardrobeWindow } from '../wardrobe/Wardrobe'
 
-type Tab = 'skins' | 'palettes' | 'figura'
+type Tab = 'skins' | 'palettes' | 'figura' | 'wardrobe'
+
+function WardrobeTab() {
+  const lib = useLibrary()
+  return <WardrobeLibrary items={lib.items} update={lib.update} />
+}
 
 export function Home() {
   const { t, i18n } = useTranslation()
@@ -19,7 +25,7 @@ export function Home() {
   const [tab, setTab] = useState<Tab>('skins')
   const [skins, setSkins] = useState<SkinEntry[] | null>(null)
   const [query, setQuery] = useState('')
-  const [dialog, setDialog] = useState<'new' | 'settings' | null>(null)
+  const [dialog, setDialog] = useState<'new' | 'settings' | 'wardrobe' | null>(null)
 
   const refresh = () => storage.listSkins().then((l) => setSkins(l.sort((a, b) => b.project.updatedAt - a.project.updatedAt)))
   useEffect(() => {
@@ -78,6 +84,7 @@ export function Home() {
               <input className="input" style={{ paddingLeft: 30, width: 220 }} placeholder={t('home.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
             <button className="btn" onClick={importPng}><Icon name="image" />{t('home.importPng')}</button>
+            <button className="btn" onClick={() => setDialog('wardrobe')}><Icon name="shirt" />{t('wardrobe.createFrom')}</button>
             <button className="btn primary" onClick={() => setDialog('new')}><Icon name="plus" />{t('home.newSkin')}</button>
           </>
         )}
@@ -87,12 +94,14 @@ export function Home() {
       <nav className="home-tabs">
         <button className={tab === 'skins' ? 'on' : ''} onClick={() => setTab('skins')}>{t('home.tabSkins')}</button>
         <button className={tab === 'palettes' ? 'on' : ''} onClick={() => setTab('palettes')}>{t('home.tabPalettes')}</button>
+        <button className={tab === 'wardrobe' ? 'on' : ''} onClick={() => setTab('wardrobe')}>{t('home.tabWardrobe')}</button>
         <button className={tab === 'figura' ? 'on' : ''} onClick={() => setTab('figura')}>{t('home.tabFigura')}</button>
         <button disabled title={t('common.comingSoon')}>{t('home.tabEmotes')}</button>
       </nav>
 
       <div className="home-body">
         {tab === 'palettes' && <PaletteManager />}
+        {tab === 'wardrobe' && <WardrobeTab />}
         {tab === 'figura' && (
           <div style={{ maxWidth: 760 }}>
             <p className="muted">{t('presets.help')}</p>
@@ -135,6 +144,15 @@ export function Home() {
         />
       )}
       {dialog === 'settings' && <SettingsDialog onClose={() => setDialog(null)} />}
+      {dialog === 'wardrobe' && (
+        <WardrobeWindow
+          onClose={() => setDialog(null)}
+          onCreate={async (doc) => {
+            await saveDoc(doc)
+            setDoc(doc)
+          }}
+        />
+      )}
     </div>
   )
 }

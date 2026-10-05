@@ -18,6 +18,9 @@ export interface Storage {
   deleteSkin(id: string): Promise<boolean>
   getGlobal<T>(name: string): Promise<T | null>
   setGlobal(name: string, value: unknown): Promise<boolean>
+  getAsset(kind: string, id: string): Promise<string | null>
+  setAsset(kind: string, id: string, dataUrl: string): Promise<boolean>
+  deleteAsset(kind: string, id: string): Promise<boolean>
   openImage(): Promise<{ name: string; dataUrl: string } | null>
   savePng(dataUrl: string, name: string): Promise<string | null>
 }
@@ -89,6 +92,17 @@ const webStorage: Storage = {
   },
   async setGlobal(name, value) {
     await kv('readwrite', (s) => s.put(value, 'global:' + name))
+    return true
+  },
+  async getAsset(kind, id) {
+    return (await kv<string | undefined>('readonly', (s) => s.get(`asset:${kind}:${id}`))) ?? null
+  },
+  async setAsset(kind, id, dataUrl) {
+    await kv('readwrite', (s) => s.put(dataUrl, `asset:${kind}:${id}`))
+    return true
+  },
+  async deleteAsset(kind, id) {
+    await kv('readwrite', (s) => s.delete(`asset:${kind}:${id}`))
     return true
   },
   openImage: pickFile,

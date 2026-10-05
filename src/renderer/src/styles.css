@@ -262,3 +262,42 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .preset-list { display: flex; flex-direction: column; gap: 8px; }
 .preset-list .palette-row { padding: 8px 10px; }
 .uv-chip { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 8px; background: var(--accent-soft); border: 1px solid var(--accent); font-size: 12px; }
+.layer { position: relative; }
+.layer.dragging { opacity: 0.4; }
+.layer.drop-above::before, .layer.drop-below::after { content: ''; position: absolute; left: 6px; right: 6px; height: 2px; border-radius: 2px; background: var(--accent); }
+.layer.drop-above::before { top: -3px; }
+.layer.drop-below::after { bottom: -3px; }
+
+/* ---------- wardrobe ---------- */
+.wardrobe { width: min(1280px, calc(100vw - 32px)); height: min(860px, calc(100vh - 32px)); background: var(--panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+.wardrobe-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--border); }
+.wardrobe-body { display: grid; grid-template-columns: minmax(260px, 38%) 1fr; min-height: 0; }
+.wardrobe-left { display: flex; flex-direction: column; background: var(--viewport); border-right: 1px solid var(--border); min-height: 0; }
+.wardrobe-preview { flex: 1; position: relative; min-height: 0; }
+.wardrobe-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.wardrobe-right { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; padding: 12px; gap: 14px; }
+.wardrobe-foot { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.wardrobe-lib { display: flex; flex-direction: column; gap: 12px; }
+.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
+.item-card { position: relative; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); padding: 6px 6px 8px; cursor: pointer; transition: border-color .12s, transform .12s; }
+.item-card:hover { border-color: var(--text-3); transform: translateY(-1px); }
+.item-card.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.item-card img { width: 100%; aspect-ratio: 1; object-fit: contain; display: block; }
+.item-name { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
+.item-res { font-size: 11px; color: var(--text-3); }
+.item-check { position: absolute; top: 6px; left: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--accent-text); display: flex; align-items: center; justify-content: center; }
+.item-actions { position: absolute; top: 4px; right: 4px; display: flex; gap: 2px; opacity: 0; transition: opacity .12s; }
+.item-card:hover .item-actions { opacity: 1; }
+.item-actions .icon-btn { background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.item-tip { position: fixed; z-index: 70; width: 240px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 10px 12px; pointer-events: none; font-size: 12px; }
+.item-tip dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 6px 0 0; }
+.item-tip dt { color: var(--text-3); }
+.item-tip dd { margin: 0; }
+.item-thumb-lg { width: 120px; height: 120px; border-radius: 10px; border: 1px solid var(--border); object-fit: contain; }
+.worn { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px; }
+.worn-item { border: 1px solid var(--border); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.worn-item img { width: 40px; height: 40px; object-fit: contain; }
+.adjust { display: flex; flex-direction: column; gap: 6px; }
+.adjust input[type='color'] { width: 34px; height: 24px; border: 1px solid var(--border); border-radius: 6px; padding: 0; background: none; }
+.grad-bar { height: 10px; border-radius: 5px; border: 1px solid var(--border); }
+.hue-range { accent-color: var(--accent); }

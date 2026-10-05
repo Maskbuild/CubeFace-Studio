@@ -273,6 +273,17 @@ export class SkinDoc {
     })
   }
 
+  /** Move a layer to a stack index (0 = bottom), e.g. from drag and drop. */
+  moveLayerTo(id: string, index: number) {
+    const from = this.layers.findIndex((l) => l.id === id)
+    const to = Math.max(0, Math.min(this.layers.length - 1, index))
+    if (from < 0 || from === to) return
+    this.change(() => {
+      const [l] = this.layers.splice(from, 1)
+      this.layers.splice(to, 0, l)
+    })
+  }
+
   mergeDown(id: string) {
     const idx = this.layers.findIndex((l) => l.id === id)
     if (idx <= 0) return

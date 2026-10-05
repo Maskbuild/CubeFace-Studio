@@ -74,6 +74,20 @@ export function LayerPanel({ doc }: { doc: SkinDoc }) {
   useEditor((s) => s.tick)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [info, setInfo] = useState<Layer | null>(null)
+  const [drag, setDrag] = useState<string | null>(null)
+  const [drop, setDrop] = useState<{ id: string; below: boolean } | null>(null)
+
+  /** Drop the dragged layer above/below a row (rows are shown top layer first). */
+  const finishDrop = () => {
+    if (drag && drop && drag !== drop.id) {
+      const order = [...doc.layers].reverse().map((l) => l.id).filter((id) => id !== drag)
+      const p = order.indexOf(drop.id) + (drop.below ? 1 : 0)
+      order.splice(p, 0, drag)
+      doc.moveLayerTo(drag, order.length - 1 - p)
+    }
+    setDrag(null)
+    setDrop(null)
+  }
   const active = doc.active
   const idx = doc.layers.findIndex((l) => l.id === doc.activeId)
 
@@ -94,7 +108,28 @@ export function LayerPanel({ doc }: { doc: SkinDoc }) {
         {[...doc.layers].reverse().map((l) => (
           <div
             key={l.id}
-            className={'layer' + (l.id === doc.activeId ? ' on' : '') + (l.visible ? '' : ' hidden-layer')}
+            className={
+              'layer' +
+              (l.id === doc.activeId ? ' on' : '') +
+              (l.visible ? '' : ' hidden-layer') +
+              (drag === l.id ? ' dragging' : '') +
+              (drop?.id === l.id && drag !== l.id ? (drop.below ? ' drop-below' : ' drop-above') : '')
+            }
+            draggable={renaming !== l.id}
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'move'
+              e.dataTransfer.setData('text/plain', l.id)
+              setDrag(l.id)
+            }}
+            onDragOver={(e) => {
+              if (!drag) return
+              e.preventDefault()
+              const r = e.currentTarget.getBoundingClientRect()
+              const below = e.clientY > r.top + r.height / 2
+              if (drop?.id !== l.id || drop.below !== below) setDrop({ id: l.id, below })
+            }}
+            onDrop={(e) => (e.preventDefault(), finishDrop())}
+            onDragEnd={() => (setDrag(null), setDrop(null))}
             onClick={() => doc.setActive(l.id)}
             onDoubleClick={() => setRenaming(l.id)}
           >

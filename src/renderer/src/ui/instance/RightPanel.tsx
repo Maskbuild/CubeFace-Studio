@@ -10,6 +10,7 @@ import type { SkinDoc } from '../../skin/doc'
 import { ColorPicker } from './ColorPicker'
 import { HairPanel } from './HairPanel'
 import { FiguraPresetsDialog } from '../common/FiguraPresets'
+import { WardrobeWindow } from '../wardrobe/Wardrobe'
 
 function PalettePanel() {
   const { t } = useTranslation()
@@ -123,32 +124,30 @@ function ModelParts() {
   )
 }
 
-function Extras() {
+function Extras({ onWardrobe }: { onWardrobe: () => void }) {
   const { t } = useTranslation()
-  const items: [string, string][] = [['wardrobe', 'shirt']]
   return (
     <div className="section">
-      {items.map(([k, icon]) => (
-        <button key={k} className="btn extra-btn" disabled title={t('common.comingSoon')}>
-          <Icon name={icon} />
-          {t(`extras.${k}`)}
-          <span className="badge">soon</span>
-        </button>
-      ))}
+      <button className="btn extra-btn" onClick={onWardrobe}>
+        <Icon name="shirt" />
+        {t('wardrobe.open')}
+      </button>
     </div>
   )
 }
 
 export function RightPanel({ doc }: { doc: SkinDoc }) {
   const [presets, setPresets] = useState(false)
+  const [wardrobe, setWardrobe] = useState(false)
   return (
     <aside className="side right">
+      <Extras onWardrobe={() => setWardrobe(true)} />
       <ColorPicker />
       <PalettePanel />
       <ModelParts />
       <HairPanel doc={doc} onOpenPresets={() => setPresets(true)} />
-      <Extras />
       {presets && <FiguraPresetsDialog doc={doc} onClose={() => setPresets(false)} />}
+      {wardrobe && <WardrobeWindow doc={doc} onClose={() => setWardrobe(false)} />}
     </aside>
   )
 }

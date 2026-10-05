@@ -86,6 +86,20 @@ function registerIpc() {
     return true
   })
 
+  // Global PNG assets shared by every skin (wardrobe items, …): global/<kind>/<id>.png
+  const assetPath = (kind: unknown, id: unknown) => path.join(GLOBAL, checkId(kind), checkId(id) + '.png')
+  ipcMain.handle('asset:get', async (_e, kind, id) => readPng(assetPath(kind, id)))
+  ipcMain.handle('asset:set', async (_e, kind, id, dataUrl: string) => {
+    const file = assetPath(kind, id)
+    await fs.mkdir(path.dirname(file), { recursive: true })
+    await fs.writeFile(file, fromDataUrl(dataUrl))
+    return true
+  })
+  ipcMain.handle('asset:delete', async (_e, kind, id) => {
+    await fs.rm(assetPath(kind, id), { force: true })
+    return true
+  })
+
   ipcMain.handle('dialog:openImage', async (e) => {
     const win = BrowserWindow.fromWebContents(e.sender)!
     const res = await dialog.showOpenDialog(win, {

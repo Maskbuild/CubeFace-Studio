@@ -26,6 +26,8 @@ export class PaintSession {
     const ed = useEditor.getState()
     const { doc } = this
     this.hairId = hairId
+    // painting stops the test motion so the model holds still while you draw
+    if (ed.motion !== 'off' && ed.tool !== 'orbit') ed.set({ motion: 'off' })
     if (hairId) return this.downHair(hairId, x, y, clip)
     if (ed.tool === 'picker') {
       const c = doc.pick(x, y)
