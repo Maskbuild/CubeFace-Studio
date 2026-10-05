@@ -1,26 +1,38 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { FACE_FRAMES, type FaceFrame } from '../../skin/figura'
+import { FACE_FRAMES, hasAny, type FaceFrame, type MaskKey } from '../../skin/figura'
 import type { Rect } from '../../skin/layout'
+import type { Stroke } from '../../skin/pixels'
 import { useEditor } from '../../store/editor'
 import { confirmBox, Modal } from '../common/dialogs'
 import { Icon } from '../common/Icon'
 
-type Key = 'eyeR' | 'eyeL' | 'mouth'
-const KEYS: Key[] = ['eyeR', 'eyeL', 'mouth']
-const COLORS: Record<Key, string> = { eyeR: '#3fa9f5', eyeL: '#7c5cff', mouth: '#ff6b8a' }
+type Key = 'eyeR' | 'eyeL' | 'browR' | 'browL' | 'mouth'
+const KEYS: Key[] = ['eyeR', 'eyeL', 'browR', 'browL', 'mouth']
+const COLORS: Record<Key, string> = { eyeR: '#3fa9f5', eyeL: '#7c5cff', browR: '#ff9f1c', browL: '#e2c400', mouth: '#ff6b8a' }
+const hasMask = (k: Key): k is MaskKey => k !== 'mouth'
+type Tool = 'box' | 'add' | 'erase'
 
 /**
- * Head-front view where the eye and mouth boxes are dragged into place.
- * Wheel zooms at the cursor, right/middle drag pans, double-click resets the view.
+ * Head-front editor: drag boxes for eyes, brows and mouth, and refine the iris / brow pixels
+ * with a selection brush. Wheel zooms at the cursor, right/middle drag pans, double-click resets.
  */
-function FaceRects({ doc, big }: { doc: SkinDoc; big?: boolean }) {
+function FaceEditor({ doc, big }: { doc: SkinDoc; big?: boolean }) {
+  const { t } = useTranslation()
   const tick = useEditor((s) => s.tick)
   const ref = useRef<HTMLCanvasElement>(null)
   const view = useRef({ scale: 0, ox: 0, oy: 0 })
   const [, redraw] = useState(0)
+  const [tool, setTool] = useState<Tool>('box')
+  const [active, setActive] = useState<Key>('eyeR')
+  const [size, setSize] = useState(1)
   const n = doc.res / 8
+  const state = useRef({ tool, active, size })
+  state.current = { tool, active, size }
+
+  // mask strokes only emit 'mask' events; redraw on those too
+  useEffect(() => doc.on((e) => e.type === 'mask' && redraw((k) => k + 1)), [doc])
 
   // draw
   useEffect(() => {
@@ -43,8 +55,18 @@ function FaceRects({ doc, big }: { doc: SkinDoc; big?: boolean }) {
     ctx.clearRect(0, 0, W, H)
     ctx.imageSmoothingEnabled = false
     ctx.drawImage(tmp, v.ox, v.oy, n * v.scale, n * v.scale)
+    // selections, tinted with their feature colour
+    for (const key of KEYS) {
+      if (!hasMask(key)) continue
+      const m = doc.masks[key]
+      if (!m || !hasAny(m)) continue
+      ctx.fillStyle = COLORS[key]
+      ctx.globalAlpha = key === active ? 0.55 : 0.3
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) if (m.data[(y * n + x) * 4 + 3] > 127) ctx.fillRect(v.ox + x * v.scale, v.oy + y * v.scale, v.scale + 0.5, v.scale + 0.5)
+      ctx.globalAlpha = 1
+    }
     if (v.scale >= 6) {
-      // texel grid once zoomed in
       ctx.strokeStyle = 'rgba(0,0,0,.18)'
       ctx.lineWidth = 1
       ctx.beginPath()
@@ -59,10 +81,14 @@ function FaceRects({ doc, big }: { doc: SkinDoc; big?: boolean }) {
     for (const key of KEYS) {
       const r = doc.figura[key]
       ctx.strokeStyle = COLORS[key]
-      ctx.lineWidth = 2 * dpr
+      ctx.lineWidth = (key === active ? 2.5 : 1.5) * dpr
+      ctx.setLineDash(key === active ? [] : [4 * dpr, 3 * dpr])
       ctx.strokeRect(v.ox + r.x * v.scale, v.oy + r.y * v.scale, r.w * v.scale, r.h * v.scale)
-      ctx.fillStyle = COLORS[key]
-      ctx.fillRect(v.ox + (r.x + r.w) * v.scale - hs, v.oy + (r.y + r.h) * v.scale - hs, hs, hs)
+      ctx.setLineDash([])
+      if (tool === 'box') {
+        ctx.fillStyle = COLORS[key]
+        ctx.fillRect(v.ox + (r.x + r.w) * v.scale - hs, v.oy + (r.y + r.h) * v.scale - hs, hs, hs)
+      }
     }
   })
 
@@ -72,11 +98,14 @@ function FaceRects({ doc, big }: { doc: SkinDoc; big?: boolean }) {
     const dpr = () => window.devicePixelRatio
     let drag: { key: Key; mode: 'move' | 'size'; start: [number, number]; orig: Rect } | null = null
     let pan: [number, number] | null = null
+    let stroke: Stroke | null = null
+    let last: [number, number] | null = null
     const at = (e: { clientX: number; clientY: number }): [number, number] => {
       const r = c.getBoundingClientRect()
       return [(e.clientX - r.left) * dpr(), (e.clientY - r.top) * dpr()]
     }
     const tex = (p: [number, number]): [number, number] => [(p[0] - view.current.ox) / view.current.scale, (p[1] - view.current.oy) / view.current.scale]
+    const brush = () => ({ size: state.current.size, softness: 0, shape: 'square' as const })
     const down = (e: PointerEvent) => {
       c.setPointerCapture(e.pointerId)
       if (e.button !== 0) {
@@ -84,12 +113,21 @@ function FaceRects({ doc, big }: { doc: SkinDoc; big?: boolean }) {
         return
       }
       const [x, y] = tex(at(e))
+      const { tool, active } = state.current
+      if (tool !== 'box' && hasMask(active)) {
+        stroke = doc.beginMaskStroke(active, tool === 'add' ? 'paint' : 'erase')
+        last = [Math.floor(x), Math.floor(y)]
+        doc.stamp(stroke, last[0], last[1], brush(), null, false)
+        return
+      }
       const hs = (8 * dpr()) / view.current.scale + 0.25
-      for (const key of [...KEYS].reverse()) {
+      // the active feature is picked first so overlapping boxes stay editable
+      for (const key of [state.current.active, ...[...KEYS].reverse()]) {
         const r = doc.figura[key]
         if (x < r.x || x > r.x + r.w || y < r.y || y > r.y + r.h) continue
         const corner = x >= r.x + r.w - hs && y >= r.y + r.h - hs
         drag = { key, mode: corner ? 'size' : 'move', start: [x, y], orig: { ...r } }
+        setActive(key)
         return
       }
     }
@@ -99,7 +137,13 @@ function FaceRects({ doc, big }: { doc: SkinDoc; big?: boolean }) {
         view.current.ox += p[0] - pan[0]
         view.current.oy += p[1] - pan[1]
         pan = p
-        return redraw((n) => n + 1)
+        return redraw((k) => k + 1)
+      }
+      if (stroke && last) {
+        const [x, y] = tex(at(e)).map(Math.floor) as [number, number]
+        if (x !== last[0] || y !== last[1]) doc.strokeLine(stroke, last, [x, y], brush(), null, false)
+        last = [x, y]
+        return
       }
       if (!drag) return
       const [x, y] = tex(at(e))
@@ -112,7 +156,13 @@ function FaceRects({ doc, big }: { doc: SkinDoc; big?: boolean }) {
       const cur = doc.figura[drag.key]
       if (r.x !== cur.x || r.y !== cur.y || r.w !== cur.w || r.h !== cur.h) doc.updateFigura({ [drag.key]: r })
     }
-    const up = () => ((drag = null), (pan = null))
+    const up = () => {
+      if (stroke) doc.endStroke(stroke)
+      stroke = null
+      last = null
+      drag = null
+      pan = null
+    }
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
       const [mx, my] = at(e)
@@ -127,40 +177,64 @@ function FaceRects({ doc, big }: { doc: SkinDoc; big?: boolean }) {
       view.current.scale = 0
       redraw((k) => k + 1)
     }
+    const noMenu = (e: Event) => e.preventDefault()
     c.addEventListener('pointerdown', down)
     c.addEventListener('pointermove', move)
     c.addEventListener('pointerup', up)
     c.addEventListener('wheel', wheel, { passive: false })
     c.addEventListener('dblclick', reset)
-    c.addEventListener('contextmenu', (e) => e.preventDefault())
+    c.addEventListener('contextmenu', noMenu)
     return () => {
       c.removeEventListener('pointerdown', down)
       c.removeEventListener('pointermove', move)
       c.removeEventListener('pointerup', up)
       c.removeEventListener('wheel', wheel)
       c.removeEventListener('dblclick', reset)
+      c.removeEventListener('contextmenu', noMenu)
     }
   }, [doc, n])
 
-  // a resolution change invalidates the view
   useEffect(() => {
     view.current.scale = 0
     redraw((k) => k + 1)
   }, [n])
 
-  return <canvas ref={ref} data-tick={tick} className={'face-rects checker' + (big ? ' big' : '')} />
-}
-
-function Legend() {
-  const { t } = useTranslation()
+  const maskable = hasMask(active)
   return (
-    <div className="row" style={{ gap: 10, fontSize: 12, flexWrap: 'wrap' }}>
-      {KEYS.map((key) => (
-        <span key={key} className="row" style={{ gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 3, background: COLORS[key] }} />
-          {t(`figura.${key}`)}
-        </span>
-      ))}
+    <div className="face-editor">
+      <div className="feature-pick">
+        {KEYS.map((key) => (
+          <button key={key} className={'feature-chip' + (active === key ? ' on' : '')} style={{ ['--c' as string]: COLORS[key] }} onClick={() => setActive(key)}>
+            <span className="sw" />
+            {t(`figura.${key}`)}
+            {hasMask(key) && hasAny(doc.masks[key]) && <Icon name="check" size={11} stroke={3} />}
+          </button>
+        ))}
+      </div>
+      <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+        <div className="seg">
+          <button className={tool === 'box' ? 'on' : ''} onClick={() => setTool('box')} title={t('figura.toolBoxHint')}>{t('figura.toolBox')}</button>
+          <button className={tool === 'add' ? 'on' : ''} disabled={!maskable} onClick={() => setTool('add')}>{t('figura.toolAdd')}</button>
+          <button className={tool === 'erase' ? 'on' : ''} disabled={!maskable} onClick={() => setTool('erase')}>{t('figura.toolErase')}</button>
+        </div>
+        {tool !== 'box' && (
+          <label className="row muted" style={{ fontSize: 12 }}>
+            {t('tools.size')}
+            <input type="range" min={1} max={Math.max(4, n / 8)} value={size} onChange={(e) => setSize(Number(e.target.value))} style={{ width: 70 }} />
+            {size}
+          </label>
+        )}
+        <button className="btn sm-btn" disabled={!maskable} title={t('figura.autoHint')} onClick={() => hasMask(active) && doc.autoMask(active)}>
+          <Icon name="sparkle" size={12} />
+          {t('figura.autoSelect')}
+        </button>
+        <button className="btn sm-btn" disabled={!maskable || !hasMask(active) || !doc.masks[active]} onClick={() => hasMask(active) && doc.clearMask(active)}>
+          <Icon name="x" size={12} />
+          {t('figura.clearSelect')}
+        </button>
+      </div>
+      <canvas ref={ref} data-tick={tick} className={'face-rects checker' + (big ? ' big' : '') + (tool !== 'box' ? ' brush' : '')} />
+      <span className="muted" style={{ fontSize: 11 }}>{maskable ? t(active.startsWith('eye') ? 'figura.maskEyeHelp' : 'figura.maskBrowHelp') : t('figura.mouthHelp')}</span>
     </div>
   )
 }
@@ -182,11 +256,10 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
       <div className="section">
         <div className="section-head">
           <span className="label">{t('figura.face')}</span>
-          <button className="icon-btn sm" title={t('figura.enlarge')} onClick={() => setBig(true)}><Icon name="zoom" size={14} /></button>
+          <button className="btn sm-btn" onClick={() => setBig(true)}><Icon name="zoom" size={13} />{t('figura.enlarge')}</button>
         </div>
         <span className="muted" style={{ fontSize: 12 }}>{t('figura.faceHelp')}</span>
-        <FaceRects doc={doc} />
-        <Legend />
+        {!big && <FaceEditor doc={doc} />}
         <button className="btn primary" onClick={generateAll}><Icon name="sparkle" />{t('figura.generate')}</button>
       </div>
       <div className="section" style={{ borderBottom: 0 }}>
@@ -214,8 +287,7 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
       {big && (
         <Modal title={t('figura.face')} onClose={() => setBig(false)} footer={<button className="btn primary" onClick={() => setBig(false)}>{t('common.close')}</button>}>
           <span className="muted" style={{ fontSize: 12 }}>{t('figura.faceHelp')} {t('figura.zoomHelp')}</span>
-          <FaceRects doc={doc} big />
-          <Legend />
+          <FaceEditor doc={doc} big />
         </Modal>
       )}
     </div>

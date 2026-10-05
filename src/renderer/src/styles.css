@@ -336,3 +336,9 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .missing-frame { cursor: default; border-style: dashed; border-color: var(--border); }
 .avatar-thumb { width: 100%; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; display: flex; align-items: center; justify-content: center; color: var(--text-3); }
 .merge-current { padding: 10px 12px; border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 10px; }
+.face-editor { display: flex; flex-direction: column; gap: 8px; }
+.feature-pick { display: flex; flex-wrap: wrap; gap: 4px; }
+.feature-chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border-radius: 99px; border: 1px solid var(--border); background: var(--panel-2); cursor: pointer; font-size: 12px; }
+.feature-chip .sw { width: 9px; height: 9px; border-radius: 3px; background: var(--c); }
+.feature-chip.on { border-color: var(--c); box-shadow: 0 0 0 1px var(--c) inset; }
+.face-rects.brush { cursor: crosshair; }

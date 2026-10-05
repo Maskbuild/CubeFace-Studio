@@ -52,6 +52,8 @@ export interface ModelInfo {
   tailChain: string[] | null
   faceParts: Partial<Record<FaceFrame, string>>
   irisParts: string[]
+  /** Vanilla parts this avatar replaces (Figura vanilla_model names). */
+  replaces: string[]
 }
 
 export interface ModelInput {
@@ -67,9 +69,19 @@ export interface ModelInput {
   faceFrames: FaceFrame[]
   iris: boolean
   extras: ExtraPart[]
+  /** Which cuboids (layout order) have visible pixels; unused ones are not exported. */
+  used?: boolean[]
 }
 
 const PIVOT: Record<PartId, V3> = { head: [0, 24, 0], body: [0, 24, 0], rightArm: [-5, 22, 0], leftArm: [5, 22, 0], rightLeg: [-2, 12, 0], leftLeg: [2, 12, 0] }
+const VANILLA: Record<PartId, string[]> = {
+  head: ['HEAD', 'HAT'],
+  body: ['BODY', 'JACKET'],
+  rightArm: ['RIGHT_ARM', 'RIGHT_SLEEVE'],
+  leftArm: ['LEFT_ARM', 'LEFT_SLEEVE'],
+  rightLeg: ['RIGHT_LEG', 'RIGHT_PANTS'],
+  leftLeg: ['LEFT_LEG', 'LEFT_PANTS']
+}
 const GROUP: Record<PartId, string> = { head: 'Head', body: 'Body', rightArm: 'RightArm', leftArm: 'LeftArm', rightLeg: 'RightLeg', leftLeg: 'LeftLeg' }
 
 /** App-space Euler (degrees, order YXZ as used by the editor) -> Blockbench Euler (ZYX). */
@@ -87,7 +99,7 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
   const k = 64 / inp.atlasW // atlas pixels -> UV units (UV space is 64 wide)
   const elements: BBCube[] = []
   const groups: BBGroup[] = []
-  const info: ModelInfo = { hairChains: [], tailChain: null, faceParts: {}, irisParts: [] }
+  const info: ModelInfo = { hairChains: [], tailChain: null, faceParts: {}, irisParts: [], replaces: [] }
 
   const group = (name: string, origin: V3, rotation: V3 = [0, 0, 0]): BBGroup => {
     const g = { name, uuid: uid(), origin, rotation, visibility: true, export: true, children: [] }
@@ -119,7 +131,9 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
   for (const p of Object.keys(GROUP) as PartId[]) parts[p] = group(GROUP[p], bb(PIVOT[p]))
   const roots: BBGroup[] = Object.values(parts)
 
-  for (const c of cuboids(inp.variant)) {
+  cuboids(inp.variant).forEach((c, ci) => {
+    if (inp.used && !inp.used[ci]) return
+    info.replaces.push(...VANILLA[c.part])
     const lo: V3 = c.min
     const hi: V3 = [c.min[0] + c.size[0], c.min[1] + c.size[1], c.min[2] + c.size[2]]
     const f = (n: FaceName) => c.faces.find((x) => x.name === n)!.rect
@@ -144,7 +158,8 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
         down: { uv: uv(f('bottom'), 'down'), texture: 0 }
       }
     })
-  }
+  })
+  info.replaces = [...new Set(info.replaces)]
 
   // ---- face planes (in front of the face, behind the hat layer) --------------------------
   const head = parts.head
@@ -233,8 +248,9 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
     visible_box: [1, 1, 0],
     resolution: { width: 64, height: r4(64 * (inp.atlasH / inp.atlasW)) },
     elements,
-    groups: groups.map(({ children: _c, ...g }) => ({ ...g, isOpen: false })),
-    outliner: roots.map(outline),
+    groups: groups.filter((g) => !roots.includes(g) || g.children.length).map(({ children: _c, ...g }) => ({ ...g, isOpen: false })),
+    // part groups left empty (an unused limb) are dropped entirely
+    outliner: roots.filter((g) => g.children.length).map(outline),
     textures: [
       {
         name: 'skin.png',

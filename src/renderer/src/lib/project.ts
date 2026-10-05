@@ -1,5 +1,5 @@
-import { faceId, SkinDoc, type Layer } from '../skin/doc'
-import { faceOrigin, type FaceFrame } from '../skin/figura'
+import { faceId, maskId, SkinDoc, type Layer } from '../skin/doc'
+import { faceOrigin, type FaceFrame, type MaskKey, type Masks } from '../skin/figura'
 import { RESOLUTIONS, type Variant } from '../skin/layout'
 import { createImg, type Img } from '../skin/pixels'
 import { hairTexSize, rescale, type HairPlane } from '../skin/hair'
@@ -59,6 +59,14 @@ export async function loadDoc(id: string): Promise<SkinDoc | null> {
     faces[f] = img.w === n && img.h === n ? img : rescale(img, n, n)
   }
   doc.initFigura(p.figura, faces)
+  const masks: Masks = {}
+  for (const k of p.masks ?? []) {
+    const url = data.layers[maskId(k)]
+    if (!url) continue
+    const img = await dataUrlToImg(url)
+    masks[k] = img.w === n && img.h === n ? img : rescale(img, n, n)
+  }
+  doc.initMasks(masks)
   return doc
 }
 
@@ -67,6 +75,7 @@ export async function saveDoc(doc: SkinDoc) {
   for (const l of doc.layers) layers[l.id] = imgToDataUrl(l.img)
   for (const h of doc.hair) layers[h.id] = imgToDataUrl(h.img)
   for (const [f, img] of Object.entries(doc.faces)) layers[faceId(f as FaceFrame)] = imgToDataUrl(img!)
+  for (const [k, img] of Object.entries(doc.masks)) layers[maskId(k as MaskKey)] = imgToDataUrl(img!)
   await storage.saveSkin({ project: doc.toJson(), layers, thumb: renderThumbnail(doc.composite, doc.variant) })
   doc.markSaved()
 }

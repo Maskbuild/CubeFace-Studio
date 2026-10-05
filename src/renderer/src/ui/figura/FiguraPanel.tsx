@@ -183,7 +183,12 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
       </div>
 
       <div className="section">
-        <span className="label">{t('figura.info')}</span>
+        <span className="label">{t('figura.hideVanilla')}</span>
+        <div className="seg" style={{ flexWrap: 'wrap' }}>
+          <button className={c.hideVanilla === 'used' ? 'on' : ''} onClick={() => up({ hideVanilla: 'used' })}>{t('figura.hideUsed')}</button>
+          <button className={c.hideVanilla === 'all' ? 'on' : ''} onClick={() => up({ hideVanilla: 'all' })}>{t('figura.hideAll')}</button>
+        </div>
+        <span className="label" style={{ marginTop: 6 }}>{t('figura.info')}</span>
         <input className="input" placeholder={toEnglish(doc.name) || 'My Avatar'} value={c.avatarName} onChange={(e) => up({ avatarName: e.target.value })} />
         <input className="input" placeholder={t('figura.author')} value={c.author} onChange={(e) => up({ author: e.target.value })} />
         <input className="input" placeholder={t('figura.description')} value={c.description} onChange={(e) => up({ description: e.target.value })} />

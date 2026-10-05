@@ -122,3 +122,32 @@ describe('atlas', () => {
     for (const r of rects) for (const q of rects) if (r !== q) expect(r.x + r.w <= q.x || q.x + q.w <= r.x || r.y + r.h <= q.y || q.y + q.h <= r.y).toBe(true)
   })
 })
+
+import { usedCuboids, usedHeight } from '../src/renderer/src/skin/usage'
+import { cuboids, scaleRect } from '../src/renderer/src/skin/layout'
+import { fillRect } from '../src/renderer/src/skin/pixels'
+
+describe('head-only avatars', () => {
+  const skin = createImg(128, 128)
+  const head = cuboids('wide').find((c) => c.key === 'head.base')!
+  fillRect(skin, scaleRect(head.faces[3].rect, 128), [200, 150, 120, 255], 1)
+  const used = usedCuboids(skin, 'wide')
+
+  it('detects used parts and crops the texture to the head rows', () => {
+    expect(used.filter(Boolean)).toHaveLength(1)
+    expect(usedHeight(skin, 'wide')).toBe(32) // 16 base px at 2x
+  })
+
+  it('exports only the head and hides only the vanilla head', () => {
+    const { model, info } = buildModel(input({ used, hair: [], extras: [], iris: false, faceFrames: [] })) as { model: Any; info: any }
+    expect(model.elements.map((e: Any) => e.name)).toEqual(['Head'])
+    expect(model.outliner).toHaveLength(1)
+    expect(model.groups.some((g: Any) => g.name === 'Body')).toBe(false)
+    expect(info.replaces).toEqual(['HEAD', 'HAT'])
+    const s = buildScript('T', { ...figuraDefaults(64), hideVanilla: 'used' }, info, [])
+    expect(s).toContain('vanilla_model.HEAD:setVisible(false)')
+    expect(s).not.toContain('vanilla_model.PLAYER')
+    expect(s).not.toContain('BODY')
+    expect(buildScript('T', { ...figuraDefaults(64), hideVanilla: 'all' }, info, [])).toContain('vanilla_model.PLAYER:setVisible(false)')
+  })
+})

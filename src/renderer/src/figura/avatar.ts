@@ -1,11 +1,12 @@
 import physicsLua from '../../../figura/nkw_physics.lua?raw'
 import type { SkinDoc } from '../skin/doc'
 import { extraParts } from '../skin/extras'
-import { faceOrigin, irisImage, sampleFace, type FaceFrame } from '../skin/figura'
-import { cloneImg, createImg, fillRect, type Img } from '../skin/pixels'
+import { eyeParts, faceOrigin, sampleFace, type FaceFrame } from '../skin/figura'
+import { cloneImg, createImg, fillRect, writeRect, type Img } from '../skin/pixels'
 import { parseHex } from '../skin/color'
 import { imgToDataUrl } from '../lib/png'
 import { buildAtlas } from './atlas'
+import { usedCuboids, usedHeight } from '../skin/usage'
 import { buildModel } from './bbmodel'
 import { buildScript } from './script'
 
@@ -54,12 +55,15 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
 
   const iris = cfg.smoothEyes
   if (iris) {
-    // irises move on their own planes; the skin underneath keeps only the eye whites
-    const { light } = sampleFace(face, cfg)
+    // irises move on their own planes; under them the skin keeps the eye with the iris
+    // pixels swapped for sclera (everything else in the eye box stays as painted)
+    const { light } = sampleFace(face, cfg, doc.masks)
     const o = faceOrigin(doc.res)
-    extras.iris_R = irisImage(face, cfg.eyeR, light, cfg.eyeShift)
-    extras.iris_L = irisImage(face, cfg.eyeL, light, cfg.eyeShift)
-    for (const r of [cfg.eyeR, cfg.eyeL]) fillRect(skin, { x: o.x + r.x, y: o.y + r.y, w: r.w, h: r.h }, light, 1)
+    for (const [key, r] of [['R', cfg.eyeR], ['L', cfg.eyeL]] as const) {
+      const parts = eyeParts(face, r, doc.masks[key === 'R' ? 'eyeR' : 'eyeL'], light, cfg.eyeShift)
+      extras['iris_' + key] = parts.iris
+      writeRect(skin, { x: o.x + r.x, y: o.y + r.y, w: r.w, h: r.h }, parts.base.data)
+    }
   }
   const parts = extraParts(cfg.ears, cfg.tail)
   if (parts.length) {
@@ -67,7 +71,11 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
     extras.inner = solid(cfg.furInner)
   }
 
-  const atlas = buildAtlas(skin, extras)
+  // ship only the texture rows the used parts need (a head-only skin keeps the top quarter)
+  const used = usedCuboids(doc.composite, doc.variant)
+  const h = usedHeight(doc.composite, doc.variant)
+  const cropped = h < skin.h ? { w: skin.w, h, data: skin.data.slice(0, skin.w * h * 4) } : skin
+  const atlas = buildAtlas(cropped, extras)
   const atlasUrl = imgToDataUrl(atlas.img)
   const { model, info } = buildModel({
     name: meta.name,
@@ -81,7 +89,8 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
     figura: cfg,
     faceFrames: frames,
     iris,
-    extras: parts
+    extras: parts,
+    used
   })
   const script = buildScript(meta.name, cfg, info, doc.hair)
   const usesPhysics = script.includes('require("nkw_physics")')

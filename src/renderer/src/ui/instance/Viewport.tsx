@@ -5,6 +5,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
 import { cuboids, faceRect, type Rect } from '../../skin/layout'
+import { usedCuboids } from '../../skin/usage'
 import { SkinModel, type MeshInfo } from '../../three/model'
 import { HairRig, type HairMeshInfo } from '../../three/hairRig'
 import { MotionDriver } from '../../three/motion'
@@ -55,6 +56,28 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     controls.zoomToCursor = true
 
     const miniCam = new THREE.PerspectiveCamera(30, MINI.w / MINI.h, 1, 300)
+
+    /** Bounding sphere of the painted parts (a head-only skin frames just the head). */
+    const contentSphere = () => {
+      const used = usedCuboids(doc.composite, doc.variant)
+      const box = new THREE.Box3()
+      cuboids(doc.variant).forEach((c, i) => {
+        if (!used[i]) return
+        box.expandByPoint(new THREE.Vector3(...c.min))
+        box.expandByPoint(new THREE.Vector3(c.min[0] + c.size[0], c.min[1] + c.size[1], c.min[2] + c.size[2]))
+      })
+      if (box.isEmpty()) box.set(new THREE.Vector3(-8, 0, -4), new THREE.Vector3(8, 32, 4))
+      return box.getBoundingSphere(new THREE.Sphere())
+    }
+    let framed = contentSphere()
+    const frameView = () => {
+      framed = contentSphere()
+      const dist = Math.max(14, (framed.radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.05)
+      const dir = HOME_POS.clone().sub(TARGET).normalize()
+      controls.target.copy(framed.center)
+      camera.position.copy(framed.center).addScaledVector(dir, dist)
+      controls.update()
+    }
 
     // ---- hair planes + physics preview --------------------------------------------------
     const rig = new HairRig(model.parts.head)
@@ -214,13 +237,8 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     window.addEventListener('keyup', onKey)
 
     controls.addEventListener('change', () => (dirty = true))
-    api.current = {
-      resetView() {
-        camera.position.copy(HOME_POS)
-        controls.target.copy(TARGET)
-        controls.update()
-      }
-    }
+    api.current = { resetView: frameView }
+    frameView()
 
     // ---- render loop -------------------------------------------------------------------
     let raf = 0
@@ -288,8 +306,9 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       if (showMini) {
         // full-body turntable preview, independent of the main camera zoom
         const a = ((performance.now() - t0) / 1000) * 0.6
-        miniCam.position.set(Math.sin(a) * 78, 20, Math.cos(a) * 78)
-        miniCam.lookAt(0, 16, 0)
+        const md = Math.max(20, (framed.radius / Math.sin(THREE.MathUtils.degToRad(15))) * 1.05)
+        miniCam.position.set(framed.center.x + Math.sin(a) * md, framed.center.y + 4, framed.center.z + Math.cos(a) * md)
+        miniCam.lookAt(framed.center)
         const x = w - MINI.w - MINI.margin, y = MINI.margin
         renderer.setViewport(x, y, MINI.w, MINI.h)
         renderer.setScissor(x, y, MINI.w, MINI.h)

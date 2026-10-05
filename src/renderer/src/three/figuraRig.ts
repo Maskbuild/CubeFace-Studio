@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { SkinDoc } from '../skin/doc'
-import { coversEyes, irisImage, sampleFace, type Expression, type FaceFrame } from '../skin/figura'
+import { coversEyes, eyeParts, sampleFace, type Expression, type FaceFrame } from '../skin/figura'
 import { extraParts, type ExtraPart } from '../skin/extras'
 import { HairSim, type Motion } from '../skin/hair'
 import type { Img, RGBA } from '../skin/pixels'
@@ -75,7 +75,7 @@ export class FiguraRig {
   /** Rebuild from the document when the Figura config or frames changed. */
   sync(doc: SkinDoc, force = false) {
     const cfg = doc.figura
-    const key = JSON.stringify(cfg) + Object.keys(doc.faces).join() + doc.res
+    const key = JSON.stringify(cfg) + Object.keys(doc.faces).join() + doc.res + Object.values(doc.masks).map((m) => m && m.data.reduce((a, v, i) => (i % 4 === 3 && v ? a + i : a), 0)).join()
     if (!force && key === this.key) return this.applyVisibility(doc)
     this.key = key
     this.clear()
@@ -92,12 +92,16 @@ export class FiguraRig {
     // smooth eyes: eye whites over the painted eyes, irises on top that can shift
     if (cfg.smoothEyes) {
       const face = doc.faceImage()
-      const { light } = sampleFace(face, cfg)
+      const { light } = sampleFace(face, cfg, doc.masks)
       const px = 8 / face.w
-      for (const r of [cfg.eyeR, cfg.eyeL]) {
+      for (const [r, mask] of [[cfg.eyeR, doc.masks.eyeR], [cfg.eyeL, doc.masks.eyeL]] as const) {
         const x0 = -4 + r.x * px, x1 = -4 + (r.x + r.w) * px, y1 = 8 - r.y * px, y0 = 8 - (r.y + r.h) * px
-        const white = new THREE.Mesh(facePlane(x0, x1, y0, y1, 4.012), new THREE.MeshBasicMaterial({ color: new THREE.Color(`rgb(${light[0]},${light[1]},${light[2]})`) }))
-        const img = irisImage(face, r, light as RGBA, cfg.eyeShift)
+        // the eye as painted, minus the iris (replaced by sclera), then the moving iris on top
+        const parts = eyeParts(face, r, mask, light as RGBA, cfg.eyeShift)
+        const baseTex = tex(parts.base)
+        const white = new THREE.Mesh(facePlane(x0, x1, y0, y1, 4.012), new THREE.MeshBasicMaterial({ map: baseTex, transparent: true, alphaTest: 0.02 }))
+        this.disposables.push(baseTex)
+        const img = parts.iris
         const t = tex(img)
         const iris = new THREE.Mesh(facePlane(x0, x1, y0, y1, 4.016), new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.02 }))
         this.disposables.push(t, white.geometry, white.material as THREE.Material, iris.geometry, iris.material as THREE.Material)
