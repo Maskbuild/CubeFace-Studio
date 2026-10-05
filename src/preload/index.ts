@@ -23,5 +23,6 @@ contextBridge.exposeInMainWorld('nkw', {
   // full path of a dropped file/folder (Electron only)
   pathForFile: (file: File) => webUtils.getPathForFile(file),
   openImage: () => ipcRenderer.invoke('dialog:openImage'),
+  saveFile: (data: Uint8Array, name: string, ext: string, label: string) => ipcRenderer.invoke('dialog:saveFile', data, name, ext, label),
   savePng: (dataUrl: string, name: string) => ipcRenderer.invoke('dialog:savePng', dataUrl, name)
 })

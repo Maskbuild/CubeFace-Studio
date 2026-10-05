@@ -323,5 +323,17 @@ export const th: Dict = {
     dragResize: 'ลากเพื่อปรับขนาด',
     uiScale: 'ขนาดหน้าจอ (UI)'
   },
+  export: {
+    button: 'ส่งออก…',
+    title: 'ส่งออก',
+    png: 'ไฟล์สกิน PNG',
+    pngHint: 'ภาพสกิน ใช้ได้กับทุก launcher และเซิร์ฟเวอร์',
+    figura: 'Figura avatar',
+    figuraHint: 'โฟลเดอร์โมเดล ภาพ และสคริปต์ (Java Edition)',
+    bedrock: 'Bedrock addon',
+    bedrockHint: 'resource pack .mcpack: สกิน HD ผมฟิสิกส์ และหน้า',
+    saved: 'บันทึกไว้ที่ {{path}}',
+    bedrockNote: 'Bedrock เปลี่ยนโมเดลผู้เล่นได้ผ่าน resource pack เท่านั้น ผู้เล่นทุกคนในโลกที่ใช้ pack นี้จะเป็นสกินนี้ทั้งหมด เหมาะกับเล่นคนเดียว ถ่ายรูป หรือทำคลิป สีหน้าจะเปลี่ยนตามสถานะในเกม (โดนตี = โกรธ, ย่อ = เขิน, กิน = ดีใจ, เลือดน้อย = ร้องไห้, ตกจากที่สูง = ตกใจ) กระพริบตาและตอนนอนจะหลับตา ส่วนปากพูดและตาสมูทมีเฉพาะ Java/Figura เปิดไฟล์ .mcpack เพื่อนำเข้า แล้วเปิดใช้ใน Resource Packs ของโลก'
+  },
   extras: { hair: 'แผ่นผม', wardrobe: 'ตู้เสื้อผ้า', figuraPreview: 'Figura preview' }
 }

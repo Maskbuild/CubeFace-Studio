@@ -38,8 +38,11 @@ async function gzipSize(parts: (string | Uint8Array)[]): Promise<number> {
 
 const pngBytes = (dataUrl: string) => Uint8Array.from(atob(dataUrl.slice(dataUrl.indexOf(',') + 1)), (c) => c.charCodeAt(0))
 
-/** Build every file of the Figura avatar for a skin. English-only output. */
-export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<AvatarFiles> {
+/**
+ * Texture atlas shared by the Figura and Bedrock exporters: the skin (cropped to the used
+ * rows) with hair, face frames, irises (smooth eyes) and fur colours appended below.
+ */
+export function prepareAtlas(doc: SkinDoc, opts: { smoothEyes: boolean }) {
   const cfg = doc.figura
   const face = doc.faceImage()
   const skin = cloneImg(doc.composite)
@@ -53,7 +56,7 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
   })
   for (const f of frames) extras['face_' + f] = doc.faces[f]!
 
-  const iris = cfg.smoothEyes
+  const iris = opts.smoothEyes && cfg.smoothEyes
   if (iris) {
     // irises move on their own planes; under them the skin keeps the eye with the iris
     // pixels swapped for sclera (everything else in the eye box stays as painted)
@@ -76,6 +79,13 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
   const h = usedHeight(doc.composite, doc.variant)
   const cropped = h < skin.h ? { w: skin.w, h, data: skin.data.slice(0, skin.w * h * 4) } : skin
   const atlas = buildAtlas(cropped, extras)
+  return { atlas, frames, iris, parts, used }
+}
+
+/** Build every file of the Figura avatar for a skin. English-only output. */
+export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<AvatarFiles> {
+  const cfg = doc.figura
+  const { atlas, frames, iris, parts, used } = prepareAtlas(doc, { smoothEyes: true })
   const atlasUrl = imgToDataUrl(atlas.img)
   const { model, info } = buildModel({
     name: meta.name,

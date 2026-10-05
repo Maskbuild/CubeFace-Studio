@@ -50,6 +50,7 @@ export interface Storage {
   setZoom?(factor: number): void
   openImage(): Promise<{ name: string; dataUrl: string } | null>
   savePng(dataUrl: string, name: string): Promise<string | null>
+  saveFile(data: Uint8Array, name: string, ext: string, label: string): Promise<string | null>
 }
 
 declare global {
@@ -163,6 +164,13 @@ const webStorage: Storage = {
     return null
   },
   openImage: pickFile,
+  async saveFile(data, name) {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([data as BlobPart]))
+    a.download = name
+    a.click()
+    return name
+  },
   async savePng(dataUrl, name) {
     const a = document.createElement('a')
     a.href = dataUrl

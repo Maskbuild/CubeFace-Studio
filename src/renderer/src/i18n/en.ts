@@ -321,6 +321,18 @@ export const en = {
     dragResize: 'Drag to resize',
     uiScale: 'Interface size'
   },
+  export: {
+    button: 'Export…',
+    title: 'Export',
+    png: 'Skin PNG',
+    pngHint: 'The skin texture, for any launcher or server',
+    figura: 'Figura avatar',
+    figuraHint: 'Folder with model, texture and scripts (Java Edition)',
+    bedrock: 'Bedrock addon',
+    bedrockHint: '.mcpack resource pack: HD skin, hair physics, face',
+    saved: 'Saved to {{path}}',
+    bedrockNote: 'Bedrock can only change the player model through a resource pack, so every player in a world that uses the pack will look like this skin — best for single-player, screenshots and videos. Expressions follow game states (hurt = angry, sneaking = shy, eating = happy, low health = crying, falling = surprised); blinking and sleeping close the eyes. Talking and smooth eyes are Java/Figura-only. Open the .mcpack to import it, then enable it in the world\'s Resource Packs.'
+  },
   extras: { hair: 'Hair planes', wardrobe: 'Wardrobe', figuraPreview: 'Figura preview' }
 }
 

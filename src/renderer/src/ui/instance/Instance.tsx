@@ -12,6 +12,7 @@ import { LayerPanel } from './LayerPanel'
 import { Viewport } from './Viewport'
 import { RightPanel } from './RightPanel'
 import { ShortcutsDialog } from '../common/ShortcutsDialog'
+import { ExportDialog } from './ExportDialog'
 import { bindShortcuts } from '../../lib/shortcuts'
 import { pasteLayer } from '../../lib/layerActions'
 import { readDroppedImages } from '../../lib/files'
@@ -64,6 +65,7 @@ export function Instance({ doc }: { doc: SkinDoc }) {
   const [name, setName] = useState(doc.name)
 
   const [help, setHelp] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const exportPng = () => storage.savePng(imgToDataUrl(doc.composite), exportFileName(doc.name))
   const save = async () => {
     await saveDoc(doc)
@@ -123,7 +125,7 @@ export function Instance({ doc }: { doc: SkinDoc }) {
         <button className="icon-btn" title={t('top.undo')} disabled={!doc.canUndo} onClick={() => doc.undo()}><Icon name="undo" /></button>
         <button className="icon-btn" title={t('top.redo')} disabled={!doc.canRedo} onClick={() => doc.redo()}><Icon name="redo" /></button>
         <button className="icon-btn" title={t('top.save')} onClick={save}><Icon name="save" /></button>
-        <button className="btn ghost" onClick={exportPng}><Icon name="download" />{t('top.exportPng')}</button>
+        <button className="btn ghost" onClick={() => setExporting(true)}><Icon name="download" />{t('export.button')}</button>
         <div className="grow" />
         <button className="icon-btn" title={t('keys.title') + ' (F1)'} onClick={() => setHelp(true)}><Icon name="keyboard" size={18} /></button>
         <div className="seg">
@@ -154,6 +156,7 @@ export function Instance({ doc }: { doc: SkinDoc }) {
         </aside>
       </div>
       {help && <ShortcutsDialog onClose={() => setHelp(false)} />}
+      {exporting && <ExportDialog doc={doc} onClose={() => setExporting(false)} />}
     </div>
   )
 }

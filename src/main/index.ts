@@ -171,6 +171,14 @@ function registerIpc() {
     return { name: path.basename(file, path.extname(file)), dataUrl: `data:image/${ext};base64,` + buf.toString('base64') }
   })
 
+  ipcMain.handle('dialog:saveFile', async (e, data: Uint8Array, defaultName: string, ext: string, label: string) => {
+    const win = BrowserWindow.fromWebContents(e.sender)!
+    const res = await dialog.showSaveDialog(win, { defaultPath: defaultName, filters: [{ name: label, extensions: [ext] }] })
+    if (res.canceled || !res.filePath) return null
+    await fs.writeFile(res.filePath, Buffer.from(data))
+    return res.filePath
+  })
+
   ipcMain.handle('dialog:savePng', async (e, dataUrl: string, defaultName: string) => {
     const win = BrowserWindow.fromWebContents(e.sender)!
     const res = await dialog.showSaveDialog(win, {
