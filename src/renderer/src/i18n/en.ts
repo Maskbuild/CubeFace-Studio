@@ -209,6 +209,10 @@ export const en = {
     confirmDelete: 'Delete "{{name}}" from the wardrobe?'
   },
   figura: {
+    addCustom: 'New custom expression',
+    customName: 'Expression name (English, shown on the action wheel)',
+    coversEyes: 'closes eyes',
+    coversEyesHint: 'Tick if this expression draws its own eyes (hides the moving irises while shown)',
     browR: 'Right brow',
     browL: 'Left brow',
     toolBox: 'Box',
@@ -291,6 +295,12 @@ export const en = {
     copy: 'Copy layer', cut: 'Cut layer', paste: 'Paste layer / image', duplicate: 'Duplicate layer', newLayer: 'New layer', import: 'Import image as layer', mergeDown: 'Merge down', moveLayer: 'Move layer up / down', rename: 'Rename layer', deleteLayer: 'Delete layer'
   },
   avatars: {
+    view: 'View model, textures and scripts',
+    loading: 'Loading model…',
+    noModel: 'No Blockbench model in this avatar',
+    noScripts: 'No scripts',
+    textures: 'Textures',
+    scripts: 'Scripts',
     add: 'Add avatar folders…',
     hint: 'Figura avatar folders are copied into the library, so they can be merged with any skin.',
     dropHere: 'Drop avatar folders here',
@@ -305,6 +315,11 @@ export const en = {
     includeCurrent: 'Include this skin\'s avatar ({{name}})',
     mergeHint: '{{n}} selected · files with the same name are renamed automatically',
     merge: 'Merge'
+  },
+  ui: {
+    paintTab: 'Paint',
+    dragResize: 'Drag to resize',
+    uiScale: 'Interface size'
   },
   extras: { hair: 'Hair planes', wardrobe: 'Wardrobe', figuraPreview: 'Figura preview' }
 }

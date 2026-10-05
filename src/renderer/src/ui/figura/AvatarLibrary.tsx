@@ -6,6 +6,7 @@ import { buildAvatar } from '../../figura/avatar'
 import { confirmBox, promptBox, toast } from '../common/dialogs'
 import { Icon } from '../common/Icon'
 import { avatarMeta } from './FiguraPanel'
+import { AvatarViewer } from './AvatarViewer'
 
 const kb = (n: number) => (n / 1024).toFixed(1) + ' KB'
 const desktopOnly = !window.nkw
@@ -19,7 +20,7 @@ function useAvatars() {
   return { list, reload }
 }
 
-function AvatarCard({ a, selected, onClick, onDelete, onRename }: { a: AvatarMeta; selected?: boolean; onClick?: () => void; onDelete: () => void; onRename: (name: string) => void }) {
+function AvatarCard({ a, selected, onClick, onDelete, onRename, onView }: { a: AvatarMeta; selected?: boolean; onClick?: () => void; onDelete: () => void; onRename: (name: string) => void; onView: () => void }) {
   const { t, i18n } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null)
@@ -28,12 +29,13 @@ function AvatarCard({ a, selected, onClick, onDelete, onRename }: { a: AvatarMet
     setTip({ x: Math.min(r.right + 8, window.innerWidth - 260), y: Math.max(8, Math.min(r.top, window.innerHeight - 220)) })
   }
   return (
-    <div ref={ref} className={'item-card' + (selected ? ' on' : '')} onClick={onClick} onMouseEnter={show} onMouseLeave={() => setTip(null)}>
+    <div ref={ref} className={'item-card' + (selected ? ' on' : '')} onClick={onClick ?? onView} onDoubleClick={onView} onMouseEnter={show} onMouseLeave={() => setTip(null)}>
       {a.thumb ? <img src={a.thumb} alt="" className="avatar-thumb" draggable={false} /> : <div className="avatar-thumb empty-thumb"><Icon name="sparkle" size={28} /></div>}
       <div className="item-name" title={a.name}>{a.name}</div>
       <div className="item-res">{a.files} files · {kb(a.bytes)}</div>
       {selected && <span className="item-check"><Icon name="check" size={12} stroke={3} /></span>}
       <div className="item-actions" onClick={(e) => e.stopPropagation()}>
+        <button className="icon-btn sm" title={t('avatars.view')} onClick={onView}><Icon name="eye" size={13} /></button>
         <button
           className="icon-btn sm"
           title={t('common.rename')}
@@ -65,6 +67,7 @@ function AvatarCard({ a, selected, onClick, onDelete, onRename }: { a: AvatarMet
 export function AvatarLibrary({ selected, onToggle, list, reload }: { selected?: Set<string>; onToggle?: (id: string) => void; list: AvatarMeta[] | null; reload: () => void }) {
   const { t } = useTranslation()
   const [over, setOver] = useState(false)
+  const [viewing, setViewing] = useState<AvatarMeta | null>(null)
 
   const report = (r: { added: AvatarMeta[]; failed: string[] } | null) => {
     if (!r) return
@@ -90,6 +93,7 @@ export function AvatarLibrary({ selected, onToggle, list, reload }: { selected?:
         if (paths.length) report(await storage.importAvatars(paths))
       }}
     >
+      {viewing && <AvatarViewer avatar={viewing} onClose={() => setViewing(null)} />}
       {over && <div className="drop-hint"><Icon name="sparkle" size={28} />{t('avatars.dropHere')}</div>}
       <div className="row">
         <span className="muted" style={{ fontSize: 12 }}>{t('avatars.hint')}</span>
@@ -104,6 +108,7 @@ export function AvatarLibrary({ selected, onToggle, list, reload }: { selected?:
             a={a}
             selected={selected?.has(a.id)}
             onClick={onToggle && (() => onToggle(a.id))}
+            onView={() => setViewing(a)}
             onRename={async (name) => {
               await storage.updateAvatar(a.id, { name })
               reload()

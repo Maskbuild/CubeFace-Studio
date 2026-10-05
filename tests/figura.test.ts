@@ -68,3 +68,24 @@ describe('figura helpers', () => {
     expect(figuraDefaults(64).mouth).toEqual({ x: 3, y: 6, w: 2, h: 1 })
   })
 })
+
+import { buildScript } from '../src/renderer/src/figura/script'
+import luaparse from 'luaparse'
+
+describe('custom expressions', () => {
+  it('adds a blank frame, shows on the action wheel with an English title, undoes', () => {
+    const doc = make(64)
+    const c = doc.addCustomExpr('ยิ้มเยาะ Smirk', true)
+    const key = `x_${c.id}` as const
+    expect(doc.faces[key]?.w).toBe(8)
+    expect(doc.faceFrame).toBe(key)
+    const info = { hairChains: [], tailChain: null, faceParts: { [key]: 'F_' + key }, irisParts: [], replaces: [] }
+    const s = buildScript('T', doc.figura, info, [])
+    expect(s).toContain('title("Smirk")')
+    expect(s).toContain(`${key} = true`) // covers eyes
+    expect(() => luaparse.parse(s, { luaVersion: '5.2' })).not.toThrow()
+    doc.undo()
+    expect(doc.figura.customExpr).toHaveLength(0)
+    expect(doc.faces[key]).toBeUndefined()
+  })
+})

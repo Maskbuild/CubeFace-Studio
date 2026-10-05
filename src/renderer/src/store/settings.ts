@@ -11,6 +11,7 @@ interface Settings {
   theme: ThemeMode
   accent: Accent
   lang: Lang
+  uiScale: number
 }
 
 interface SettingsStore extends Settings {
@@ -20,6 +21,7 @@ interface SettingsStore extends Settings {
 }
 
 function apply(s: Settings) {
+  storage.setZoom?.(s.uiScale)
   const root = document.documentElement
   if (s.theme === 'system') delete root.dataset.theme
   else root.dataset.theme = s.theme
@@ -32,17 +34,18 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   theme: 'system',
   accent: 'aqua',
   lang: 'th',
+  uiScale: 1,
   loaded: false,
   async load() {
     const saved = await storage.getGlobal<Partial<Settings>>('settings')
-    const next = { theme: get().theme, accent: get().accent, lang: get().lang, ...saved }
+    const next = { theme: get().theme, accent: get().accent, lang: get().lang, uiScale: get().uiScale, ...saved }
     apply(next)
     set({ ...next, loaded: true })
   },
   set(p) {
     set(p)
-    const { theme, accent, lang } = get()
-    apply({ theme, accent, lang })
-    storage.setGlobal('settings', { theme, accent, lang })
+    const { theme, accent, lang, uiScale } = get()
+    apply({ theme, accent, lang, uiScale })
+    storage.setGlobal('settings', { theme, accent, lang, uiScale })
   }
 }))

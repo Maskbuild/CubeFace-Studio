@@ -4,6 +4,7 @@ import type { SkinDoc } from '../../skin/doc'
 import { cuboids, RESOLUTIONS, scaleRect, type Variant } from '../../skin/layout'
 import { mirrorTexel } from '../../skin/mirror'
 import { faceOrigin, type FaceFrame } from '../../skin/figura'
+import { frameLabel } from '../figura/frameLabel'
 import type { Img } from '../../skin/pixels'
 import { PaintSession } from '../../lib/paint'
 import { useEditor } from '../../store/editor'
@@ -316,7 +317,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
         </div>
         {frame && (
           <div className="uv-chip">
-            <span>{t('figura.frame')}: <b>{t(`figura.frames.${frame}`)}</b></span>
+            <span>{t('figura.frame')}: <b>{frameLabel(t, doc.figura, frame)}</b></span>
             <button className="icon-btn sm" title={t('uv.backToSkin')} onClick={() => doc.selectFace(null)}><Icon name="x" size={13} /></button>
           </div>
         )}

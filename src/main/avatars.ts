@@ -100,6 +100,26 @@ export class AvatarLibrary {
     if (m) await fs.writeFile(file, JSON.stringify({ ...m, ...patch }, null, 2))
   }
 
+  /** Every file of an avatar (relative paths, forward slashes) with its size. */
+  async files(id: string): Promise<{ path: string; size: number }[]> {
+    const dir = this.filesDir(id)
+    const out = []
+    for (const rel of await listFiles(dir)) out.push({ path: rel.split(path.sep).join('/'), size: (await fs.stat(path.join(dir, rel))).size })
+    return out
+  }
+
+  /** Read one file: images as data URLs, everything else as text. Paths can't leave the avatar. */
+  async read(id: string, rel: string): Promise<string | null> {
+    const dir = this.filesDir(id)
+    const file = path.resolve(dir, rel)
+    if (!file.startsWith(path.resolve(dir) + path.sep)) return null
+    const buf = await fs.readFile(file).catch(() => null)
+    if (!buf) return null
+    const ext = path.extname(file).slice(1).toLowerCase()
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,` + buf.toString('base64')
+    return buf.length > 8_000_000 ? null : buf.toString('utf8')
+  }
+
   filesDir(id: string) {
     return path.join(this.dir(id), 'files')
   }

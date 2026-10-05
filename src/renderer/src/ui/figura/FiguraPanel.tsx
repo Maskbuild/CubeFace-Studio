@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { EXPRESSIONS, toEnglish, type EarType, type FiguraConfig, type TailType } from '../../skin/figura'
+import { exprKeys, toEnglish, type EarType, type FiguraConfig, type TailType } from '../../skin/figura'
+import { frameLabel } from './frameLabel'
 import { buildAvatar, type AvatarFiles } from '../../figura/avatar'
 import { storage } from '../../lib/storage'
 import { useEditor } from '../../store/editor'
@@ -97,7 +98,7 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
   const [merging, setMerging] = useState(false)
 
   return (
-    <aside className="side right">
+    <div className="panel-scroll">
       {!preview && <div className="section"><span className="muted" style={{ fontSize: 12 }}>{t('figura.previewOff')}</span><button className="btn" onClick={() => set({ figura: true })}><Icon name="sparkle" />Preview</button></div>}
       <SizeMeter doc={doc} />
       <div className="section">
@@ -137,9 +138,9 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
           <span className="muted" style={{ fontSize: 12 }}>{t('figura.previewExpr')}</span>
           <div className="expr-grid">
             <button className={'btn sm-btn' + (figExpr === null ? ' primary' : '')} onClick={() => set({ figExpr: null })}>{t('figura.none')}</button>
-            {EXPRESSIONS.map((e) => (
+            {exprKeys(c).map((e) => (
               <button key={e} className={'btn sm-btn' + (figExpr === e ? ' primary' : '')} disabled={!doc.faces[e]} onClick={() => set({ figExpr: figExpr === e ? null : e })}>
-                {t(`figura.frames.${e}`)}
+                {frameLabel(t, c, e)}
               </button>
             ))}
           </div>
@@ -197,6 +198,6 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
         <button className="btn" onClick={() => setMerging(true)}><Icon name="merge" />{t('figura.merge')}</button>
       </div>
       {merging && <MergeWindow doc={doc} onClose={() => setMerging(false)} />}
-    </aside>
+    </div>
   )
 }

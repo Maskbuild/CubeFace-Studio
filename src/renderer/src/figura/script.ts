@@ -1,4 +1,4 @@
-import { coversEyes, EXPRESSIONS, type FaceFrame, type FiguraConfig } from '../skin/figura'
+import { allFrames, coversEyes, exprKeys, toEnglish, type FiguraConfig } from '../skin/figura'
 import type { HairInfo } from '../skin/hair'
 import type { ModelInfo } from './bbmodel'
 
@@ -70,7 +70,7 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
   add(`local iris = { ${iris.join(', ')} }`, '')
   add(
     'local state = { expr = nil, blink = false, talk = false }',
-    `local covers = { ${(['blink', ...EXPRESSIONS] as FaceFrame[]).filter((f) => coversEyes(f)).map((f) => `${f} = true`).join(', ')} }`,
+    `local covers = { ${allFrames(cfg).filter((f) => coversEyes(f, cfg)).map((f) => `${f} = true`).join(', ')} }`,
     'local function refresh()',
     '  for k, p in pairs(face) do',
     '    if k ~= "blink" and k ~= "talk" then p:setVisible(state.expr == k) end',
@@ -84,7 +84,10 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
   )
 
   // ---- expressions (action wheel, synced with pings) ------------------------------------
-  const exprs = EXPRESSIONS.filter(has)
+  const exprs = exprKeys(cfg).filter(has)
+  // custom names are user text: English only, and no quotes/backslashes inside the Lua string
+  const title = (e: string) => TITLE[e] ?? (toEnglish(cfg.customExpr.find((c) => 'x_' + c.id === e)?.name ?? '').replace(/["\\]/g, '') || 'Custom')
+  const icon = (e: string) => ICON[e] ?? 'minecraft:name_tag'
   if (cfg.expressions && exprs.length) {
     add(
       `local EXPR = { ${exprs.map((e) => `"${e}"`).join(', ')} }`,
@@ -95,7 +98,7 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
       'end',
       'if host:isHost() then',
       '  local page = action_wheel:newPage("Expressions")',
-      ...exprs.map((e, i) => `  page:newAction():title("${TITLE[e]}"):item("${ICON[e]}"):onLeftClick(function() pings.nkwExpr(${i + 1}) end)`),
+      ...exprs.map((e, i) => `  page:newAction():title("${title(e)}"):item("${icon(e)}"):onLeftClick(function() pings.nkwExpr(${i + 1}) end)`),
       '  action_wheel:setPage(page)',
       'end',
       ''

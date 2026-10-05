@@ -3,8 +3,17 @@ import { createImg, fillRect, getPixel, type Img, type RGBA } from './pixels'
 
 export const EXPRESSIONS = ['angry', 'happy', 'shy', 'interested', 'surprised', 'crying', 'sad'] as const
 export type Expression = (typeof EXPRESSIONS)[number]
+/** A user-made expression; its frame key is "x_<id>". */
+export interface CustomExpr {
+  id: string
+  name: string // English, shown on the action wheel
+  coversEyes: boolean
+}
+export type CustomFrame = `x_${string}`
 /** Face overlay frames: expressions plus the blink and talking frames. */
-export type FaceFrame = Expression | 'blink' | 'talk'
+export type FaceFrame = Expression | 'blink' | 'talk' | CustomFrame
+/** Any expression shown on the action wheel (built-in or custom). */
+export type ExprKey = Expression | CustomFrame
 export const FACE_FRAMES: FaceFrame[] = ['blink', 'talk', ...EXPRESSIONS]
 
 export type EarType = 'none' | 'cat' | 'fox' | 'bunny' | 'wolf'
@@ -39,6 +48,7 @@ export interface FiguraConfig {
   furColor: string
   furInner: string
   extrasPhysics: boolean
+  customExpr: CustomExpr[]
   avatarName: string // export metadata, English only
   author: string
   description: string
@@ -74,6 +84,7 @@ export function figuraDefaults(res: number): FiguraConfig {
     furColor: '#6b4a33',
     furInner: '#f2b8c6',
     extrasPhysics: true,
+    customExpr: [],
     avatarName: '',
     author: '',
     description: ''
@@ -187,7 +198,14 @@ export function autoMask(face: Img, c: FiguraConfig, key: MaskKey): Img {
 }
 
 /** Does this frame hide the open eyes (so iris planes must be hidden while it shows)? */
-export const coversEyes = (f: FaceFrame) => f === 'blink' || f === 'happy' || f === 'crying'
+export const coversEyes = (f: FaceFrame, cfg?: FiguraConfig) =>
+  f === 'blink' || f === 'happy' || f === 'crying' || (f.startsWith('x_') && !!cfg?.customExpr.find((c) => 'x_' + c.id === f)?.coversEyes)
+
+export const customKey = (c: CustomExpr): CustomFrame => `x_${c.id}`
+/** Built-in expressions followed by custom ones, in action-wheel order. */
+export const exprKeys = (cfg: FiguraConfig): ExprKey[] => [...EXPRESSIONS, ...cfg.customExpr.map(customKey)]
+/** All face frames for a config (blink, talk, built-ins, custom). */
+export const allFrames = (cfg: FiguraConfig): FaceFrame[] => [...FACE_FRAMES, ...cfg.customExpr.map(customKey)]
 
 // ---- procedural default frames ----------------------------------------------------------
 

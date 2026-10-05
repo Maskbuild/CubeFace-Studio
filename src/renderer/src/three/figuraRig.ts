@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { SkinDoc } from '../skin/doc'
-import { coversEyes, eyeParts, sampleFace, type Expression, type FaceFrame } from '../skin/figura'
+import { coversEyes, eyeParts, sampleFace, type ExprKey, type FaceFrame } from '../skin/figura'
 import { extraParts, type ExtraPart } from '../skin/extras'
 import { HairSim, type Motion } from '../skin/hair'
 import type { Img, RGBA } from '../skin/pixels'
@@ -57,7 +57,7 @@ export class FiguraRig {
   private disposables: { dispose(): void }[] = []
   private key = ''
   enabled = false
-  expr: Expression | null = null
+  expr: ExprKey | null = null
   /** Frame selected for painting: always shown (alone) so you can see what you draw. */
   editFrame: FaceFrame | null = null
   talk = false
@@ -158,7 +158,7 @@ export class FiguraRig {
       else m.visible = cfg.expressions && this.expr === f
     }
     const shown = this.editFrame ?? this.expr
-    const hide = this.editFrame ? coversEyes(this.editFrame) : (cfg.blink && this.blink) || (shown !== null && coversEyes(shown))
+    const hide = this.editFrame ? coversEyes(this.editFrame, cfg) : (cfg.blink && this.blink) || (shown !== null && coversEyes(shown, cfg))
     for (const i of this.iris) i.mesh.visible = !hide
   }
 

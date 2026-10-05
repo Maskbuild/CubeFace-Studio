@@ -140,7 +140,7 @@ export function RightPanel({ doc }: { doc: SkinDoc }) {
   const [presets, setPresets] = useState(false)
   const [wardrobe, setWardrobe] = useState(false)
   return (
-    <aside className="side right">
+    <div className="panel-scroll">
       <Extras onWardrobe={() => setWardrobe(true)} />
       <ColorPicker />
       <PalettePanel />
@@ -148,6 +148,6 @@ export function RightPanel({ doc }: { doc: SkinDoc }) {
       <HairPanel doc={doc} onOpenPresets={() => setPresets(true)} />
       {presets && <FiguraPresetsDialog doc={doc} onClose={() => setPresets(false)} />}
       {wardrobe && <WardrobeWindow doc={doc} onClose={() => setWardrobe(false)} />}
-    </aside>
+    </div>
   )
 }

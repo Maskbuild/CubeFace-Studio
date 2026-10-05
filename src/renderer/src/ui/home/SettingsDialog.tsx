@@ -33,6 +33,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <div className="field">
+        <span className="label">{t('ui.uiScale')}</span>
+        <div className="seg">
+          {[0.9, 1, 1.1, 1.25, 1.5].map((z) => (
+            <button key={z} className={s.uiScale === z ? 'on' : ''} onClick={() => s.set({ uiScale: z })}>{Math.round(z * 100)}%</button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
         <span className="label">{t('settings.language')}</span>
         <div className="seg">
           <button className={s.lang === 'th' ? 'on' : ''} onClick={() => s.set({ lang: 'th' })}>ไทย</button>

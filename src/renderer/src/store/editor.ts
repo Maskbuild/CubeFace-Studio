@@ -6,7 +6,7 @@ import { toHex } from '../skin/color'
 import { BUILTIN_PALETTES, type Palette } from '../skin/palette'
 import { storage } from '../lib/storage'
 import type { MotionMode } from '../three/motion'
-import type { Expression } from '../skin/figura'
+import type { ExprKey } from '../skin/figura'
 
 export type Tool = 'brush' | 'eraser' | 'bucket' | 'picker' | 'orbit'
 export type PaintTarget = 'auto' | 'base' | 'overlay'
@@ -34,7 +34,7 @@ interface EditorStore {
   /** Workspace mode chosen with the top-right buttons. */
   mode: 'skin' | 'figura'
   /** Figura preview state (not saved). */
-  figExpr: Expression | null
+  figExpr: ExprKey | null
   figTalk: boolean
   motion: MotionMode
   hairOutlines: boolean

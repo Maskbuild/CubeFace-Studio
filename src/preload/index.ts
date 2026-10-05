@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('nkw', {
   listSkins: () => ipcRenderer.invoke('lib:list'),
@@ -14,8 +14,12 @@ contextBridge.exposeInMainWorld('nkw', {
   listAvatars: () => ipcRenderer.invoke('avatars:list'),
   importAvatars: (paths?: string[]) => ipcRenderer.invoke('avatars:import', paths),
   updateAvatar: (id: string, patch: { name?: string }) => ipcRenderer.invoke('avatars:update', id, patch),
+  avatarFiles: (id: string) => ipcRenderer.invoke('avatars:files', id),
+  readAvatarFile: (id: string, rel: string) => ipcRenderer.invoke('avatars:read', id, rel),
   deleteAvatar: (id: string) => ipcRenderer.invoke('avatars:delete', id),
   mergeAvatars: (ids: string[], current: unknown, outName: string) => ipcRenderer.invoke('avatars:merge', ids, current, outName),
+  // whole-window zoom (keeps canvas/pointer coordinates consistent, unlike CSS zoom)
+  setZoom: (factor: number) => webFrame.setZoomFactor(factor),
   // full path of a dropped file/folder (Electron only)
   pathForFile: (file: File) => webUtils.getPathForFile(file),
   openImage: () => ipcRenderer.invoke('dialog:openImage'),

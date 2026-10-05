@@ -525,11 +525,39 @@ export class SkinDoc {
   /** (Re)generate default expression/blink/talk frames from the eye and mouth rects. */
   generateFaces(only?: FaceFrame[]) {
     const frames = generateFrames(this.faceImage(), this.figura, this.masks)
+    const n = faceOrigin(this.res).size
     this.change(() => {
       const next = { ...this.faces }
-      for (const f of only ?? (Object.keys(frames) as FaceFrame[])) next[f] = frames[f]
+      for (const f of only ?? (Object.keys(frames) as FaceFrame[])) next[f] = frames[f] ?? createImg(n, n)
       this.faces = next
     })
+  }
+
+  /** Add a user-made expression (blank frame, ready to paint). */
+  addCustomExpr(name: string, coversEyes = false) {
+    const c = { id: newId().slice(0, 8).toLowerCase(), name, coversEyes }
+    const n = faceOrigin(this.res).size
+    this.change(() => {
+      this.figura = { ...this.figura, customExpr: [...this.figura.customExpr, c] }
+      this.faces = { ...this.faces, [`x_${c.id}`]: createImg(n, n) }
+    })
+    this.selectFace(`x_${c.id}`)
+    return c
+  }
+
+  updateCustomExpr(id: string, patch: Partial<{ name: string; coversEyes: boolean }>) {
+    this.updateFigura({ customExpr: this.figura.customExpr.map((c) => (c.id === id ? { ...c, ...patch } : c)) })
+  }
+
+  removeCustomExpr(id: string) {
+    const key = `x_${id}` as FaceFrame
+    this.change(() => {
+      this.figura = { ...this.figura, customExpr: this.figura.customExpr.filter((c) => c.id !== id) }
+      const next = { ...this.faces }
+      delete next[key]
+      this.faces = next
+    })
+    if (this.faceFrame === key) this.selectFace(null)
   }
 
   /** Start an empty frame to draw by hand. */

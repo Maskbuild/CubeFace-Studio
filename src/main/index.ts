@@ -138,6 +138,8 @@ function registerIpc() {
     }
     return { added, failed }
   })
+  ipcMain.handle('avatars:files', (_e, id: string) => avatars.files(id))
+  ipcMain.handle('avatars:read', (_e, id: string, rel: string) => avatars.read(id, String(rel)))
   ipcMain.handle('avatars:update', (_e, id: string, patch: { name?: string }) => avatars.update(id, { name: String(patch.name ?? '') }))
   ipcMain.handle('avatars:delete', async (_e, id: string) => {
     await shell.trashItem(avatars.libDir(id))

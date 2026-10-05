@@ -112,7 +112,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       gizmoHelper.visible = !!root
       fig.enabled = s.figura && s.mode === 'figura'
       fig.expr = s.figExpr
-      fig.editFrame = s.mode === 'figura' ? doc.faceFrame : null
+      fig.editFrame = doc.faceFrame
       fig.talk = s.figTalk
       fig.sync(doc)
       driver.mode = s.figura ? s.motion : 'off'
@@ -166,7 +166,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       ray.setFromCamera(ndc, camera)
       const s = useEditor.getState()
       // while a face frame is selected in Figura mode, the head front paints that frame
-      const editFace = !!doc.faceFrame && s.mode === 'figura' && (!only || only === 'face')
+      const editFace = !!doc.faceFrame && (!only || only === 'face')
       const targets = [...(only === 'skin' || editFace ? [] : rig.meshes), ...(only && only !== 'skin' && only !== 'face' ? [] : model.meshes.filter((m) => m.visible && m.parent?.visible !== false))]
       for (const hit of ray.intersectObjects(targets, false)) {
         const hinfo = hit.object.userData as Partial<HairMeshInfo>
@@ -212,7 +212,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     }
     const onMove = (ev: PointerEvent) => {
       if (!session.active) return
-      const hit = hitTexel(ev, session.strokeHair ?? (doc.faceFrame && useEditor.getState().mode === 'figura' ? 'face' : 'skin'))
+      const hit = hitTexel(ev, session.strokeHair ?? (doc.faceFrame ? 'face' : 'skin'))
       if (hit) session.move(hit.x, hit.y, hit.clip)
     }
     const onUp = () => session.up()

@@ -42,9 +42,12 @@ export interface Storage {
   listAvatars(): Promise<AvatarMeta[]>
   importAvatars(paths?: string[]): Promise<{ added: AvatarMeta[]; failed: string[] } | null>
   updateAvatar(id: string, patch: { name?: string }): Promise<void>
+  avatarFiles(id: string): Promise<{ path: string; size: number }[]>
+  readAvatarFile(id: string, rel: string): Promise<string | null>
   deleteAvatar(id: string): Promise<boolean>
   mergeAvatars(ids: string[], current: { name: string; files: Record<string, string> } | null, outName: string): Promise<MergeResult | null>
   pathForFile?(file: File): string
+  setZoom?(factor: number): void
   openImage(): Promise<{ name: string; dataUrl: string } | null>
   savePng(dataUrl: string, name: string): Promise<string | null>
 }
@@ -147,6 +150,12 @@ const webStorage: Storage = {
     return null
   },
   async updateAvatar() {},
+  async avatarFiles() {
+    return []
+  },
+  async readAvatarFile() {
+    return null
+  },
   async deleteAvatar() {
     return false
   },

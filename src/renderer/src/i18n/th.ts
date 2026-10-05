@@ -211,6 +211,10 @@ export const th: Dict = {
     confirmDelete: 'ลบ "{{name}}" ออกจากตู้เสื้อผ้า?'
   },
   figura: {
+    addCustom: 'เพิ่มสีหน้าใหม่',
+    customName: 'ชื่อสีหน้า (ภาษาอังกฤษ จะแสดงใน action wheel)',
+    coversEyes: 'ปิดตา',
+    coversEyesHint: 'ติ๊กถ้าสีหน้านี้วาดตาเอง (จะซ่อนตาดำที่กลอกได้ตอนแสดง)',
     browR: 'คิ้วขวา',
     browL: 'คิ้วซ้าย',
     toolBox: 'กรอบ',
@@ -293,6 +297,12 @@ export const th: Dict = {
     copy: 'คัดลอกเลเยอร์', cut: 'ตัดเลเยอร์', paste: 'วางเลเยอร์ / ภาพ', duplicate: 'ทำสำเนาเลเยอร์', newLayer: 'เลเยอร์ใหม่', import: 'นำเข้าภาพเป็นเลเยอร์', mergeDown: 'รวมกับเลเยอร์ล่าง', moveLayer: 'เลื่อนเลเยอร์ขึ้น / ลง', rename: 'เปลี่ยนชื่อเลเยอร์', deleteLayer: 'ลบเลเยอร์'
   },
   avatars: {
+    view: 'ดูโมเดล ภาพ และสคริปต์',
+    loading: 'กำลังโหลดโมเดล…',
+    noModel: 'avatar นี้ไม่มีโมเดล Blockbench',
+    noScripts: 'ไม่มีสคริปต์',
+    textures: 'ภาพ (texture)',
+    scripts: 'สคริปต์',
     add: 'เพิ่มโฟลเดอร์ avatar…',
     hint: 'โฟลเดอร์ avatar ของ Figura จะถูกคัดลอกเก็บในคลัง เพื่อนำไปรวมกับสกินไหนก็ได้',
     dropHere: 'วางโฟลเดอร์ avatar ที่นี่',
@@ -307,6 +317,11 @@ export const th: Dict = {
     includeCurrent: 'รวม avatar ของสกินนี้ด้วย ({{name}})',
     mergeHint: 'เลือกแล้ว {{n}} อัน · ไฟล์ชื่อซ้ำจะเปลี่ยนชื่อให้อัตโนมัติ',
     merge: 'รวม'
+  },
+  ui: {
+    paintTab: 'ระบายสี',
+    dragResize: 'ลากเพื่อปรับขนาด',
+    uiScale: 'ขนาดหน้าจอ (UI)'
   },
   extras: { hair: 'แผ่นผม', wardrobe: 'ตู้เสื้อผ้า', figuraPreview: 'Figura preview' }
 }

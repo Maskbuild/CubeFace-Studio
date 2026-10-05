@@ -26,6 +26,40 @@ export function Instance({ doc }: { doc: SkinDoc }) {
     if (m === 'skin') doc.selectFace(null)
     set({ mode: m })
   }
+  // panels follow the mode, but both stay reachable through their tabs
+  const [leftTab, setLeftTab] = useState<'layers' | 'face'>('layers')
+  const [rightTab, setRightTab] = useState<'paint' | 'figura'>('paint')
+  useEffect(() => {
+    setLeftTab(mode === 'figura' ? 'face' : 'layers')
+    setRightTab(mode === 'figura' ? 'figura' : 'paint')
+  }, [mode])
+  // draggable split between the UV panel and the panel below it (remembered per machine)
+  const [uvHeight, setUvHeight] = useState(() => {
+    try {
+      return Number(localStorage.getItem('nkw.uvHeight')) || 360
+    } catch {
+      return 360
+    }
+  })
+  const startSplit = (e: React.PointerEvent) => {
+    const y0 = e.clientY
+    const h0 = uvHeight
+    const move = (ev: PointerEvent) => setUvHeight(Math.max(180, Math.min(window.innerHeight - 220, h0 + ev.clientY - y0)))
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      setUvHeight((h) => {
+        try {
+          localStorage.setItem('nkw.uvHeight', String(h))
+        } catch {
+          // storage unavailable: the size just isn't remembered
+        }
+        return h
+      })
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
   useEditor((s) => s.tick)
   const [name, setName] = useState(doc.name)
 
@@ -100,11 +134,24 @@ export function Instance({ doc }: { doc: SkinDoc }) {
       </header>
       <div className="workspace">
         <aside className="side left">
-          <UVPanel doc={doc} />
-          {mode === 'skin' ? <LayerPanel doc={doc} /> : <FacePanel doc={doc} />}
+          <div style={{ height: uvHeight, flex: 'none', display: 'flex', flexDirection: 'column' }}>
+            <UVPanel doc={doc} />
+          </div>
+          <div className="splitter" onPointerDown={startSplit} title={t('ui.dragResize')} />
+          <div className="panel-tabs">
+            <button className={leftTab === 'layers' ? 'on' : ''} onClick={() => setLeftTab('layers')}>{t('layers.title')}</button>
+            <button className={leftTab === 'face' ? 'on' : ''} onClick={() => setLeftTab('face')}>{t('figura.face')}</button>
+          </div>
+          {leftTab === 'layers' ? <LayerPanel doc={doc} /> : <FacePanel doc={doc} />}
         </aside>
         <Viewport doc={doc} />
-        {mode === 'skin' ? <RightPanel doc={doc} /> : <FiguraPanel doc={doc} />}
+        <aside className="side right">
+          <div className="panel-tabs">
+            <button className={rightTab === 'paint' ? 'on' : ''} onClick={() => setRightTab('paint')}>{t('ui.paintTab')}</button>
+            <button className={rightTab === 'figura' ? 'on' : ''} onClick={() => setRightTab('figura')}>Figura</button>
+          </div>
+          {rightTab === 'paint' ? <RightPanel doc={doc} /> : <FiguraPanel doc={doc} />}
+        </aside>
       </div>
       {help && <ShortcutsDialog onClose={() => setHelp(false)} />}
     </div>
