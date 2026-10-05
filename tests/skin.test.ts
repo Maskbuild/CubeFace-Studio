@@ -182,3 +182,18 @@ describe('layer drag reorder', () => {
     expect(doc.layers.map((l) => l.name)).toEqual(['a', 'b', 'c'])
   })
 })
+
+describe('layer import / clear', () => {
+  it('replaces and clears pixels with undo', () => {
+    const doc = new SkinDoc({ name: 't', res: 64, variant: 'wide' })
+    doc.initLayers([doc.makeLayer('a')])
+    const img = createImg(64, 64)
+    img.data.set([9, 8, 7, 255], 0)
+    doc.replaceLayerPixels(doc.activeId, img)
+    expect(doc.pick(0, 0)).toEqual([9, 8, 7, 255])
+    doc.replaceLayerPixels(doc.activeId, null)
+    expect(doc.pick(0, 0)[3]).toBe(0)
+    doc.undo()
+    expect(doc.pick(0, 0)).toEqual([9, 8, 7, 255])
+  })
+})

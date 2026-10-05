@@ -1,5 +1,22 @@
 import type { ProjectJson } from '../skin/doc'
 
+export interface AvatarMeta {
+  id: string
+  name: string
+  authors: string[]
+  description: string
+  files: number
+  bytes: number
+  importedAt: number
+  thumb: string | null
+}
+
+export interface MergeResult {
+  out: string
+  count: number
+  renamed: { from: string; to: string }[]
+}
+
 export interface SkinEntry {
   project: ProjectJson
   thumb: string | null
@@ -22,7 +39,12 @@ export interface Storage {
   setAsset(kind: string, id: string, dataUrl: string): Promise<boolean>
   deleteAsset(kind: string, id: string): Promise<boolean>
   exportFigura(folder: string, files: Record<string, string>): Promise<string | null>
-  mergeFigura(): Promise<{ out: string; count: number; renamed: { from: string; to: string }[] } | { error: 'need2' } | null>
+  listAvatars(): Promise<AvatarMeta[]>
+  importAvatars(paths?: string[]): Promise<{ added: AvatarMeta[]; failed: string[] } | null>
+  updateAvatar(id: string, patch: { name?: string }): Promise<void>
+  deleteAvatar(id: string): Promise<boolean>
+  mergeAvatars(ids: string[], current: { name: string; files: Record<string, string> } | null, outName: string): Promise<MergeResult | null>
+  pathForFile?(file: File): string
   openImage(): Promise<{ name: string; dataUrl: string } | null>
   savePng(dataUrl: string, name: string): Promise<string | null>
 }
@@ -117,7 +139,18 @@ const webStorage: Storage = {
     }
     return folder
   },
-  async mergeFigura() {
+  // avatar folders need the desktop app (no folder access in the browser build)
+  async listAvatars() {
+    return []
+  },
+  async importAvatars() {
+    return null
+  },
+  async updateAvatar() {},
+  async deleteAvatar() {
+    return false
+  },
+  async mergeAvatars() {
     return null
   },
   openImage: pickFile,

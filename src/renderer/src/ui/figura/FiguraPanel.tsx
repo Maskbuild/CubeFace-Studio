@@ -7,6 +7,7 @@ import { storage } from '../../lib/storage'
 import { useEditor } from '../../store/editor'
 import { toast } from '../common/dialogs'
 import { MOTION_MODES } from '../../three/motion'
+import { MergeWindow } from './AvatarLibrary'
 import { Icon } from '../common/Icon'
 
 const LIMIT = 100 * 1024
@@ -93,12 +94,7 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
     const dir = await storage.exportFigura(meta.name, files)
     if (dir) toast(t('figura.exported', { dir }))
   }
-  const merge = async () => {
-    const r = await storage.mergeFigura()
-    if (!r) return
-    if ('error' in r) return toast(t('figura.mergeNeed2'))
-    toast(t('figura.merged', { n: r.count, dir: r.out, r: r.renamed.length ? r.renamed.map((x) => `${x.from} → ${x.to}`).join(', ') : t('figura.none') }))
-  }
+  const [merging, setMerging] = useState(false)
 
   return (
     <aside className="side right">
@@ -193,8 +189,9 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
         <input className="input" placeholder={t('figura.description')} value={c.description} onChange={(e) => up({ description: e.target.value })} />
         <span className="muted" style={{ fontSize: 11 }}>{t('figura.englishOnly')}</span>
         <button className="btn primary" onClick={exportAvatar}><Icon name="download" />{t('figura.export')}</button>
-        <button className="btn" onClick={merge}><Icon name="merge" />{t('figura.merge')}</button>
+        <button className="btn" onClick={() => setMerging(true)}><Icon name="merge" />{t('figura.merge')}</button>
       </div>
+      {merging && <MergeWindow doc={doc} onClose={() => setMerging(false)} />}
     </aside>
   )
 }

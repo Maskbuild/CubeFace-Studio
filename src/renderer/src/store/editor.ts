@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { SkinDoc } from '../skin/doc'
+import type { LayerMeta, SkinDoc } from '../skin/doc'
+import type { Img } from '../skin/pixels'
 import type { RGBA } from '../skin/pixels'
 import { toHex } from '../skin/color'
 import { BUILTIN_PALETTES, type Palette } from '../skin/palette'
@@ -42,6 +43,10 @@ interface EditorStore {
   hidden: Record<string, boolean> // cuboid key -> hidden
   palettes: Palette[] // user palettes (global, shared by all skins)
   paletteId: string
+  /** Copied layer (Ctrl+C) with its name and license info. */
+  clipboard: { name: string; img: Img; meta: LayerMeta } | null
+  /** Layer whose name field should open for editing (F2 / context menu). */
+  renameLayerId: string | null
   approvedNoMod: Set<string> // layer ids the user agreed to edit despite a no-modify license
 
   setDoc(doc: SkinDoc | null): void
@@ -77,6 +82,8 @@ export const useEditor = create<EditorStore>((set, get) => ({
   palettes: [],
   paletteId: BUILTIN_PALETTES[0].id,
   approvedNoMod: new Set(),
+  clipboard: null,
+  renameLayerId: null,
 
   setDoc: (doc) => set({ doc, tick: get().tick + 1, approvedNoMod: new Set(), mode: 'skin', figExpr: null, figTalk: false }),
   bump: () => set({ tick: get().tick + 1 }),

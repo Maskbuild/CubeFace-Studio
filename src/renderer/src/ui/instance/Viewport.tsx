@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { faceRect, type Rect } from '../../skin/layout'
+import { cuboids, faceRect, type Rect } from '../../skin/layout'
 import { SkinModel, type MeshInfo } from '../../three/model'
 import { HairRig, type HairMeshInfo } from '../../three/hairRig'
 import { MotionDriver } from '../../three/motion'
@@ -89,6 +89,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       gizmoHelper.visible = !!root
       fig.enabled = s.figura && s.mode === 'figura'
       fig.expr = s.figExpr
+      fig.editFrame = s.mode === 'figura' ? doc.faceFrame : null
       fig.talk = s.figTalk
       fig.sync(doc)
       driver.mode = s.figura ? s.motion : 'off'
@@ -135,13 +136,15 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     // ---- picking -----------------------------------------------------------------------
     const ray = new THREE.Raycaster()
     const ndc = new THREE.Vector2()
-    type Hit = { x: number; y: number; clip: Rect; hairId: string | null }
-    const hitTexel = (ev: PointerEvent, only?: 'skin' | string): Hit | null => {
+    type Hit = { x: number; y: number; clip: Rect; hairId: string | null; face?: boolean }
+    const hitTexel = (ev: PointerEvent, only?: 'skin' | 'face' | string): Hit | null => {
       const r = renderer.domElement.getBoundingClientRect()
       ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1)
       ray.setFromCamera(ndc, camera)
       const s = useEditor.getState()
-      const targets = [...(only === 'skin' ? [] : rig.meshes), ...(only && only !== 'skin' ? [] : model.meshes.filter((m) => m.visible && m.parent?.visible !== false))]
+      // while a face frame is selected in Figura mode, the head front paints that frame
+      const editFace = !!doc.faceFrame && s.mode === 'figura' && (!only || only === 'face')
+      const targets = [...(only === 'skin' || editFace ? [] : rig.meshes), ...(only && only !== 'skin' && only !== 'face' ? [] : model.meshes.filter((m) => m.visible && m.parent?.visible !== false))]
       for (const hit of ray.intersectObjects(targets, false)) {
         const hinfo = hit.object.userData as Partial<HairMeshInfo>
         if (hinfo.hairId) {
@@ -155,6 +158,15 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
           return { x, y, clip: { x: 0, y: 0, w: h.img.w, h: h.img.h }, hairId: h.id }
         }
         const info = hit.object.userData as MeshInfo
+        if (editFace) {
+          const cub = cuboids(doc.variant)[info.cuboid]
+          const fi = Math.floor(hit.faceIndex! / 2)
+          if (cub.part !== 'head' || cub.faces[fi].name !== 'front') continue
+          const r = faceRect(doc.variant, doc.res, { cuboid: info.cuboid, face: fi })
+          const x = Math.min(r.w - 1, Math.max(0, Math.floor(hit.uv!.x * doc.res) - r.x))
+          const y = Math.min(r.h - 1, Math.max(0, Math.floor(hit.uv!.y * doc.res) - r.y))
+          return { x, y, clip: { x: 0, y: 0, w: r.w, h: r.h }, hairId: null, face: true }
+        }
         if (s.target === 'base' && info.kind !== 'base') continue
         if (s.target === 'overlay' && info.kind !== 'overlay') continue
         const clip = faceRect(doc.variant, doc.res, { cuboid: info.cuboid, face: Math.floor(hit.faceIndex! / 2) })
@@ -173,11 +185,11 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       if (ev.button !== 0 || useEditor.getState().tool === 'orbit' || spaceOrbit || gizmo.axis !== null) return
       const hit = hitTexel(ev)
       if (!hit) return
-      if (session.down(hit.x, hit.y, hit.clip, hit.hairId)) renderer.domElement.setPointerCapture(ev.pointerId)
+      if (session.down(hit.x, hit.y, hit.clip, hit.hairId, !!hit.face)) renderer.domElement.setPointerCapture(ev.pointerId)
     }
     const onMove = (ev: PointerEvent) => {
       if (!session.active) return
-      const hit = hitTexel(ev, session.strokeHair ?? 'skin')
+      const hit = hitTexel(ev, session.strokeHair ?? (doc.faceFrame && useEditor.getState().mode === 'figura' ? 'face' : 'skin'))
       if (hit) session.move(hit.x, hit.y, hit.clip)
     }
     const onUp = () => session.up()
@@ -220,6 +232,13 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       raf = requestAnimationFrame(frame)
       const now = performance.now()
       const dt = Math.min(0.25, (now - last) / 1000)
+      if (driver.mode === 'camera') {
+        // head follows the camera: + yaw turns towards +X (player's left), + pitch looks down
+        const d = camera.position.clone().sub(new THREE.Vector3(0, 28 + model.group.position.y, 0))
+        const yaw = THREE.MathUtils.clamp(Math.atan2(d.x, d.z), -1.3, 1.3)
+        const pitch = THREE.MathUtils.clamp(-Math.atan2(d.y, Math.hypot(d.x, d.z)), -1, 1)
+        driver.cameraLook = [pitch, yaw]
+      }
       let alpha = 1
       if (driver.mode !== 'off') {
         alpha = driver.update(dt, model, (m) => {
@@ -229,7 +248,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
         rig.applyPhysics(alpha, true)
         dirty = true
       } else lastMotion = null
-      if (fig.enabled) {
+      if (fig.enabled || fig.editFrame) {
         const cfg = doc.figura
         // the Figura preview runs its own 20 Hz clock for blinking / talking / tail physics
         figAcc += dt

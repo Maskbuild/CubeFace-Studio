@@ -22,6 +22,7 @@ export const en = {
     tabPalettes: 'Palettes',
     tabFigura: 'Figura presets',
     tabWardrobe: 'Wardrobe',
+    tabAvatars: 'Figura avatars',
     tabEmotes: 'Emotes',
     newSkin: 'New skin',
     importPng: 'Import PNG',
@@ -57,6 +58,18 @@ export const en = {
   top: { home: 'Home', undo: 'Undo (Ctrl+Z)', redo: 'Redo (Ctrl+Y)', save: 'Save (Ctrl+S)', exportPng: 'Export PNG', unsaved: 'Unsaved changes', leaveUnsaved: 'You have unsaved changes. Save before leaving?' },
   uv: { title: 'UV', backToSkin: 'Back to skin', downscale: 'Lowering the resolution from {{from}} to {{to}} merges pixels. Continue?' },
   layers: {
+    importNew: 'Import image as new layer…',
+    importInto: 'Import image into this layer…',
+    copy: 'Copy layer',
+    paste: 'Paste layer',
+    pasted: 'Pasted image',
+    copied: 'Copied "{{name}}"',
+    hide: 'Hide',
+    show: 'Show',
+    unlock: 'Unlock',
+    exportPng: 'Export layer as PNG…',
+    clear: 'Clear layer',
+    dropHere: 'Drop images to add them as layers',
     title: 'Layers',
     add: 'New layer',
     duplicate: 'Duplicate layer',
@@ -147,7 +160,7 @@ export const en = {
     preview: 'Figura preview',
     presets: 'Figura presets',
     motion: 'Test motion',
-    motions: { off: 'Off', idle: 'Idle', walk: 'Walk', run: 'Run', jump: 'Jump', look: 'Look around' },
+    motions: { off: 'Off', idle: 'Idle', walk: 'Walk', run: 'Run', jump: 'Jump', look: 'Look around', camera: 'Look at camera' },
     lengthApplies: 'Changing length applies its default height, segments and physics.'
   },
   presets: {
@@ -196,6 +209,12 @@ export const en = {
     confirmDelete: 'Delete "{{name}}" from the wardrobe?'
   },
   figura: {
+    enlarge: 'Enlarge',
+    zoomHelp: 'Wheel to zoom, right-drag to pan, double-click to reset.',
+    clearFrame: 'Clear (blank)',
+    drawOwn: 'Draw',
+    drawOwnHint: 'Start a blank frame and paint it yourself',
+    auto: 'Auto',
     frame: 'Face frame',
     frames: { blink: 'Blink', talk: 'Talking mouth', angry: 'Angry', happy: 'Happy', shy: 'Shy', interested: 'Interested', surprised: 'Surprised', crying: 'Crying', sad: 'Sad' },
     face: 'Face setup',
@@ -207,7 +226,7 @@ export const en = {
     regenerate: 'Regenerate',
     overwrite: 'Replace all existing face frames with new defaults?',
     noFrames: 'No frames yet — set the eyes and mouth, then generate.',
-    paintHint: 'Click a frame to paint it in the UV panel.',
+    paintHint: 'Click a frame, then paint it in the UV panel or right on the 3D face. Missing frames can be drawn by hand or generated.',
     size: 'Avatar size',
     sizeOk: 'Within the 100 KB upload limit',
     sizeOver: 'Over 100 KB — the default Figura server will refuse it. You can still test it on a server with a bigger limit:',
@@ -248,6 +267,29 @@ export const en = {
     inner: 'Inner',
     extrasPhysics: 'Tail physics',
     previewOff: 'Turn on Preview (sparkle button in Hair planes) to see these in 3D.'
+  },
+  keys: {
+    title: 'Keyboard shortcuts',
+    groups: { general: 'General', tools: 'Tools', layers: 'Layers' },
+    undo: 'Undo', redo: 'Redo', save: 'Save', exportPng: 'Export PNG', mode: 'Skin / Figura mode', help: 'Show shortcuts', deselect: 'Deselect hair / face frame',
+    brush: 'Brush', eraser: 'Eraser', bucket: 'Paint bucket', picker: 'Eyedropper', orbit: 'Rotate view', size: 'Brush size', opacity: 'Brush opacity', mirror: 'Mirror', grid: 'Grid', preview: 'Full-body preview',
+    copy: 'Copy layer', cut: 'Cut layer', paste: 'Paste layer / image', duplicate: 'Duplicate layer', newLayer: 'New layer', import: 'Import image as layer', mergeDown: 'Merge down', moveLayer: 'Move layer up / down', rename: 'Rename layer', deleteLayer: 'Delete layer'
+  },
+  avatars: {
+    add: 'Add avatar folders…',
+    hint: 'Figura avatar folders are copied into the library, so they can be merged with any skin.',
+    dropHere: 'Drop avatar folders here',
+    empty: 'No avatars yet. Add or drop Figura avatar folders.',
+    imported: 'Added {{n}} avatar(s)',
+    notAvatar: 'Not a Figura avatar folder: {{names}}',
+    confirmDelete: 'Move "{{name}}" to the recycle bin?',
+    files: 'Files',
+    added: 'Added',
+    desktopOnly: 'The avatar library needs the desktop app (folder access).',
+    mergeTitle: 'Merge Figura avatars',
+    includeCurrent: 'Include this skin\'s avatar ({{name}})',
+    mergeHint: '{{n}} selected · files with the same name are renamed automatically',
+    merge: 'Merge'
   },
   extras: { hair: 'Hair planes', wardrobe: 'Wardrobe', figuraPreview: 'Figura preview' }
 }

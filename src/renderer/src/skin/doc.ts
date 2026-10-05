@@ -294,6 +294,18 @@ export class SkinDoc {
     })
   }
 
+  /** Replace a layer's pixels (import into layer / clear), as one undo step. */
+  replaceLayerPixels(id: string, img: Img | null) {
+    const l = this.layer(id)
+    if (!l) return
+    const r = { x: 0, y: 0, w: this.res, h: this.res }
+    const before = readRect(l.img, r)
+    if (img) writeRect(l.img, r, img.data)
+    else l.img.data.fill(0)
+    this.push({ kind: 'pixels', targetId: id, rect: r, before, after: readRect(l.img, r) })
+    this.recomposite()
+  }
+
   /** Move a layer to a stack index (0 = bottom), e.g. from drag and drop. */
   moveLayerTo(id: string, index: number) {
     const from = this.layers.findIndex((l) => l.id === id)
@@ -474,6 +486,33 @@ export class SkinDoc {
       for (const f of only ?? (Object.keys(frames) as FaceFrame[])) next[f] = frames[f]
       this.faces = next
     })
+  }
+
+  /** Start an empty frame to draw by hand. */
+  createBlankFace(f: FaceFrame) {
+    const n = faceOrigin(this.res).size
+    this.change(() => (this.faces = { ...this.faces, [f]: createImg(n, n) }))
+    this.selectFace(f)
+  }
+
+  removeFace(f: FaceFrame) {
+    this.change(() => {
+      const next = { ...this.faces }
+      delete next[f]
+      this.faces = next
+    })
+    if (this.faceFrame === f) this.selectFace(null)
+  }
+
+  clearFace(f: FaceFrame) {
+    const img = this.faces[f]
+    if (!img) return
+    const r = { x: 0, y: 0, w: img.w, h: img.h }
+    const before = readRect(img, r)
+    img.data.fill(0)
+    this.push({ kind: 'pixels', targetId: faceId(f), rect: r, before, after: readRect(img, r) })
+    this.emit({ type: 'face', frame: f })
+    this.emit({ type: 'structure' })
   }
 
   selectFace(f: FaceFrame | null) {

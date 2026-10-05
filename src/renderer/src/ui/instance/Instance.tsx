@@ -4,17 +4,20 @@ import type { SkinDoc } from '../../skin/doc'
 import { exportFileName, saveDoc } from '../../lib/project'
 import { imgToDataUrl } from '../../lib/png'
 import { storage } from '../../lib/storage'
-import { useEditor, type Tool } from '../../store/editor'
+import { useEditor } from '../../store/editor'
 import { ask, toast } from '../common/dialogs'
 import { Icon } from '../common/Icon'
 import { UVPanel } from './UVPanel'
 import { LayerPanel } from './LayerPanel'
 import { Viewport } from './Viewport'
 import { RightPanel } from './RightPanel'
+import { ShortcutsDialog } from '../common/ShortcutsDialog'
+import { bindShortcuts } from '../../lib/shortcuts'
+import { pasteLayer } from '../../lib/layerActions'
+import { readDroppedImages } from '../../lib/files'
 import { FacePanel } from '../figura/FacePanel'
 import { FiguraPanel } from '../figura/FiguraPanel'
 
-const KEY_TOOLS: Record<string, Tool> = { b: 'brush', e: 'eraser', g: 'bucket', i: 'picker' }
 
 export function Instance({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
@@ -26,6 +29,8 @@ export function Instance({ doc }: { doc: SkinDoc }) {
   useEditor((s) => s.tick)
   const [name, setName] = useState(doc.name)
 
+  const [help, setHelp] = useState(false)
+  const exportPng = () => storage.savePng(imgToDataUrl(doc.composite), exportFileName(doc.name))
   const save = async () => {
     await saveDoc(doc)
     toast(t('common.saved'))
@@ -46,26 +51,29 @@ export function Instance({ doc }: { doc: SkinDoc }) {
 
   useEffect(() => {
     const off = doc.on((e) => e.type === 'structure' && bump())
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return
-      const k = e.key.toLowerCase()
-      if (e.ctrlKey && k === 'z') (e.preventDefault(), e.shiftKey ? doc.redo() : doc.undo())
-      else if (e.ctrlKey && k === 'y') (e.preventDefault(), doc.redo())
-      else if (e.ctrlKey && k === 's') (e.preventDefault(), save())
-      else if (!e.ctrlKey && KEY_TOOLS[k]) useEditor.getState().set({ tool: KEY_TOOLS[k] })
-      else if (!e.ctrlKey && k === 'm') useEditor.getState().set({ mirror: !useEditor.getState().mirror })
-      else if (k === '[' || k === ']') {
-        const s = useEditor.getState()
-        const b = s.tool === 'eraser' ? s.eraser : s.brush
-        s.setBrush({ size: Math.max(1, b.size + (k === ']' ? 1 : -1)) })
-      }
+    const unbind = bindShortcuts(doc, {
+      save,
+      exportPng,
+      help: () => setHelp(true),
+      newLayerName: () => t('layers.defaultName', { n: doc.layers.length + 1 })
+    })
+    // Ctrl+V: images on the system clipboard become layers; otherwise paste the copied layer
+    const onPaste = async (e: ClipboardEvent) => {
+      const el = e.target as HTMLElement
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return
+      e.preventDefault()
+      const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
+      if (!file) return pasteLayer(doc)
+      const [img] = await readDroppedImages([file])
+      pasteLayer(doc, img)
     }
-    window.addEventListener('keydown', onKey)
+    window.addEventListener('paste', onPaste)
     // autosave every 60s when there are changes
     const timer = setInterval(() => doc.dirty && saveDoc(doc), 60000)
     return () => {
       off()
-      window.removeEventListener('keydown', onKey)
+      unbind()
+      window.removeEventListener('paste', onPaste)
       clearInterval(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,8 +89,9 @@ export function Instance({ doc }: { doc: SkinDoc }) {
         <button className="icon-btn" title={t('top.undo')} disabled={!doc.canUndo} onClick={() => doc.undo()}><Icon name="undo" /></button>
         <button className="icon-btn" title={t('top.redo')} disabled={!doc.canRedo} onClick={() => doc.redo()}><Icon name="redo" /></button>
         <button className="icon-btn" title={t('top.save')} onClick={save}><Icon name="save" /></button>
-        <button className="btn ghost" onClick={() => storage.savePng(imgToDataUrl(doc.composite), exportFileName(doc.name))}><Icon name="download" />{t('top.exportPng')}</button>
+        <button className="btn ghost" onClick={exportPng}><Icon name="download" />{t('top.exportPng')}</button>
         <div className="grow" />
+        <button className="icon-btn" title={t('keys.title') + ' (F1)'} onClick={() => setHelp(true)}><Icon name="keyboard" size={18} /></button>
         <div className="seg">
           <button className={mode === 'skin' ? 'on' : ''} onClick={() => switchMode('skin')}>{t('mode.skin')}</button>
           <button className={mode === 'figura' ? 'on' : ''} onClick={() => switchMode('figura')}>{t('mode.figura')}</button>
@@ -97,6 +106,7 @@ export function Instance({ doc }: { doc: SkinDoc }) {
         <Viewport doc={doc} />
         {mode === 'skin' ? <RightPanel doc={doc} /> : <FiguraPanel doc={doc} />}
       </div>
+      {help && <ShortcutsDialog onClose={() => setHelp(false)} />}
     </div>
   )
 }

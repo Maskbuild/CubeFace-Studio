@@ -1,8 +1,8 @@
 import type { Motion } from '../skin/hair'
 import type { SkinModel } from './model'
 
-export type MotionMode = 'off' | 'idle' | 'walk' | 'run' | 'jump' | 'look'
-export const MOTION_MODES: MotionMode[] = ['off', 'idle', 'walk', 'run', 'jump', 'look']
+export type MotionMode = 'off' | 'idle' | 'walk' | 'run' | 'jump' | 'look' | 'camera'
+export const MOTION_MODES: MotionMode[] = ['off', 'idle', 'walk', 'run', 'jump', 'look', 'camera']
 
 const TICK = 1 / 20
 
@@ -15,6 +15,8 @@ export class MotionDriver {
   private t = 0
   private acc = 0
   private lastYaw = 0
+  /** For 'camera' mode: where the head should look [pitch, yaw] in radians (set by the viewport). */
+  cameraLook: [number, number] = [0, 0]
 
   /** Advance by dt seconds; calls onTick for every elapsed game tick. Returns tick alpha (0..1). */
   update(dt: number, model: SkinModel, onTick: (m: Motion) => void): number {
@@ -36,6 +38,8 @@ export class MotionDriver {
 
   private headAngles(t: number): [number, number] {
     switch (this.mode) {
+      case 'camera':
+        return this.cameraLook
       case 'look':
         return [Math.sin(t * 1.3) * 0.5, Math.sin(t * 0.9) * 1.0]
       case 'idle':

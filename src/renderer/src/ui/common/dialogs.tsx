@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { useTranslation } from 'react-i18next'
 
@@ -24,12 +24,20 @@ interface ConfirmReq {
   message: string
   buttons: { label: string; value: string; kind?: 'primary' | 'danger' }[]
   resolve: (v: string | null) => void
+  input?: string // when set, show a text field; the OK button resolves with its value
 }
 
 const useDialogs = create<{ confirm: ConfirmReq | null; toast: string | null }>(() => ({ confirm: null, toast: null }))
 
 export function ask(message: string, buttons: ConfirmReq['buttons']): Promise<string | null> {
   return new Promise((resolve) => useDialogs.setState({ confirm: { message, buttons, resolve } }))
+}
+
+/** Text prompt (window.prompt does not exist in Electron). */
+export function promptBox(message: string, initial: string, okLabel: string, cancelLabel: string): Promise<string | null> {
+  return new Promise((resolve) =>
+    useDialogs.setState({ confirm: { message, input: initial, buttons: [{ label: cancelLabel, value: '\u0000cancel' }, { label: okLabel, value: '\u0000ok', kind: 'primary' }], resolve } })
+  )
 }
 
 export async function confirmBox(message: string, okLabel: string, cancelLabel: string, danger = false) {
@@ -46,7 +54,10 @@ export function toast(msg: string) {
 export function DialogHost() {
   const { confirm, toast: msg } = useDialogs()
   const { t } = useTranslation()
+  const [text, setText] = useState('')
+  useEffect(() => setText(confirm?.input ?? ''), [confirm])
   const done = (v: string | null) => {
+    if (confirm?.input !== undefined) v = v === '\u0000ok' ? text : null
     confirm?.resolve(v)
     useDialogs.setState({ confirm: null })
   }
@@ -63,6 +74,9 @@ export function DialogHost() {
           ))}
         >
           <div style={{ whiteSpace: 'pre-wrap' }}>{confirm.message}</div>
+          {confirm.input !== undefined && (
+            <input className="input" autoFocus value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && done('\u0000ok')} />
+          )}
         </Modal>
       )}
       {msg && <div className="toast">{msg}</div>}

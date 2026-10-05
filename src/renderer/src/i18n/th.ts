@@ -24,6 +24,7 @@ export const th: Dict = {
     tabPalettes: 'Palette สี',
     tabFigura: 'Figura preset',
     tabWardrobe: 'ตู้เสื้อผ้า',
+    tabAvatars: 'Figura avatar',
     tabEmotes: 'Emote',
     newSkin: 'สร้างสกินใหม่',
     importPng: 'นำเข้า PNG',
@@ -59,6 +60,18 @@ export const th: Dict = {
   top: { home: 'หน้าหลัก', undo: 'ย้อนกลับ (Ctrl+Z)', redo: 'ทำซ้ำ (Ctrl+Y)', save: 'บันทึก (Ctrl+S)', exportPng: 'ส่งออก PNG', unsaved: 'ยังไม่ได้บันทึก', leaveUnsaved: 'มีการแก้ไขที่ยังไม่ได้บันทึก ต้องการบันทึกก่อนออกไหม?' },
   uv: { title: 'UV', backToSkin: 'กลับไปที่สกิน', downscale: 'การลดความละเอียดจาก {{from}} เป็น {{to}} จะรวมพิกเซลเข้าด้วยกัน ดำเนินการต่อ?' },
   layers: {
+    importNew: 'นำเข้าภาพเป็นเลเยอร์ใหม่…',
+    importInto: 'นำเข้าภาพลงเลเยอร์นี้…',
+    copy: 'คัดลอกเลเยอร์',
+    paste: 'วางเลเยอร์',
+    pasted: 'ภาพที่วาง',
+    copied: 'คัดลอก "{{name}}" แล้ว',
+    hide: 'ซ่อน',
+    show: 'แสดง',
+    unlock: 'ปลดล็อก',
+    exportPng: 'ส่งออกเลเยอร์เป็น PNG…',
+    clear: 'ล้างเลเยอร์',
+    dropHere: 'วางไฟล์ภาพเพื่อเพิ่มเป็นเลเยอร์',
     title: 'เลเยอร์',
     add: 'เลเยอร์ใหม่',
     duplicate: 'ทำสำเนาเลเยอร์',
@@ -149,7 +162,7 @@ export const th: Dict = {
     preview: 'Figura preview',
     presets: 'Figura preset',
     motion: 'ทดสอบท่าทาง',
-    motions: { off: 'ปิด', idle: 'ยืนนิ่ง', walk: 'เดิน', run: 'วิ่ง', jump: 'กระโดด', look: 'มองรอบๆ' },
+    motions: { off: 'ปิด', idle: 'ยืนนิ่ง', walk: 'เดิน', run: 'วิ่ง', jump: 'กระโดด', look: 'มองรอบๆ', camera: 'มองตามกล้อง' },
     lengthApplies: 'เปลี่ยนความยาวจะตั้งค่าความยาว จำนวนข้อ และฟิสิกส์เริ่มต้นใหม่'
   },
   presets: {
@@ -198,6 +211,12 @@ export const th: Dict = {
     confirmDelete: 'ลบ "{{name}}" ออกจากตู้เสื้อผ้า?'
   },
   figura: {
+    enlarge: 'ขยายใหญ่',
+    zoomHelp: 'ล้อเมาส์ซูม คลิกขวาลากเพื่อเลื่อน ดับเบิลคลิกเพื่อรีเซ็ต',
+    clearFrame: 'ล้างให้ว่าง',
+    drawOwn: 'วาดเอง',
+    drawOwnHint: 'สร้างเฟรมว่างแล้ววาดเอง',
+    auto: 'อัตโนมัติ',
     frame: 'เฟรมหน้า',
     frames: { blink: 'กระพริบตา', talk: 'ปากตอนพูด', angry: 'โกรธ', happy: 'ดีใจ', shy: 'เขินอาย', interested: 'สนใจ', surprised: 'ตกใจ', crying: 'ร้องไห้', sad: 'เสียใจ' },
     face: 'ตั้งค่าใบหน้า',
@@ -209,7 +228,7 @@ export const th: Dict = {
     regenerate: 'สร้างใหม่',
     overwrite: 'แทนที่เฟรมหน้าทั้งหมดด้วยแบบเริ่มต้นใหม่?',
     noFrames: 'ยังไม่มีเฟรม ตั้งตำแหน่งตาและปากก่อน แล้วกดสร้าง',
-    paintHint: 'คลิกเฟรมเพื่อวาดแก้ในหน้า UV',
+    paintHint: 'คลิกเฟรมแล้ววาดได้ทั้งในหน้า UV หรือวาดบนหน้าตัวละคร 3D ได้เลย เฟรมที่ยังไม่มีจะกดวาดเองหรือสร้างอัตโนมัติก็ได้',
     size: 'ขนาดไฟล์ avatar',
     sizeOk: 'ไม่เกินขีดจำกัด 100 KB',
     sizeOver: 'เกิน 100 KB เซิร์ฟเวอร์ Figura ปกติจะไม่รับ แต่ยังทดสอบได้กับเซิร์ฟเวอร์ที่รับไฟล์ใหญ่กว่า:',
@@ -250,6 +269,29 @@ export const th: Dict = {
     inner: 'สีด้านใน',
     extrasPhysics: 'ฟิสิกส์หาง',
     previewOff: 'เปิด Preview (ปุ่มประกายในหัวข้อแผ่นผม) เพื่อดูในหน้า 3D'
+  },
+  keys: {
+    title: 'ปุ่มลัด',
+    groups: { general: 'ทั่วไป', tools: 'เครื่องมือ', layers: 'เลเยอร์' },
+    undo: 'ย้อนกลับ', redo: 'ทำซ้ำ', save: 'บันทึก', exportPng: 'ส่งออก PNG', mode: 'สลับโหมดสกิน / Figura', help: 'ดูปุ่มลัด', deselect: 'ยกเลิกเลือกแผ่นผม / เฟรมหน้า',
+    brush: 'แปรง', eraser: 'ยางลบ', bucket: 'ถังสี', picker: 'ดูดสี', orbit: 'หมุนมุมมอง', size: 'ขนาดแปรง', opacity: 'ความทึบแปรง', mirror: 'Mirror', grid: 'Grid', preview: 'ภาพตัวอย่างเต็มตัว',
+    copy: 'คัดลอกเลเยอร์', cut: 'ตัดเลเยอร์', paste: 'วางเลเยอร์ / ภาพ', duplicate: 'ทำสำเนาเลเยอร์', newLayer: 'เลเยอร์ใหม่', import: 'นำเข้าภาพเป็นเลเยอร์', mergeDown: 'รวมกับเลเยอร์ล่าง', moveLayer: 'เลื่อนเลเยอร์ขึ้น / ลง', rename: 'เปลี่ยนชื่อเลเยอร์', deleteLayer: 'ลบเลเยอร์'
+  },
+  avatars: {
+    add: 'เพิ่มโฟลเดอร์ avatar…',
+    hint: 'โฟลเดอร์ avatar ของ Figura จะถูกคัดลอกเก็บในคลัง เพื่อนำไปรวมกับสกินไหนก็ได้',
+    dropHere: 'วางโฟลเดอร์ avatar ที่นี่',
+    empty: 'ยังไม่มี avatar กดเพิ่มหรือลากโฟลเดอร์ avatar ของ Figura มาวาง',
+    imported: 'เพิ่ม avatar {{n}} อันแล้ว',
+    notAvatar: 'ไม่ใช่โฟลเดอร์ avatar ของ Figura: {{names}}',
+    confirmDelete: 'ย้าย "{{name}}" ไปถังขยะ?',
+    files: 'ไฟล์',
+    added: 'เพิ่มเมื่อ',
+    desktopOnly: 'คลัง avatar ต้องใช้ในแอปเดสก์ท็อป (ต้องเข้าถึงโฟลเดอร์)',
+    mergeTitle: 'รวม Figura avatar',
+    includeCurrent: 'รวม avatar ของสกินนี้ด้วย ({{name}})',
+    mergeHint: 'เลือกแล้ว {{n}} อัน · ไฟล์ชื่อซ้ำจะเปลี่ยนชื่อให้อัตโนมัติ',
+    merge: 'รวม'
   },
   extras: { hair: 'แผ่นผม', wardrobe: 'ตู้เสื้อผ้า', figuraPreview: 'Figura preview' }
 }

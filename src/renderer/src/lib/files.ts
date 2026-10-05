@@ -1,5 +1,5 @@
 /** Read image files from a drop (or file input) as data URLs; non-images are skipped. */
-export function readDroppedImages(files: FileList): Promise<{ name: string; dataUrl: string }[]> {
+export function readDroppedImages(files: FileList | File[]): Promise<{ name: string; dataUrl: string }[]> {
   return Promise.all(
     [...files]
       .filter((f) => f.type.startsWith('image/'))

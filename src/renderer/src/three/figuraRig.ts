@@ -58,6 +58,8 @@ export class FiguraRig {
   private key = ''
   enabled = false
   expr: Expression | null = null
+  /** Frame selected for painting: always shown (alone) so you can see what you draw. */
+  editFrame: FaceFrame | null = null
   talk = false
   blink = false
   private eye = new THREE.Vector2()
@@ -144,13 +146,15 @@ export class FiguraRig {
 
   applyVisibility(doc: SkinDoc) {
     const cfg = doc.figura
-    this.root.visible = this.bodyRoot.visible = this.enabled
+    this.root.visible = this.bodyRoot.visible = this.enabled || !!this.editFrame
     for (const [f, m] of this.frames) {
-      if (f === 'blink') m.visible = cfg.blink && this.blink
+      if (this.editFrame) m.visible = f === this.editFrame
+      else if (f === 'blink') m.visible = cfg.blink && this.blink
       else if (f === 'talk') m.visible = cfg.talk && this.talk && this.flap < 2
       else m.visible = cfg.expressions && this.expr === f
     }
-    const hide = (cfg.blink && this.blink) || (this.expr !== null && coversEyes(this.expr))
+    const shown = this.editFrame ?? this.expr
+    const hide = this.editFrame ? coversEyes(this.editFrame) : (cfg.blink && this.blink) || (shown !== null && coversEyes(shown))
     for (const i of this.iris) i.mesh.visible = !hide
   }
 

@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { AvatarLibrary, mergeAvatars, type MergeSource } from './avatars'
 
 const ROOT = path.join(app.getPath('appData'), 'nkw-skin-figura')
 const SKINS = path.join(ROOT, 'skins')
@@ -117,49 +118,42 @@ function registerIpc() {
     return dir
   })
 
-  /** Merge several avatar folders into one; files with clashing names get a numeric suffix. */
-  ipcMain.handle('figura:merge', async (e) => {
-    const win = BrowserWindow.fromWebContents(e.sender)!
-    const src = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'multiSelections'], title: 'Choose the Figura avatar folders to merge' })
-    if (src.canceled || src.filePaths.length < 2) return src.canceled ? null : { error: 'need2' }
-    const dst = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'], title: 'Choose an empty folder for the merged avatar' })
-    if (dst.canceled || !dst.filePaths[0]) return null
-    const out = dst.filePaths[0]
-    const taken = new Set<string>()
-    for (const f of await fs.readdir(out, { recursive: true })) taken.add(String(f).toLowerCase())
-    const renamed: { from: string; to: string }[] = []
-    let avatarJson: Record<string, unknown> | null = null
-    const authors = new Set<string>()
-    const walk = async (root: string, rel = ''): Promise<void> => {
-      for (const ent of await fs.readdir(path.join(root, rel), { withFileTypes: true })) {
-        const r = path.join(rel, ent.name)
-        if (ent.isDirectory()) {
-          await walk(root, r)
-          continue
-        }
-        if (r.toLowerCase() === 'avatar.json') {
-          const j = await readJson<Record<string, unknown>>(path.join(root, r))
-          if (j) {
-            avatarJson ??= j
-            const a = j.authors ?? j.author
-            for (const x of Array.isArray(a) ? a : a ? [a] : []) authors.add(String(x))
-          }
-          continue
-        }
-        let target = r
-        const ext = path.extname(r)
-        for (let n = 2; taken.has(target.toLowerCase()); n++) target = r.slice(0, r.length - ext.length) + '_' + n + ext
-        if (target !== r) renamed.push({ from: path.join(path.basename(root), r), to: target })
-        taken.add(target.toLowerCase())
-        await fs.mkdir(path.dirname(path.join(out, target)), { recursive: true })
-        await fs.copyFile(path.join(root, r), path.join(out, target))
-      }
+  // ---- avatar library (for merging) -----------------------------------------------------
+  const avatars = new AvatarLibrary(path.join(GLOBAL, 'avatars'))
+  ipcMain.handle('avatars:list', () => avatars.list())
+  /** Import folders (from a drop) or ask for them; returns what was added and what wasn't an avatar. */
+  ipcMain.handle('avatars:import', async (e, paths?: string[]) => {
+    if (!paths?.length) {
+      const win = BrowserWindow.fromWebContents(e.sender)!
+      const res = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'multiSelections'], title: 'Choose Figura avatar folders' })
+      if (res.canceled) return { added: [], failed: [] }
+      paths = res.filePaths
     }
-    for (const dir of src.filePaths) await walk(dir)
-    const merged = { ...(avatarJson ?? { name: 'Merged avatar' }), authors: [...authors] }
-    delete (merged as Record<string, unknown>).author
-    await fs.writeFile(path.join(out, 'avatar.json'), JSON.stringify(merged, null, 2))
-    return { out, count: src.filePaths.length, renamed }
+    const added = []
+    const failed: string[] = []
+    for (const p of paths) {
+      const m = await avatars.import(p)
+      if (m) added.push(m)
+      else failed.push(path.basename(p))
+    }
+    return { added, failed }
+  })
+  ipcMain.handle('avatars:update', (_e, id: string, patch: { name?: string }) => avatars.update(id, { name: String(patch.name ?? '') }))
+  ipcMain.handle('avatars:delete', async (_e, id: string) => {
+    await shell.trashItem(avatars.libDir(id))
+    return true
+  })
+  /** Merge library avatars (and optionally this skin's generated avatar) into a chosen folder. */
+  ipcMain.handle('avatars:merge', async (e, ids: string[], current: { name: string; files: Record<string, string> } | null, outName: string) => {
+    const win = BrowserWindow.fromWebContents(e.sender)!
+    const res = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'], title: 'Choose where to save the merged avatar' })
+    if (res.canceled || !res.filePaths[0]) return null
+    const metas = await avatars.list()
+    const sources: MergeSource[] = []
+    if (current) sources.push({ files: current.files, label: current.name })
+    for (const id of ids) sources.push({ dir: avatars.filesDir(id), label: metas.find((m) => m.id === id)?.name ?? id })
+    const safe = outName.replace(/[^\w\- ]+/g, '').trim() || 'Merged avatar'
+    return mergeAvatars(path.join(res.filePaths[0], safe), sources)
   })
 
   ipcMain.handle('dialog:openImage', async (e) => {
