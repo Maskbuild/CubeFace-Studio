@@ -124,3 +124,14 @@ describe('merged avatars keep working', () => {
     expect(rewriteRefs('models.a.b', new Map([['a', 'a_2']]), new Map())).toBe('models.a_2.b')
   })
 })
+
+describe('merged avatar icon', () => {
+  it('keeps the first avatar.png only', async () => {
+    const a = avatar('A', 'x', { 'avatar.png': 'AAA' })
+    const b = avatar('B', 'y', { 'avatar.png': 'BBB' })
+    const out = path.join(tmp(), 'm3')
+    await mergeAvatars(out, [{ dir: a, label: 'A' }, { dir: b, label: 'B' }])
+    expect(readFileSync(path.join(out, 'avatar.png'), 'utf8')).toBe('AAA')
+    expect(existsSync(path.join(out, 'avatar_2.png'))).toBe(false)
+  })
+})

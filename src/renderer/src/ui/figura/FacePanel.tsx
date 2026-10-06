@@ -251,6 +251,17 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
           <Icon name="sun" size={13} />
           {t('glow.eyes')}
         </label>
+        {doc.figura.glowEyes && (
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn sm-btn grow" title={t('glow.spotsHint')} onClick={() => setPainting(doc.ensureGlowMask())}>
+              <Icon name="brush" size={13} />
+              {t('glow.spots')}
+            </button>
+            {doc.faces.glowMask && (
+              <button className="btn sm-btn" title={t('glow.spotsResetHint')} onClick={() => doc.removeFace('glowMask')}>{t('glow.spotsReset')}</button>
+            )}
+          </div>
+        )}
       </div>
       <div className="section" style={{ borderBottom: 0 }}>
         <span className="muted" style={{ fontSize: 12 }}>{t('figura.paintHint')}</span>

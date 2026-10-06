@@ -28,7 +28,7 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
   const [underlay, setUnderlay] = useState(0.5)
   const boxRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const frames = allFrames(doc.figura).filter((f) => doc.faces[f])
+  const frames = [...allFrames(doc.figura), 'glowMask' as FaceFrame].filter((f) => doc.faces[f])
   const faceSize = doc.faceSize()
   const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
   const [effect, setEffect] = useState<FaceEffect | null>(null)
@@ -57,7 +57,12 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
 
     const syncImages = () => {
       const img = doc.faces[state.current.frame]
-      if (img) frameCanvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(img.data), n, n), 0, 0)
+      if (img) {
+        const px = new Uint8ClampedArray(img.data)
+        // glow spots: the colour doesn't matter, show them as a yellow highlight
+        if (state.current.frame === 'glowMask') for (let i = 0; i < px.length; i += 4) if (px[i + 3]) px.set([255, 214, 0, 150], i)
+        frameCanvas.getContext('2d')!.putImageData(new ImageData(px, n, n), 0, 0)
+      }
       const face = doc.faceImage()
       faceCanvas.getContext('2d')!.putImageData(new ImageData(face.data, n, n), 0, 0)
     }

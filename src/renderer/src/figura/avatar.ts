@@ -5,6 +5,7 @@ import { cuboids } from '../skin/layout'
 import { cloneImg, composite, createImg, writeRect, type Img } from '../skin/pixels'
 import { dataUrlToImg, imgToDataUrl } from '../lib/png'
 import { buildAtlas } from './atlas'
+import { figuraSize } from './size'
 import { usedCuboids, usedHeight } from '../skin/usage'
 import { rescale } from '../skin/hair'
 import { buildModel } from './bbmodel'
@@ -27,12 +28,6 @@ export interface AvatarFiles {
   breakdown: { texture: number; scripts: number; model: number }
 }
 
-async function gzipSize(parts: (string | Uint8Array)[]): Promise<number> {
-  if (typeof CompressionStream === 'undefined') return parts.reduce((n, p) => n + (typeof p === 'string' ? p.length : p.byteLength), 0)
-  const blob = new Blob(parts as BlobPart[])
-  const stream = blob.stream().pipeThrough(new CompressionStream('gzip'))
-  return (await new Response(stream).arrayBuffer()).byteLength
-}
 
 const pngBytes = (dataUrl: string) => Uint8Array.from(atob(dataUrl.slice(dataUrl.indexOf(',') + 1)), (c) => c.charCodeAt(0))
 
@@ -54,10 +49,15 @@ export function glowInfo(doc: SkinDoc): { eyes: boolean; skin: boolean; hair: st
   }
 }
 
-/** The face with only the eye boxes kept (what glows when "glowing eyes" is on). */
+/** The face with only the glowing spots kept: the painted glow mask, else the eye boxes. */
 export function eyesOnly(doc: SkinDoc): Img {
   const face = faceWithFrame(doc, 'base')
   const out = createImg(face.w, face.h)
+  const mask = doc.faces.glowMask
+  if (mask && mask.w === face.w) {
+    for (let i = 0; i < face.w * face.h; i++) if (mask.data[i * 4 + 3] > 0) out.data.set(face.data.subarray(i * 4, i * 4 + 4), i * 4)
+    return out
+  }
   for (const r of [doc.figura.eyeR, doc.figura.eyeL])
     for (let y = r.y; y < Math.min(face.h, r.y + r.h); y++)
       for (let x = r.x; x < Math.min(face.w, r.x + r.w); x++) out.data.set(face.data.subarray((y * face.w + x) * 4, (y * face.w + x) * 4 + 4), (y * face.w + x) * 4)
@@ -177,15 +177,9 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
   }
   if (usesPhysics) files['nkw_physics.lua'] = physicsLua
   if (usesAuria) Object.assign(files, AURIA_FILES, { 'auria_wheel/conf.lua': conf })
+  // the picture Figura shows next to the avatar in its wardrobe list
+  if (cfg.icon) files['avatar.png'] = pngBytes(cfg.icon)
 
-  // Size estimate: Figura stores textures as PNG and models as compact data, then compresses.
-  const png = pngBytes(atlasUrl)
-  const glowPng = glowUrl ? [pngBytes(glowUrl)] : []
-  const modelNoTex = JSON.stringify({ ...model, textures: [] })
-  const luaParts = Object.entries(files).filter(([p]) => p.endsWith('.lua')).map(([, v]) => v as string)
-  const extraBin = Object.entries(files).filter(([p]) => p.startsWith('auria_wheel/') && !p.endsWith('.lua')).map(([, v]) => v)
-  const [texture, scriptSize, modelSize] = await Promise.all([gzipSize([png, ...glowPng, ...extraBin]), gzipSize(luaParts), gzipSize([modelNoTex])])
-  // Figura's binary model is much smaller than Blockbench JSON; ~35% is a conservative ratio
-  const model35 = Math.round(modelSize * 0.35)
-  return { files, size: texture + scriptSize + model35, breakdown: { texture, scripts: scriptSize, model: model35 } }
+  const sz = await figuraSize(files)
+  return { files, size: sz.total, breakdown: { texture: sz.texture, scripts: sz.scripts, model: sz.model } }
 }

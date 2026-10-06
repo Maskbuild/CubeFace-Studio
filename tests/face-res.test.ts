@@ -50,3 +50,20 @@ describe('face image size', () => {
     expect(prepareAtlas(doc, 'figura').atlas.img.w).toBe(128)
   })
 })
+
+describe('glow spots', () => {
+  it('starts from the eye boxes and glows only the painted spots', async () => {
+    const { eyesOnly } = await import('../src/renderer/src/figura/avatar')
+    const doc = new SkinDoc({ name: 'T', res: 64, variant: 'wide' })
+    doc.generateFaces()
+    doc.updateFigura({ glowEyes: true })
+    const before = eyesOnly(doc).data.filter((_, i) => i % 4 === 3 && _ > 0).length
+    doc.ensureGlowMask()
+    const mask = doc.faces.glowMask!
+    expect(eyesOnly(doc).data.filter((_, i) => i % 4 === 3 && _ > 0).length).toBe(before)
+    mask.data.fill(0)
+    mask.data.set([255, 255, 255, 255], 0)
+    const g = eyesOnly(doc)
+    expect(g.data.filter((_, i) => i % 4 === 3 && _ > 0).length).toBeLessThanOrEqual(1)
+  })
+})

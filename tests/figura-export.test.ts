@@ -289,3 +289,31 @@ describe('smooth hair, glowing eyes and glow switches', () => {
     expect(cfg.wheelV).toBe(2)
   })
 })
+
+describe('smooth head, switch defaults, size', () => {
+  const info = { hairChains: [], faceParts: { blink: 'F_blink' }, replaces: [], atlas: { w: 64, h: 64, slots: {} }, glow: { eyes: true, skin: false, hair: [], skinParts: [] } } as any
+  it('turns every head part (merged avatars too) with the smooth head', () => {
+    const s = buildScript('T', { ...figuraDefaults(64), smoothHead: true }, info, [])
+    expect(s).toContain('findHeads(models)')
+    expect(s).toContain('for _, p in ipairs(HEADS) do p:setOffsetRot(r) end')
+    expect(s).not.toContain('M.Head:setRot(vec(')
+    expect(() => luaparse.parse(s, { luaVersion: '5.2' })).not.toThrow()
+  })
+  it('starts chosen switches off', () => {
+    const cfg = { ...figuraDefaults(64), glowEyes: true, startOff: ['glow', 'blink'] }
+    const s = buildScript('T', cfg, info, [])
+    expect(s).toContain('applyToggle("glow", false)')
+    expect(s).toContain('applyToggle("blink", false)')
+    expect(s).toMatch(/title\("Glow"\)[^\n]*:setToggled\(false\)/)
+    expect(() => luaparse.parse(s, { luaVersion: '5.2' })).not.toThrow()
+  })
+  it('estimates the upload size like Figura (textures + minified scripts + compact models)', async () => {
+    const { figuraSize, minifyLua } = await import('../src/renderer/src/figura/size')
+    expect(minifyLua('-- note\n  local a = 1 -- x\n--[[ block\n]]\nreturn a')).toBe('local a = 1\nreturn a')
+    const png = 'data:image/png;base64,' + Buffer.alloc(3000, 7).toString('base64')
+    const r = await figuraSize({ 'm.bbmodel': JSON.stringify({ textures: [{ source: png }], elements: [], outliner: [] }), 's.lua': '-- only a comment\nprint(1)', 'avatar.png': new Uint8Array(500) })
+    expect(r.texture).toBe(3000)
+    expect(r.total).toBe(r.texture + r.scripts + r.model)
+    expect(r.scripts).toBeLessThan(40)
+  })
+})

@@ -14,7 +14,8 @@ export type CustomFrame = `x_${string}`
  * Face overlay frames: "base" replaces the skin's own face in Figura (always shown, under
  * everything else), then blink / talk / expressions drawn on top of it.
  */
-export type FaceFrame = Expression | 'base' | 'blink' | 'talk' | CustomFrame
+/** glowMask: which face pixels glow (painted, not a frame shown in game; default = the eye boxes). */
+export type FaceFrame = Expression | 'base' | 'blink' | 'talk' | 'glowMask' | CustomFrame
 /** Any expression shown on the action wheel (built-in or custom). */
 export type ExprKey = Expression | CustomFrame
 export const FACE_FRAMES: FaceFrame[] = ['base', 'blink', 'talk', ...EXPRESSIONS]
@@ -123,6 +124,10 @@ export interface FiguraConfig {
    * undefined = same as the skin. Eye and mouth boxes are in face-frame texels.
    */
   faceRes?: number
+  /** Avatar icon shown in Figura's wardrobe list (avatar.png), as a PNG data URL. */
+  icon?: string
+  /** Wheel switches that start switched off (glow, blink…). */
+  startOff?: string[]
   smoothHead: boolean
   headSpeed: number // 0.05 (lazy) .. 1 (instant)
   hairPhysics: boolean

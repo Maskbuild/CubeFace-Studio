@@ -249,6 +249,10 @@ export const en = {
     confirmDelete: 'Delete "{{name}}" from the wardrobe?'
   },
   figura: {
+    icon: "Avatar icon",
+    iconPick: "Choose picture…",
+    iconChange: "Change…",
+    iconHint: "Shown next to the avatar in the Figura wardrobe list (avatar.png). Made square.",
     faceRes: "Face image size",
     faceResSkin: "Same as skin ({{r}} · {{n}}×{{n}} px)",
     faceResOpt: "{{r}} · {{n}}×{{n}} px",
@@ -401,6 +405,10 @@ export const en = {
     bedrockNote: 'Bedrock can only change the player model through a resource pack, so every player in a world that uses the pack will look like this skin — best for single-player, screenshots and videos. Expressions follow game states (hurt = angry, sneaking = shy, eating = happy, low health = crying, falling = surprised); blinking and sleeping close the eyes. Talking and smooth eyes are Java/Figura-only. Open the .mcpack to import it, then enable it in the world\'s Resource Packs.'
   },
   wheel: {
+    startState: "At start",
+    startOn: "On",
+    startOff: "Off",
+    startHint: "How this switch is when the avatar loads; the wheel button turns it on and off.",
     toggle_glowEyes: "Glowing eyes on/off",
     toggle_glowSkin: "Skin glow on/off",
     toggle_glowHair: "Glow: {{name}}",
@@ -567,6 +575,10 @@ export const en = {
     },
   },
   glow: {
+    spots: "Choose glow spots…",
+    spotsHint: "Paint the spots of the face that glow (eyes, marks, anything). Starts from the eye boxes.",
+    spotsReset: "Use eye boxes",
+    spotsResetHint: "Forget the painted spots and let the eye boxes glow again",
     eyes: "Glowing eyes",
     eyesHint: "The eye boxes (set above) glow in the dark; they go dark while blinking. Exported as skin_e (Figura emissive).",
     toggle: "Glow in the dark (Figura)",

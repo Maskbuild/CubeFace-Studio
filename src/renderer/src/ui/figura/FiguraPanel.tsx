@@ -4,6 +4,8 @@ import type { SkinDoc } from '../../skin/doc'
 import { exprKeys, liveWheel, toEnglish, type FiguraConfig } from '../../skin/figura'
 import { frameLabel } from './frameLabel'
 import { buildAvatar, glowInfo, type AvatarFiles } from '../../figura/avatar'
+import { figuraSize } from '../../figura/size'
+import { squareLogo } from '../../pose/library'
 import { storage, type AvatarMeta } from '../../lib/storage'
 import { useEditor } from '../../store/editor'
 import { MOTION_MODES } from '../../three/motion'
@@ -68,7 +70,7 @@ function SizeMeter({ doc }: { doc: SkinDoc }) {
       const out: { name: string; size: number }[] = []
       for (const id of ids) {
         const m = metas.find((x) => x.id === id)
-        if (m) out.push({ name: m.name, size: estimateAvatarSize(await storage.avatarFiles(id)) })
+        if (m) out.push({ name: m.name, size: await attachedSize(id) })
       }
       if (live) setExtra(out)
     })()
@@ -141,18 +143,60 @@ function WheelSummary({ doc }: { doc: SkinDoc }) {
   )
 }
 
-/**
- * Rough upload size of a library avatar from its files, the way Figura stores them: PNG as is,
- * models and scripts compressed (Blockbench JSON shrinks a lot in Figura's format).
- */
-function estimateAvatarSize(files: { path: string; size: number }[]): number {
-  let n = 0
-  for (const f of files) {
-    const p = f.path.toLowerCase()
-    if (p.endsWith('avatar.json')) continue
-    n += p.endsWith('.bbmodel') ? f.size * 0.45 : p.endsWith('.lua') ? f.size * 0.35 : p.endsWith('.png') ? f.size : f.size * 0.9
+/** Upload size of a library avatar, estimated the same way as this skin's (reads its scripts and models). */
+async function attachedSize(id: string): Promise<number> {
+  const list = await storage.avatarFiles(id)
+  const files: Record<string, string> = {}
+  for (const f of list) {
+    const low = f.path.toLowerCase()
+    if (!low.endsWith('.lua') && !low.endsWith('.bbmodel')) continue
+    const text = await storage.readAvatarFile(id, f.path)
+    if (text != null) files[f.path] = text
   }
-  return Math.round(n)
+  // no file access (browser build): fall back to the file sizes
+  if (!Object.keys(files).length) return Math.round(list.reduce((n, f) => n + (/\.(lua|bbmodel)$/i.test(f.path) ? f.size * 0.3 : 0), 0))
+  return (await figuraSize(files)).total
+}
+
+/** The picture next to the avatar in Figura's wardrobe list (avatar.png). */
+function AvatarIcon({ doc }: { doc: SkinDoc }) {
+  const { t } = useTranslation()
+  const icon = doc.figura.icon
+  const pick = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/png,image/jpeg,image/webp,image/gif'
+    input.onchange = async () => {
+      const f = input.files?.[0]
+      if (!f) return
+      const url = await new Promise<string>((res) => {
+        const r = new FileReader()
+        r.onload = () => res(r.result as string)
+        r.readAsDataURL(f)
+      })
+      doc.updateFigura({ icon: await squareLogo(url) })
+    }
+    input.click()
+  }
+  return (
+    <div className="section">
+      <div className="section-head">
+        <span className="label">{t('figura.icon')}</span>
+      </div>
+      <div className="row" style={{ gap: 10 }}>
+        <button className="avatar-icon-pick checker" title={t('figura.iconPick')} onClick={pick}>
+          {icon ? <img src={icon} alt="" /> : <Icon name="plus" />}
+        </button>
+        <div className="grow" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span className="muted" style={{ fontSize: 11 }}>{t('figura.iconHint')}</span>
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn sm-btn" onClick={pick}>{icon ? t('figura.iconChange') : t('figura.iconPick')}</button>
+            {icon && <button className="btn sm-btn" onClick={() => doc.updateFigura({ icon: undefined })}>{t('common.delete')}</button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 /** Library avatars used with this skin: toggled in the preview, exported as separate folders. */
@@ -220,6 +264,7 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
         </div>
       </div>
 
+      <AvatarIcon doc={doc} />
       <AttachedAvatars doc={doc} />
 
       <div className="section">

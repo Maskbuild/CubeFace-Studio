@@ -97,7 +97,7 @@ function FiguraPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPag
           const x = Math.sin(mid) * ((R0 + R1) / 2), y = -Math.cos(mid) * ((R0 + R1) / 2)
           const v = s.it ? itemView(c, s.it) : null
           const isToggle = s.it?.type === 'toggle'
-          const on = isToggle && (toggled[s.id] ?? true)
+          const on = isToggle && (toggled[s.id] ?? !c.startOff?.includes(s.it!.toggle!))
           const fill = on ? '#5ca85c' : v?.color
           return (
             <g
@@ -182,7 +182,7 @@ function AuriaPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPage
           const ang = (i / n) * Math.PI * 2 - Math.PI / 2
           const x = Math.cos(ang) * R, y = Math.sin(ang) * R
           const v = itemView(c, it)
-          const on = toggled[it.id] ?? true
+          const on = toggled[it.id] ?? !(it.type === 'toggle' && c.startOff?.includes(it.toggle!))
           return (
             <g
               key={it.id}
@@ -436,6 +436,15 @@ export function WheelWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => voi
                               {toggleChoices.map(([tg, label]) => <option key={tg} value={tg}>{label}</option>)}
                             </select>
                           </label>
+                        )}
+                        {it.type === 'toggle' && it.toggle && (
+                          <div className="row" style={{ gap: 8 }} title={t('wheel.startHint')}>
+                            <span className="muted">{t('wheel.startState')}</span>
+                            <div className="seg">
+                              <button className={!c.startOff?.includes(it.toggle) ? 'on' : ''} onClick={() => doc.updateFigura({ startOff: (c.startOff ?? []).filter((x) => x !== it.toggle) })}>{t('wheel.startOn')}</button>
+                              <button className={c.startOff?.includes(it.toggle) ? 'on' : ''} onClick={() => doc.updateFigura({ startOff: [...(c.startOff ?? []).filter((x) => x !== it.toggle), it.toggle!] })}>{t('wheel.startOff')}</button>
+                            </div>
+                          </div>
                         )}
                         <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
                           <span className="muted">{t('wheel.color')}</span>

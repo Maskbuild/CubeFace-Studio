@@ -276,6 +276,8 @@ export async function mergeAvatars(out: string, sources: MergeSource[]) {
     const targets = new Map<string, string>()
     for (const f of files) {
       if (f === infoFile) continue
+      // one wardrobe icon: the first avatar that has one keeps it
+      if (f.rel.toLowerCase() === 'avatar.png' && taken.has('avatar.png')) continue
       const target = reserve(f.rel)
       targets.set(f.rel, target)
       if (target !== f.rel) renamed.push({ from: `${s.label}/${f.rel}`, to: target })
@@ -284,7 +286,7 @@ export async function mergeAvatars(out: string, sources: MergeSource[]) {
       if (ext === '.lua') scripts.set(figuraId(f.rel, '.lua'), figuraId(target, '.lua'))
     }
     for (const f of files) {
-      if (f === infoFile) continue
+      if (f === infoFile || !targets.has(f.rel)) continue
       const target = targets.get(f.rel)!
       let data: Buffer | string = f.data
       if (path.extname(f.rel).toLowerCase() === '.lua') {

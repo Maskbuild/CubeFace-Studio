@@ -533,6 +533,19 @@ export class SkinDoc {
     })
   }
 
+  /** The glow spots of the face, made from the eye boxes the first time. */
+  ensureGlowMask(): FaceFrame {
+    if (!this.faces.glowMask) {
+      const n = this.faceSize()
+      const img = createImg(n, n)
+      for (const r of [this.figura.eyeR, this.figura.eyeL])
+        for (let y = Math.max(0, r.y); y < Math.min(n, r.y + r.h); y++)
+          for (let x = Math.max(0, r.x); x < Math.min(n, r.x + r.w); x++) img.data.set([255, 255, 255, 255], (y * n + x) * 4)
+      this.change(() => (this.faces = { ...this.faces, glowMask: img }))
+    }
+    return 'glowMask'
+  }
+
   /** Add a user-made expression (blank frame, ready to paint). */
   addCustomExpr(name: string, coversEyes = false) {
     const c = { id: newId().slice(0, 8).toLowerCase(), name, coversEyes }
