@@ -238,30 +238,20 @@ describe('action wheel pages', () => {
   })
 })
 
-import { hairTips } from '../src/renderer/src/skin/hair'
 
-describe('flowing hair, tips, eyes and glow switch', () => {
-  it('splits a plane into strands with their own chains, curve and flutter', () => {
+describe('smooth hair, glowing eyes and glow switches', () => {
+  it('keeps a plane one smooth piece (old split planes too) with curve and flutter', () => {
     const h = { ...hair, strands: 3, curl: 30, flutter: 0.5 }
     const { model, info } = buildModel(input({ hair: [h], faceFrames: [] })) as { model: Any; info: any }
-    expect(info.hairChains).toHaveLength(3)
-    expect(info.hairChains[1].path).toEqual(['Hair1', 'st2', 's1', 's2', 's3'])
+    expect(info.hairChains).toHaveLength(1)
+    expect(info.hairChains[0].path).toEqual(['Hair1', 's1', 's2', 's3'])
     expect(model.groups.find((g: Any) => g.name === 's1').rotation[0]).toBeCloseTo(10) // 30° over 3 segments
     const s = buildScript('T', figuraDefaults(64), info, [h])
-    expect(s.match(/phys\.chain\(/g)).toHaveLength(3)
-    expect(s).toContain('M.Head.Hair1.st2.s1, M.Head.Hair1.st2.s1.s2')
-    expect(s).toContain('flutter = 0.5, phase =')
+    expect(s.match(/phys\.chain\(/g)).toHaveLength(1)
+    expect(s).toContain('flutter = 0.5')
     expect(s).toContain('gravity = 1') // hangs down when bending (default on)
     parse(s)
-    const stiff = buildScript('T', figuraDefaults(64), info, [{ ...h, hang: false }])
-    expect(stiff).toContain('gravity = 0')
-  })
-  it('cuts pointed tips into the bottom of a hair texture', () => {
-    const img = createImg(8, 8)
-    img.data.fill(255)
-    const out = hairTips(img, 4, 3)
-    expect(out.data[(7 * 8 + 0) * 4 + 3]).toBe(0) // corner of a lock is cut away
-    expect(out.data[(0 * 8 + 0) * 4 + 3]).toBe(255) // the top stays
+    expect(buildScript('T', figuraDefaults(64), info, [{ ...h, hang: false }])).toContain('gravity = 0')
   })
   it('exports glowing eyes and a glow switch per part', () => {
     const slots = { ...input().slots, face_base: { x: 0, y: 72, w: 8, h: 8 }, eyes_glow: { x: 24, y: 64, w: 8, h: 8 } }

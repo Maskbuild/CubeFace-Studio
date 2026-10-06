@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { DEFAULT_FLOW, LENGTH_PRESET, physFromFlow, type HairLength, type HairPlane, type HairSide, hairOpts, HAIR_PRESETS, hairTips, type HairPreset } from '../../skin/hair'
+import { DEFAULT_FLOW, LENGTH_PRESET, physFromFlow, type HairLength, type HairPlane, type HairSide, hairOpts } from '../../skin/hair'
 import { MOTION_MODES, type MotionMode } from '../../three/motion'
 import { useEditor } from '../../store/editor'
 import { Icon } from '../common/Icon'
 import { HairTextureTools } from './HairTexture'
-import { cuboids, scaleRect } from '../../skin/layout'
-import { fillRect, type RGBA } from '../../skin/pixels'
 
 const SIDES: HairSide[] = ['front', 'back']
 const LENGTHS: HairLength[] = ['short', 'medium', 'long']
@@ -112,52 +110,13 @@ function HairProps({ doc, h }: { doc: SkinDoc; h: HairPlane }) {
         {t('hair.hang')}
       </label>
       <PhysSlider label={t('hair.flutter')} value={opt.flutter} min={0} max={1} step={0.05} onChange={(v) => up({ flutter: v })} />
-      <PhysSlider label={t('hair.strands')} value={opt.strands} min={1} max={8} step={1} fmt={(v) => String(v)} onChange={(v) => up({ strands: v })} />
       <PhysSlider label={t('hair.curl')} value={opt.curl} min={-90} max={90} step={5} fmt={(v) => v + '°'} onChange={(v) => up({ curl: v })} />
       <span className="muted" style={{ fontSize: 11 }}>{t('hair.flowyHint')}</span>
-      <button className="btn sm-btn" onClick={() => up({ flutter: 0.6, strands: Math.max(4, Math.round(h.w / 2)), hang: true, phys: physFromFlow(Math.max(flow, 0.7), h.length) })}>
+      <button className="btn sm-btn" onClick={() => up({ flutter: 0.5, strands: 1, hang: true, segments: Math.max(h.segments, Math.min(10, Math.round(h.h / 1.5))), phys: physFromFlow(Math.max(flow, 0.7), h.length) })}>
         <Icon name="sparkle" size={12} />
         {t('hair.flowyPreset')}
       </button>
     </div>
-  )
-}
-
-/** The skin's hair colour: the most common colour on top of the head (brown when empty). */
-function skinHairColor(doc: SkinDoc): RGBA {
-  const head = cuboids(doc.variant).find((c) => c.key === 'head.base')!
-  const top = scaleRect(head.faces.find((f) => f.name === 'top')!.rect, doc.res)
-  const counts = new Map<number, { n: number; c: RGBA }>()
-  for (let y = top.y; y < top.y + top.h; y++)
-    for (let x = top.x; x < top.x + top.w; x++) {
-      const i = (y * doc.res + x) * 4
-      const d = doc.composite.data
-      if (d[i + 3] < 200) continue
-      const key = ((d[i] >> 4) << 8) | ((d[i + 1] >> 4) << 4) | (d[i + 2] >> 4)
-      const e = counts.get(key)
-      if (e) e.n++
-      else counts.set(key, { n: 1, c: [d[i], d[i + 1], d[i + 2], 255] })
-    }
-  let best: { n: number; c: RGBA } | null = null
-  for (const e of counts.values()) if (!best || e.n > best.n) best = e
-  return best?.c ?? [92, 60, 38, 255]
-}
-
-/** Little drawing of where each preset goes on the head. */
-function HairPresetIcon({ id }: { id: HairPreset['id'] }) {
-  const hair = {
-    bangs: <path d="M7 7h10v5l-1.5 1.5L14 12l-2 1.5L10 12l-1.5 1.5L7 12z" />,
-    sideL: <path d="M16.5 7h2v10l-1 1.5-1-1.5z" />,
-    sideR: <path d="M5.5 7h2v10l-1 1.5-1-1.5z" />,
-    backLong: <path d="M6 6h12v14l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z" opacity=".6" />,
-    backShort: <path d="M6 6h12v7l-2-1-2 1-2-1-2 1-2-1-2 1z" opacity=".6" />,
-    ponytail: <path d="M11 9h2v10l-1 2-1-2z" opacity=".7" />
-  }[id]
-  return (
-    <svg viewBox="0 0 24 24" width={30} height={30} className="hair-preset-ic">
-      <rect x="7" y="6" width="10" height="10" rx="1.5" className="head" />
-      <g className="hair">{hair}</g>
-    </svg>
   )
 }
 
@@ -169,14 +128,6 @@ export function HairPanel({ doc }: { doc: SkinDoc }) {
   const [length, setLength] = useState<HairLength>('medium')
   const sel = doc.hairPlane(doc.hairId)
 
-  const addPreset = (p: HairPreset) => {
-    set({ figura: true })
-    const color = skinHairColor(doc)
-    doc.addHair(p.side, p.length, t('hair.preset_' + p.id), p.extra, (img) => {
-      fillRect(img, { x: 0, y: 0, w: img.w, h: img.h }, color, 1)
-      return hairTips(img, Math.max(2, Math.round(img.w / (p.extra.strands ?? 2) / 2)), Math.max(2, Math.round(img.h * 0.2)))
-    })
-  }
   return (
     <div className="section">
       <div className="section-head">
@@ -189,17 +140,6 @@ export function HairPanel({ doc }: { doc: SkinDoc }) {
         </div>
       </div>
 
-      <span className="muted" style={{ fontSize: 11 }}>{t('hair.presetHint')}</span>
-      <div className="hair-presets">
-        {HAIR_PRESETS.map((p) => (
-          <button key={p.id} className="hair-preset" onClick={() => addPreset(p)} title={t('hair.presetTip')}>
-            <HairPresetIcon id={p.id} />
-            <span>{t('hair.preset_' + p.id)}</span>
-          </button>
-        ))}
-      </div>
-      <details className="hair-custom">
-        <summary className="muted">{t('hair.custom')}</summary>
       <div className="row">
         <div className="seg grow">
           {SIDES.map((s) => (
@@ -222,7 +162,6 @@ export function HairPanel({ doc }: { doc: SkinDoc }) {
         <Icon name="plus" />
         {t('hair.add')}
       </button>
-      </details>
 
       {doc.hair.length === 0 && <div className="muted" style={{ fontSize: 12 }}>{t('hair.empty')}</div>}
       <div className="hair-list">

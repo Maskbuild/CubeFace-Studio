@@ -3,6 +3,7 @@ import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import os from 'node:os'
 import zlib from 'node:zlib'
+import { createExtractorFromData } from 'node-unrar-js'
 
 /** A Figura avatar folder kept in the app's avatar library (global/avatars/<id>/files). */
 export interface AvatarMeta {
@@ -82,10 +83,12 @@ export class AvatarLibrary {
   async importAny(src: string): Promise<AvatarMeta[]> {
     const st = await fs.stat(src).catch(() => null)
     if (!st) return []
-    if (st.isFile() && /\.zip$/i.test(src)) {
+    if (st.isFile() && /\.(zip|rar)$/i.test(src)) {
       const tmp = path.join(os.tmpdir(), 'nkw-avatar-' + randomUUID())
       try {
-        await extractZip(await fs.readFile(src), tmp)
+        const buf = await fs.readFile(src)
+        if (/\.rar$/i.test(src)) await extractRar(buf, tmp)
+        else await extractZip(buf, tmp)
         const roots = await findAvatarRoots(tmp)
         const out: AvatarMeta[] = []
         for (const r of roots) {
@@ -109,7 +112,7 @@ export class AvatarLibrary {
       if (ent.isDirectory() && (await isAvatarDir(p))) {
         const m = await this.import(p)
         if (m) out.push(m)
-      } else if (ent.isFile() && /\.zip$/i.test(ent.name)) out.push(...(await this.importAny(p)))
+      } else if (ent.isFile() && /\.(zip|rar)$/i.test(ent.name)) out.push(...(await this.importAny(p)))
     }
     return out
   }
@@ -295,5 +298,21 @@ export async function extractZip(buf: Buffer, dest: string) {
     if (!data) continue
     await fs.mkdir(path.dirname(out), { recursive: true })
     await fs.writeFile(out, data)
+  }
+}
+
+/** Extract a .rar archive (node-unrar-js, WebAssembly), with the same path guard as zips. */
+export async function extractRar(buf: Buffer, dest: string) {
+  const data = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
+  const extractor = await createExtractorFromData({ data })
+  const { files } = extractor.extract()
+  const root = path.resolve(dest)
+  for (const f of files) {
+    if (f.fileHeader.flags.directory || !f.extraction) continue
+    const name = f.fileHeader.name.replace(/\\/g, '/')
+    const out = path.resolve(root, name)
+    if (!out.startsWith(root + path.sep)) continue // path-escape guard
+    await fs.mkdir(path.dirname(out), { recursive: true })
+    await fs.writeFile(out, f.extraction)
   }
 }

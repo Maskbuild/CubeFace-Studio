@@ -222,6 +222,7 @@ export function AvatarLibrary({ selected, onToggle }: { selected?: Set<string>; 
         <button className="icon-btn sm" title={t('avatars.newCategory')} onClick={addCategory}><Icon name="plus" size={14} /></button>
         <div className="grow" />
         <button className="btn" onClick={async () => report(await storage.importAvatars())}><Icon name="plus" />{t('avatars.add')}</button>
+        <button className="btn" onClick={async () => report(await storage.importAvatars(undefined, true))}><Icon name="download" />{t('avatars.addArchive')}</button>
       </div>
       <span className="muted" style={{ fontSize: 12 }}>{t('avatars.hint')}</span>
       {list && shown.length === 0 && <div className="empty" style={{ padding: '30px 0' }}>{t('avatars.empty')}</div>}

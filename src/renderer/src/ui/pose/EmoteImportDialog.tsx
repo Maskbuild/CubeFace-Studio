@@ -5,6 +5,9 @@ import { defaultRights, type Rights } from '../../skin/rights'
 import { Modal } from '../common/dialogs'
 import { RightsEditor } from '../common/RightsEditor'
 import { EmotePreview } from './EmotePreview'
+import { Icon } from '../common/Icon'
+import { storage } from '../../lib/storage'
+import { squareLogo } from '../../pose/library'
 
 /**
  * New emotes, one at a time: a still preview (no turntable), the name, and where it came from
@@ -16,6 +19,12 @@ export function EmoteImportDialog({ queue, onAdd, onClose }: { queue: Emote[]; o
   const [name, setName] = useState(e.name)
   const [rights, setRights] = useState<Rights>(e.rights ?? defaultRights())
   const [all, setAll] = useState(false)
+  // .emotecraft files bring their own icon; JSON emotes can get one here
+  const [icon, setIcon] = useState<string | undefined>(e.icon)
+  const pickLogo = async () => {
+    const f = await storage.openImage()
+    if (f) setIcon(await squareLogo(f.dataUrl))
+  }
   const left = queue.length - 1
   return (
     <Modal
@@ -32,7 +41,7 @@ export function EmoteImportDialog({ queue, onAdd, onClose }: { queue: Emote[]; o
           <button className="btn" onClick={() => onAdd([])}>{t('pose.skip')}</button>
           <button
             className="btn primary"
-            onClick={() => onAdd(all ? queue.map((x, i) => ({ ...x, name: i === 0 ? name.trim() || x.name : x.name, rights })) : [{ ...e, name: name.trim() || e.name, rights }])}
+            onClick={() => onAdd(all ? queue.map((x, i) => ({ ...x, ...(i === 0 ? { name: name.trim() || x.name, icon } : {}), rights })) : [{ ...e, name: name.trim() || e.name, icon, rights }])}
           >
             {t('pose.addEmote')}
           </button>
@@ -47,6 +56,14 @@ export function EmoteImportDialog({ queue, onAdd, onClose }: { queue: Emote[]; o
             <input className="input" value={name} onChange={(ev) => setName(ev.target.value)} />
           </label>
           {e.author && <span className="muted" style={{ fontSize: 12 }}>{t('pose.by', { author: e.author })}</span>}
+          <div className="row" style={{ gap: 10 }}>
+            {icon ? <img src={icon} alt="" className="emote-logo checker" /> : <span className="emote-logo emote-ph" />}
+            <div className="col" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <button className="btn sm-btn" onClick={pickLogo}><Icon name="image" size={13} />{icon ? t('pose.changeLogo') : t('pose.addLogo')}</button>
+              {icon && <button className="btn sm-btn" onClick={() => setIcon(undefined)}>{t('pose.removeLogo')}</button>}
+              <span className="muted" style={{ fontSize: 11 }}>{e.icon ? t('pose.logoFromFile') : t('pose.logoHint')}</span>
+            </div>
+          </div>
           <RightsEditor value={rights} onChange={setRights} />
         </div>
       </div>

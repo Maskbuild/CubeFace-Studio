@@ -4,14 +4,15 @@ import { clipRect, cloneImg, createImg, fillRect, over, readRect, unionRect, wri
 import { useEditor } from '../store/editor'
 
 /*
- * Rectangular selection on the skin: painting stays inside it, and the selected pixels of the
+ * Rectangular selection on what is being edited (the active skin layer, the selected hair
+ * plane, or the selected face frame): painting stays inside it, and the selected pixels of the
  * active layer can be copied, cut, deleted, or lifted into a floating piece that is dragged
  * somewhere else and then placed (Enter / click outside) or cancelled (Esc).
  * While floating, the layer shows the piece live (base + piece), so the 3D view follows.
  */
 
 interface Floating {
-  layerId: string
+  target: Img // the image the piece floats over
   snap: Img // the layer before lifting / pasting (for undo and cancel)
   base: Img // the layer without the floating piece
   img: Img
@@ -26,6 +27,16 @@ let clip: Img | null = null
 let lastCopy: 'pixels' | 'layer' | null = null
 
 const store = () => useEditor.getState()
+
+/** The image the selection works on: selected hair plane, selected face frame, or the active layer. */
+export function editTarget(doc: SkinDoc): Img | null {
+  const h = doc.hairPlane(doc.hairId)
+  if (h) return h.img
+  const f = doc.faceFrame ? doc.faces[doc.faceFrame] : undefined
+  if (f) return f
+  const l = doc.active
+  return l && !l.locked && l.visible ? l.img : null
+}
 
 export const hasFloating = () => float !== null
 export const pixelsCopiedLast = () => lastCopy === 'pixels' && clip !== null
@@ -44,12 +55,12 @@ export function select(r: Rect | null) {
 
 export function selectAll(doc: SkinDoc) {
   commitFloating(doc)
-  select({ x: 0, y: 0, w: doc.res, h: doc.res })
+  const img = editTarget(doc)
+  select(img ? { x: 0, y: 0, w: img.w, h: img.h } : null)
 }
 
 function render(doc: SkinDoc, f: Floating) {
-  const l = doc.layers.find((x) => x.id === f.layerId)
-  if (!l) return
+  const l = { img: f.target }
   const before: Rect = f.area
   l.img.data.set(f.base.data)
   const r = { x: f.x, y: f.y, w: f.img.w, h: f.img.h }
@@ -70,26 +81,28 @@ function render(doc: SkinDoc, f: Floating) {
 /** Cut the selected pixels of the active layer into a floating piece (to move them). */
 export function liftSelection(doc: SkinDoc): boolean {
   const sel = store().selection
-  const l = doc.active
-  if (!sel || !l || l.locked || !l.visible || float) return false
+  const img0 = editTarget(doc)
+  const l = img0 && { img: img0 }
+  if (!sel || !l || float) return false
   const r = clipRect(sel, l.img.w, l.img.h)
   if (!r) return false
   const img = createImg(r.w, r.h)
   img.data.set(readRect(l.img, r))
   const base = cloneImg(l.img)
   writeRect(base, r, new Uint8ClampedArray(r.w * r.h * 4))
-  float = { layerId: l.id, snap: cloneImg(l.img), base, img, x: r.x, y: r.y, area: r }
+  float = { target: l.img, snap: cloneImg(l.img), base, img, x: r.x, y: r.y, area: r }
   render(doc, float)
   return true
 }
 
 /** Paste the copied pixels as a floating piece (at the selection, or where they were copied). */
 export function pasteFloating(doc: SkinDoc): boolean {
-  const l = doc.active
-  if (!clip || !l || l.locked || !l.visible) return false
+  const img0 = editTarget(doc)
+  const l = img0 && { img: img0 }
+  if (!clip || !l) return false
   commitFloating(doc)
   const at = store().selection ?? { x: 0, y: 0 }
-  float = { layerId: l.id, snap: cloneImg(l.img), base: cloneImg(l.img), img: cloneImg(clip), x: at.x, y: at.y, area: { x: at.x, y: at.y, w: 1, h: 1 } }
+  float = { target: l.img, snap: cloneImg(l.img), base: cloneImg(l.img), img: cloneImg(clip), x: at.x, y: at.y, area: { x: at.x, y: at.y, w: 1, h: 1 } }
   render(doc, float)
   return true
 }
@@ -108,9 +121,8 @@ export function commitFloating(doc: SkinDoc) {
   const f = float
   if (!f) return
   float = null
-  const l = doc.layers.find((x) => x.id === f.layerId)
-  const r = l && clipRect(f.area, l.img.w, l.img.h)
-  if (l && r) doc.commitEdit(l.img, f.snap, r)
+  const r = clipRect(f.area, f.target.w, f.target.h)
+  if (r) doc.commitEdit(f.target, f.snap, r)
   store().set({ floatingOn: false })
 }
 
@@ -119,17 +131,15 @@ export function cancelFloating(doc: SkinDoc) {
   const f = float
   if (!f) return
   float = null
-  const l = doc.layers.find((x) => x.id === f.layerId)
-  if (l) {
-    l.img.data.set(f.snap.data)
-    doc.touched(l.img, f.area)
-  }
+  f.target.data.set(f.snap.data)
+  doc.touched(f.target, f.area)
   store().set({ floatingOn: false })
 }
 
 export function copySelection(doc: SkinDoc): boolean {
   const sel = store().selection
-  const l = doc.active
+  const img0 = editTarget(doc)
+  const l = img0 && { img: img0 }
   if (!sel || !l) return false
   if (float) {
     clip = cloneImg(float.img)
@@ -153,8 +163,9 @@ export function deleteSelection(doc: SkinDoc): boolean {
     return true
   }
   const sel = store().selection
-  const l = doc.active
-  if (!sel || !l || l.locked) return false
+  const img0 = editTarget(doc)
+  const l = img0 && { img: img0 }
+  if (!sel || !l) return false
   const r = clipRect(sel, l.img.w, l.img.h)
   if (!r) return false
   const snap = cloneImg(l.img)
@@ -167,8 +178,9 @@ export function deleteSelection(doc: SkinDoc): boolean {
 /** Bucket inside a selection: fill the whole selected area of the active layer. */
 export function fillSelection(doc: SkinDoc, color: RGBA, opacity: number): boolean {
   const sel = store().selection
-  const l = doc.active
-  if (!sel || !l || l.locked || !l.visible) return false
+  const img0 = editTarget(doc)
+  const l = img0 && { img: img0 }
+  if (!sel || !l) return false
   const r = clipRect(sel, l.img.w, l.img.h)
   if (!r) return false
   const snap = cloneImg(l.img)

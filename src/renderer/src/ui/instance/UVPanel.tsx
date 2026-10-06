@@ -49,7 +49,12 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
 
     const syncOffscreen = (r?: { x: number; y: number; w: number; h: number }) => {
       const next = source()
-      if (next.hairId !== src.hairId || next.face !== src.face) view.fitted = false
+      if (next.hairId !== src.hairId || next.face !== src.face) {
+        view.fitted = false
+        // a selection belongs to what was being edited
+        commitFloating(doc)
+        select(null)
+      }
       if (next.face) syncSkinRef()
       src = next
       if (!imgData || imgData.data !== src.img.data) {
@@ -183,7 +188,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
         ctx.setLineDash([])
       }
       // selection (marching dashes) and the floating piece
-      if (isSkin && ed.selection) {
+      if (ed.selection) {
         const r = ed.selection
         const x = Math.round(ox + r.x * s) + 0.5, y = Math.round(oy + r.y * s) + 0.5
         ctx.lineWidth = 1.5
@@ -270,7 +275,6 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       if (ev.button !== 0) return
       const [x, y] = texel(ev)
       if (useEditor.getState().tool === 'select') {
-        if (src.hairId || src.face) return // selections are for the skin
         onSelectDown(x, y)
         schedule()
         return
@@ -303,8 +307,11 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       // a click without dragging selects the whole face under it (or nothing)
       if (drag?.mode === 'rect' && !drag.moved) {
         const [x, y] = texel(ev)
-        const ref = x >= 0 && y >= 0 && x < doc.res && y < doc.res ? faceAt(doc.variant, doc.res, x, y) : null
-        select(ref ? faceRect(doc.variant, doc.res, ref) : null)
+        if (src.hairId || src.face) select(null)
+        else {
+          const ref = x >= 0 && y >= 0 && x < doc.res && y < doc.res ? faceAt(doc.variant, doc.res, x, y) : null
+          select(ref ? faceRect(doc.variant, doc.res, ref) : null)
+        }
       }
       drag = null
     }

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { storage } from '../lib/storage'
+import { loadImage } from '../lib/png'
 import { parseEmoteFile, type Emote, type PoseState } from './emote'
 import type { PosePreset } from './presets'
 
@@ -99,3 +100,18 @@ export function pickEmoteFiles(): Promise<File[]> {
     input.click()
   })
 }
+
+/** A logo fitted into a 128px square (keeps the library small; pixel art stays crisp). */
+export async function squareLogo(dataUrl: string): Promise<string> {
+  const img = await loadImage(dataUrl)
+  const S = 128
+  const c = document.createElement('canvas')
+  c.width = c.height = S
+  const g = c.getContext('2d')!
+  const k = Math.min(S / img.width, S / img.height)
+  g.imageSmoothingEnabled = k < 1
+  const w = img.width * k, h = img.height * k
+  g.drawImage(img, (S - w) / 2, (S - h) / 2, w, h)
+  return c.toDataURL('image/png')
+}
+

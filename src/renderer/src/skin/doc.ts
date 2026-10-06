@@ -43,6 +43,9 @@ export interface Layer {
 
 export type LayerInfo = Omit<Layer, 'img'>
 
+/** Face settings carried by a saved face set. */
+export type FaceSetConfig = Pick<FiguraConfig, 'blink' | 'blinkMin' | 'blinkMax' | 'eyeR' | 'eyeL' | 'mouth' | 'expressions' | 'talk' | 'talkThreshold' | 'customExpr' | 'glowEyes'>
+
 export interface ProjectJson {
   format: 1
   id: string
@@ -471,6 +474,28 @@ export class SkinDoc {
   }
 
   /** (Re)generate default expression/blink/talk frames from the eye and mouth rects. */
+  /** The face settings a face set carries (frames are saved separately). */
+  faceSetConfig(): FaceSetConfig {
+    const c = this.figura
+    return { blink: c.blink, blinkMin: c.blinkMin, blinkMax: c.blinkMax, eyeR: c.eyeR, eyeL: c.eyeL, mouth: c.mouth, expressions: c.expressions, talk: c.talk, talkThreshold: c.talkThreshold, customExpr: c.customExpr, glowEyes: c.glowEyes }
+  }
+
+  /**
+   * Replace every face frame and the face settings with a saved set (one undo step). Frames and
+   * boxes made at another resolution are rescaled to this skin.
+   */
+  applyFaceSet(res: number, frames: Partial<Record<FaceFrame, Img>>, cfg: FaceSetConfig) {
+    const n = (8 * this.res) / 64
+    const k = this.res / res
+    const r = (x: Rect): Rect => ({ x: Math.round(x.x * k), y: Math.round(x.y * k), w: Math.max(1, Math.round(x.w * k)), h: Math.max(1, Math.round(x.h * k)) })
+    this.change(() => {
+      this.faces = Object.fromEntries(Object.entries(frames).map(([f, img]) => [f, img!.w === n ? cloneImg(img!) : rescale(img!, n, n)]))
+      this.figura = { ...this.figura, ...cfg, eyeR: r(cfg.eyeR), eyeL: r(cfg.eyeL), mouth: r(cfg.mouth) }
+    }, 'faceSet')
+    this.faceFrame = null
+    this.emit({ type: 'structure' })
+  }
+
   generateFaces(only?: FaceFrame[]) {
     const frames = generateFrames(this.faceImage(), this.figura)
     const n = faceOrigin(this.res).size

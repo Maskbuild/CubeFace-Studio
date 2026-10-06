@@ -530,3 +530,16 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .emote-import { display: grid; grid-template-columns: 220px 1fr; gap: 14px; }
 .emote-import .emote-preview { aspect-ratio: 3 / 4; }
 .emote-import-side { display: flex; flex-direction: column; gap: 10px; }
+
+.frame-row { min-height: 30px; }
+.frame-row.missing-frame { cursor: pointer; opacity: .8; }
+.frame-row.missing-frame:hover { opacity: 1; }
+
+.emote-logo { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; image-rendering: pixelated; flex: none; }
+
+.face-set-thumb { width: 100%; aspect-ratio: 3 / 1; object-fit: contain; image-rendering: pixelated; background: var(--sunken); border-radius: 8px; }
+
+.effect-picks { display: inline-flex; align-items: center; gap: 3px; }
+.effect-picks .pick { width: 28px; height: 28px; border: 1px solid var(--border); background: var(--panel-2); border-radius: 7px; padding: 2px; cursor: pointer; }
+.effect-picks .pick.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.effect-picks .pick img { width: 100%; height: 100%; image-rendering: pixelated; }

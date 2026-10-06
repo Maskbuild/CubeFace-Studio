@@ -76,3 +76,18 @@ describe('dropping avatars', () => {
     expect((await lib.importAny(root)).map((m) => m.name).sort()).toEqual(['A', 'B'])
   })
 })
+
+import { execFileSync } from 'node:child_process'
+
+const RAR = 'C:/Program Files/WinRAR/Rar.exe'
+describe('rar avatars', () => {
+  it.skipIf(!existsSync(RAR))('imports an avatar from a .rar file', async () => {
+    const src = avatar('Owl', 'C', { 'script.lua': 'print(2)' })
+    const out = path.join(tmp(), 'Owl.rar')
+    execFileSync(RAR, ['a', '-ep1', '-r', '-idq', out, src])
+    const lib = new AvatarLibrary(tmp())
+    const added = await lib.importAny(out)
+    expect(added.map((m) => m.name)).toEqual(['Owl'])
+    expect(added[0].files).toBe(2)
+  })
+})

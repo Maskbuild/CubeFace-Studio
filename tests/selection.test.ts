@@ -56,3 +56,19 @@ describe('selection', () => {
     select(null)
   })
 })
+
+describe('selection on hair planes', () => {
+  it('works on the selected hair texture instead of the skin layer', () => {
+    const doc = make()
+    const h = doc.addHair('back', 'medium', 'H')
+    fillRect(h.img, { x: 0, y: 0, w: 2, h: 2 }, [0, 255, 0, 255], 1)
+    select({ x: 0, y: 0, w: 2, h: 2 })
+    expect(liftSelection(doc)).toBe(true)
+    moveFloatingTo(doc, 4, 4)
+    commitFloating(doc)
+    expect(getPixel(h.img, 5, 5)[1]).toBe(255)
+    expect(getPixel(h.img, 0, 0)[3]).toBe(0)
+    expect(alpha(doc, 8, 8)).toBe(255) // the skin is untouched
+    select(null)
+  })
+})

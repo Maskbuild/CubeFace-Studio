@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { emoteToEmotecraft } from '../../pose/emote'
-import { pickEmoteFiles, readEmoteFiles, usePoseLibrary } from '../../pose/library'
+import { pickEmoteFiles, readEmoteFiles, squareLogo, usePoseLibrary } from '../../pose/library'
 import { BUILTIN_ANIMS } from '../../pose/presets'
 import { storage } from '../../lib/storage'
-import { loadImage } from '../../lib/png'
 import { Icon } from '../common/Icon'
 import { confirmBox, Modal, promptBox, toast } from '../common/dialogs'
 import { EmotePreview } from '../pose/EmotePreview'
@@ -12,20 +11,6 @@ import type { Emote } from '../../pose/emote'
 import { canRedistribute, defaultRights, type Rights } from '../../skin/rights'
 import { RightsBadges, RightsEditor } from '../common/RightsEditor'
 import { EmoteImportDialog } from '../pose/EmoteImportDialog'
-
-/** A logo fitted into a 128px square (keeps the library small; pixel art stays crisp). */
-async function squareLogo(dataUrl: string): Promise<string> {
-  const img = await loadImage(dataUrl)
-  const S = 128
-  const c = document.createElement('canvas')
-  c.width = c.height = S
-  const g = c.getContext('2d')!
-  const k = Math.min(S / img.width, S / img.height)
-  g.imageSmoothingEnabled = k < 1
-  const w = img.width * k, h = img.height * k
-  g.drawImage(img, (S - w) / 2, (S - h) / 2, w, h)
-  return c.toDataURL('image/png')
-}
 
 /** Change an emote's name and rights later. */
 function RightsOnlyDialog({ e, onClose, onSave }: { e: Emote; onClose: () => void; onSave: (name: string, r: Rights) => void }) {

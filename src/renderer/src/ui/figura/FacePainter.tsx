@@ -7,6 +7,8 @@ import { PaintSession } from '../../lib/paint'
 import { useEditor, type Tool } from '../../store/editor'
 import { Icon } from '../common/Icon'
 import { frameLabel } from './frameLabel'
+import { EFFECTS, effectPreview, stampEffect, type FaceEffect } from '../../skin/faceEffects'
+import { cloneImg } from '../../skin/pixels'
 
 const TOOLS: [Tool, string][] = [
   ['brush', 'brush'],
@@ -28,9 +30,10 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const frames = allFrames(doc.figura).filter((f) => doc.faces[f])
   const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
-  const state = useRef({ underlay, frame })
+  const [effect, setEffect] = useState<FaceEffect | null>(null)
+  const state = useRef({ underlay, frame, effect })
   const redraw = useRef<() => void>(() => {})
-  state.current = { underlay, frame }
+  state.current = { underlay, frame, effect }
 
   // painting a frame = selecting it (the 3D view shows it too)
   useEffect(() => {
@@ -144,6 +147,19 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
         return
       }
       const p = texel(ev)
+      // a chosen cartoon effect is stamped where you click (one undo step)
+      const fx = state.current.effect
+      if (fx && inside(p)) {
+        const img = doc.faces[state.current.frame]
+        if (!img) return
+        const snap = cloneImg(img)
+        const r = stampEffect(img, fx, p[0], p[1], Math.max(1, Math.round(doc.res / 64)))
+        if (r) {
+          doc.touched(img, r)
+          doc.commitEdit(img, snap, r)
+        }
+        return
+      }
       if (inside(p)) session.down(p[0], p[1], null, null, true)
     }
     const move = (ev: PointerEvent) => {
@@ -242,6 +258,14 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
             <span className="val">{Math.round(b.opacity * 100)}%</span>
           </label>
           <button className={'icon-btn' + (ed.mirror ? ' active' : '')} title={t('tools.mirror')} onClick={() => ed.set({ mirror: !ed.mirror })}><Icon name="mirror" size={17} /></button>
+          <div className="effect-picks" title={t('effects.hint')}>
+            <span className="muted">{t('effects.title')}</span>
+            {EFFECTS.map((fx) => (
+              <button key={fx} className={'pick' + (effect === fx ? ' on' : '')} title={t('effects.' + fx)} onClick={() => setEffect(effect === fx ? null : fx)}>
+                <img src={effectPreview(fx)} alt="" />
+              </button>
+            ))}
+          </div>
           <div className="grow" />
           <label className="slider">
             <span className="muted">{t('figura.underlay')}</span>

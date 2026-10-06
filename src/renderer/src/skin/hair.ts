@@ -39,7 +39,7 @@ export interface HairPlane {
   hang?: boolean
   /** Rest curve in degrees over the whole plane (+ = curls outward, like bangs). */
   curl?: number
-  /** Split into this many strands that swing on their own (1 = one plane). */
+  /** (older projects) strands the plane was split into; planes now stay one piece. */
   strands?: number
   /** Gentle flowing wave even when standing still (0 = none … 1 = strong). */
   flutter?: number
@@ -69,9 +69,9 @@ export function physFromFlow(flow: number, length: HairLength): HairPhys {
 }
 
 export const LENGTH_PRESET: Record<HairLength, { h: number; segments: number; phys: HairPhys }> = {
-  short: { h: 4, segments: 3, phys: physFromFlow(DEFAULT_FLOW.short, 'short') },
-  medium: { h: 8, segments: 4, phys: physFromFlow(DEFAULT_FLOW.medium, 'medium') },
-  long: { h: 14, segments: 6, phys: physFromFlow(DEFAULT_FLOW.long, 'long') }
+  short: { h: 4, segments: 4, phys: physFromFlow(DEFAULT_FLOW.short, 'short') },
+  medium: { h: 8, segments: 6, phys: physFromFlow(DEFAULT_FLOW.medium, 'medium') },
+  long: { h: 14, segments: 9, phys: physFromFlow(DEFAULT_FLOW.long, 'long') }
 }
 
 export function hairDefaults(side: HairSide, length: HairLength): Omit<HairInfo, 'id' | 'name'> {
@@ -91,7 +91,7 @@ export function hairDefaults(side: HairSide, length: HairLength): Omit<HairInfo,
 
 /** The hair-specific options with their defaults filled in. */
 export function hairOpts(p: Pick<HairPlane, 'hang' | 'curl' | 'strands' | 'flutter'>) {
-  return { hang: p.hang !== false, curl: p.curl ?? 0, strands: Math.max(1, Math.min(8, Math.round(p.strands ?? 1))), flutter: Math.min(1, Math.max(0, p.flutter ?? 0)) }
+  return { hang: p.hang !== false, curl: p.curl ?? 0, strands: 1 /* planes stay one smooth piece: splitting them made the hair look torn */, flutter: Math.min(1, Math.max(0, p.flutter ?? 0)) }
 }
 
 /**
@@ -229,42 +229,3 @@ export class HairSim {
   }
 }
 
-/**
- * Cut pointed tips into the bottom of a hair texture: the plane is split into strands of
- * `strand` texels, each ending in a point `length` texels long (lengths vary a little so the
- * ends look natural). Returns a new image; transparent where the tips are cut away.
- */
-export function hairTips(img: Img, strand: number, length: number, seed = 1): Img {
-  const out = createImg(img.w, img.h)
-  out.data.set(img.data)
-  const sw = Math.max(2, Math.round(strand))
-  let rnd = seed * 9301 + 49297
-  const next = () => ((rnd = (rnd * 9301 + 49297) % 233280) / 233280)
-  for (let x0 = 0; x0 < img.w; x0 += sw) {
-    const w = Math.min(sw, img.w - x0)
-    const len = Math.max(1, Math.round(length * (0.65 + next() * 0.7)))
-    const centre = x0 + w / 2
-    for (let r = 0; r < len && r < img.h; r++) {
-      const y = img.h - 1 - r
-      const half = (w / 2) * ((r + 0.5) / len) // narrower towards the very end
-      for (let x = x0; x < x0 + w; x++) if (Math.abs(x + 0.5 - centre) > half) out.data[(y * img.w + x) * 4 + 3] = 0
-    }
-  }
-  return out
-}
-
-/** Ready-made hair pieces: placed on the head and set up so one click gives good-looking hair. */
-export interface HairPreset {
-  id: 'bangs' | 'sideL' | 'sideR' | 'backLong' | 'backShort' | 'ponytail'
-  side: HairSide
-  length: HairLength
-  extra: Partial<HairInfo>
-}
-export const HAIR_PRESETS: HairPreset[] = [
-  { id: 'bangs', side: 'front', length: 'short', extra: { pos: [0, 8, 4.6], w: 8, h: 4, strands: 4, curl: 15, flutter: 0.3 } },
-  { id: 'sideL', side: 'front', length: 'medium', extra: { pos: [4.6, 8, 1], rot: [0, 90, 0], w: 6, h: 9, strands: 3, curl: 5, flutter: 0.4 } },
-  { id: 'sideR', side: 'front', length: 'medium', extra: { pos: [-4.6, 8, 1], rot: [0, -90, 0], w: 6, h: 9, strands: 3, curl: 5, flutter: 0.4 } },
-  { id: 'backLong', side: 'back', length: 'long', extra: { w: 8, h: 14, strands: 4, flutter: 0.5 } },
-  { id: 'backShort', side: 'back', length: 'short', extra: { w: 8, h: 5, strands: 3, flutter: 0.3 } },
-  { id: 'ponytail', side: 'back', length: 'long', extra: { pos: [0, 7, -4.8], w: 4, h: 12, strands: 2, curl: -10, flutter: 0.6 } }
-]

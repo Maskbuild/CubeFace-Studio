@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { hairTips, type HairPlane } from '../../skin/hair'
-import { createImg, flipImg, shiftImg, type Img } from '../../skin/pixels'
+import type { HairPlane } from '../../skin/hair'
+import { createImg, type Img } from '../../skin/pixels'
 import { dataUrlToImg, imgToCanvas } from '../../lib/png'
 import { storage } from '../../lib/storage'
 import { Icon } from '../common/Icon'
@@ -129,49 +129,14 @@ export function HairTextureDialog({ doc, h, onClose }: { doc: SkinDoc; h: HairPl
   )
 }
 
-/** Small tools under a hair plane: import a picture, move the texture (UV) and flip it. */
+/** Under a hair plane: import a picture (move / copy its pixels with the selection tool). */
 export function HairTextureTools({ doc, h }: { doc: SkinDoc; h: HairPlane }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const k = h.img.w / Math.max(1, h.w) // texels per skin pixel
-  const [tipLen, setTipLen] = useState(Math.max(2, Math.round(h.img.h * 0.25)))
-  const [tipW, setTipW] = useState(Math.max(2, Math.round(k * 2)))
-  const [seed, setSeed] = useState(1)
-  const shift = (dx: number, dy: number) => doc.setHairPixels(h.id, shiftImg(h.img, dx, dy))
   return (
     <div className="hair-tex-tools">
       <button className="btn sm-btn" onClick={() => setOpen(true)}><Icon name="image" size={13} />{t('hair.textureImport')}</button>
-      <span className="muted" style={{ fontSize: 11 }}>{t('hair.textureMove')}</span>
-      <div className="row" style={{ gap: 2 }}>
-        <button className="icon-btn sm" title="←" onClick={() => shift(-1, 0)}>←</button>
-        <button className="icon-btn sm" title="→" onClick={() => shift(1, 0)}>→</button>
-        <button className="icon-btn sm" title="↑" onClick={() => shift(0, -1)}>↑</button>
-        <button className="icon-btn sm" title="↓" onClick={() => shift(0, 1)}>↓</button>
-        <button className="icon-btn sm" title={t('hair.flipX')} onClick={() => doc.setHairPixels(h.id, flipImg(h.img, 'x'))}>⇋</button>
-        <button className="icon-btn sm" title={t('hair.flipY')} onClick={() => doc.setHairPixels(h.id, flipImg(h.img, 'y'))}>⇵</button>
-      </div>
-      <span className="muted" style={{ fontSize: 11 }}>{t('hair.tips')}</span>
-      <label className="phys-row">
-        <span className="muted">{t('hair.tipLength')}</span>
-        <input type="range" min={1} max={Math.max(2, h.img.h)} value={tipLen} onChange={(e) => setTipLen(Number(e.target.value))} />
-        <span className="val">{tipLen}</span>
-      </label>
-      <label className="phys-row">
-        <span className="muted">{t('hair.tipWidth')}</span>
-        <input type="range" min={2} max={Math.max(3, h.img.w)} value={tipW} onChange={(e) => setTipW(Number(e.target.value))} />
-        <span className="val">{tipW}</span>
-      </label>
-      <button
-        className="btn sm-btn"
-        title={t('hair.tipsHint')}
-        onClick={() => {
-          doc.setHairPixels(h.id, hairTips(h.img, tipW, tipLen, seed))
-          setSeed(seed + 1) // another click gives other tip lengths
-        }}
-      >
-        <Icon name="sparkle" size={12} />
-        {t('hair.makeTips')}
-      </button>
+      <span className="muted" style={{ fontSize: 11 }}>{t('hair.textureSelectHint')}</span>
       {open && <HairTextureDialog doc={doc} h={h} onClose={() => setOpen(false)} />}
     </div>
   )

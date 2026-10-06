@@ -136,10 +136,12 @@ function registerIpc() {
   // ---- avatar library (for merging) -----------------------------------------------------
   ipcMain.handle('avatars:list', () => avatars.list())
   /** Import folders (from a drop) or ask for them; returns what was added and what wasn't an avatar. */
-  ipcMain.handle('avatars:import', async (e, paths?: string[]) => {
+  ipcMain.handle('avatars:import', async (e, paths?: string[], archives?: boolean) => {
     if (!paths?.length) {
       const win = BrowserWindow.fromWebContents(e.sender)!
-      const res = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'multiSelections'], title: 'Choose Figura avatar folders' })
+      const res = archives
+        ? await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'], title: 'Choose Figura avatar archives', filters: [{ name: 'Avatar archives', extensions: ['zip', 'rar'] }] })
+        : await dialog.showOpenDialog(win, { properties: ['openDirectory', 'multiSelections'], title: 'Choose Figura avatar folders' })
       if (res.canceled) return { added: [], failed: [] }
       paths = res.filePaths
     }

@@ -143,6 +143,7 @@ export const en = {
     allOverlay: 'All overlays'
   },
   hair: {
+    textureSelectHint: "To move or copy parts of the texture, select the plane and use the Select tool (S) in the UV panel.",
     presetHint: "Click a piece to add it: it is placed, coloured like your hair and given tips. Paint over it afterwards.",
     presetTip: "Add this hair piece",
     custom: "Custom plane…",
@@ -248,6 +249,8 @@ export const en = {
     confirmDelete: 'Delete "{{name}}" from the wardrobe?'
   },
   figura: {
+    more: "More…",
+    create: "Create this frame…",
     eyeFollow: "Eyes look where you turn",
     eyeRange: "How far (texels)",
     eyeFollowHint: "The iris slides inside the eye boxes (set them above); hidden while blinking or when an expression draws its own eyes.",
@@ -345,6 +348,7 @@ export const en = {
     copy: 'Copy layer', cut: 'Cut layer', paste: 'Paste layer / image', duplicate: 'Duplicate layer', newLayer: 'New layer', import: 'Import image as layer', mergeDown: 'Merge down', moveLayer: 'Move layer up / down', rename: 'Rename layer', deleteLayer: 'Delete layer'
   },
   avatars: {
+    addArchive: 'Add zip / rar',
     more: 'More',
     category: 'Category',
     noCategory: 'No category',
@@ -359,7 +363,7 @@ export const en = {
     scripts: 'Scripts',
     add: 'Add avatar folders…',
     hint: 'Figura avatar folders are copied into the library, so they can be merged with any skin.',
-    dropHere: 'Drop avatar folders or .zip files here (a folder holding several avatars works too)',
+    dropHere: 'Drop avatar folders or .zip / .rar files here (a folder holding several avatars works too)',
     empty: 'No avatars yet. Add or drop Figura avatar folders.',
     imported: 'Added {{n}} avatar(s)',
     notAvatar: 'Not a Figura avatar folder: {{names}}',
@@ -454,6 +458,7 @@ export const en = {
     footer: "Saved with the skin and used on the next export. In game the real items are drawn by Minecraft.",
   },
   pose: {
+    logoFromFile: "The logo came with the emote file.",
     skip: "Skip",
     addEmote: "Add emote",
     addLogo: "Add logo (PNG)",
@@ -593,6 +598,34 @@ export const en = {
     place: "Place",
     hint: "Drag a box in the UV panel (click = one face, in 3D too). Painting stays inside; drag inside it to move the pixels.",
     floatHint: "Drag or use the arrow keys to move · Enter places · Esc cancels",
+  },
+  faceSets: {
+    title: "Face sets",
+    open: "Face sets…",
+    hint: "Save the whole face (all frames, blink, talk, eye boxes) and use it on any skin",
+    saveCurrent: "Save this face",
+    name: "Face set name",
+    defaultName: "Face set {{n}}",
+    saved: "Saved face set \"{{name}}\"",
+    replace: "Replace this skin's face frames with this set? (Ctrl+Z undoes)",
+    apply: "Use this face",
+    applied: "Face set \"{{name}}\" applied",
+    help: "A face set keeps every frame (base face, blink, talking mouth, expressions, your own expressions), the eye and mouth boxes and blink timing. Double-click to use one. Sets from other resolutions are rescaled.",
+    empty: "No face sets yet. Draw a face, then \"Save this face\".",
+    frames: "{{n}} frames",
+    delete: "Delete the face set \"{{name}}\"?",
+  },
+  effects: {
+    title: "Effects",
+    hint: "Pick an effect, then click on the face to stamp it (Ctrl+Z undoes). Click the effect again to go back to the brush.",
+    blush: "Blush",
+    sweat: "Sweat drop",
+    anger: "Anger mark",
+    sparkle: "Sparkle",
+    tears: "Tears",
+    gloom: "Gloom lines",
+    heart: "Heart",
+    shine: "Eye shine",
   },
   icons: {
     title: "Choose an icon",

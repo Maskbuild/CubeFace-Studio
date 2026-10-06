@@ -6,8 +6,10 @@ import type { Rect } from '../../skin/layout'
 import { useEditor } from '../../store/editor'
 import { confirmBox, Modal, promptBox } from '../common/dialogs'
 import { Icon } from '../common/Icon'
+import { ContextMenu, type MenuItem } from '../common/ContextMenu'
 import { frameLabel } from './frameLabel'
 import { FacePainter } from './FacePainter'
+import { FaceSetWindow } from './FaceSetWindow'
 
 type Key = 'eyeR' | 'eyeL' | 'mouth'
 const KEYS: Key[] = ['eyeR', 'eyeL', 'mouth']
@@ -170,6 +172,7 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
   useEditor((s) => s.tick)
   const [big, setBig] = useState(false)
   const [painting, setPainting] = useState<FaceFrame | null>(null)
+  const [sets, setSets] = useState(false)
   const has = (f: FaceFrame) => !!doc.faces[f]
   const frames = allFrames(doc.figura)
   const any = frames.some(has)
@@ -179,6 +182,44 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
     if (any && !(await confirmBox(t('figura.overwrite'), t('common.ok'), t('common.cancel')))) return
     doc.generateFaces()
   }
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null)
+  const open = (e: React.MouseEvent, items: MenuItem[]) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({ x: e.clientX, y: e.clientY, items })
+  }
+  /** Everything you can do with a drawn frame, in one menu instead of a row of buttons. */
+  const frameMenu = (e: React.MouseEvent, f: FaceFrame) => {
+    const c = custom(f)
+    open(e, [
+      { label: t('figura.paintWindow'), icon: 'edit', onClick: () => setPainting(f) },
+      ...(!c ? [{ label: f === 'base' ? t('figura.restartFromFace') : t('figura.regenerate'), icon: 'sparkle', onClick: () => doc.generateFaces([f]) }] : []),
+      ...(f !== 'base' ? [{ label: t('figura.restartFromFace'), icon: 'copy', onClick: () => doc.createBlankFace(f, true) }] : []),
+      ...(c
+        ? [
+            {
+              label: t('common.rename'),
+              icon: 'edit',
+              onClick: async () => {
+                const name = (await promptBox(t('figura.customName'), c.name, t('common.ok'), t('common.cancel')))?.trim()
+                if (name) doc.updateCustomExpr(c.id, { name })
+              }
+            },
+            { label: t('figura.coversEyes'), icon: c.coversEyes ? 'check' : undefined, onClick: () => doc.updateCustomExpr(c.id, { coversEyes: !c.coversEyes }) }
+          ]
+        : []),
+      'sep',
+      { label: t('figura.clearFrame'), icon: 'eraser', onClick: () => doc.clearFace(f) },
+      { label: t('common.delete'), icon: 'trash', danger: true, onClick: () => (c ? doc.removeCustomExpr(c.id) : doc.removeFace(f)) }
+    ])
+  }
+  /** Ways to start a frame that isn't drawn yet. */
+  const newMenu = (e: React.MouseEvent, f: FaceFrame) =>
+    open(e, [
+      ...(f !== 'base' ? [{ label: t('figura.drawOwn'), icon: 'brush', onClick: () => doc.createBlankFace(f) }] : []),
+      { label: t('figura.fromFace'), icon: 'copy', onClick: () => doc.createBlankFace(f, true) },
+      ...(!custom(f) && f !== 'base' ? [{ label: t('figura.auto'), icon: 'sparkle', onClick: () => doc.generateFaces([f]) }] : [])
+    ])
   const addCustom = async () => {
     const name = (await promptBox(t('figura.customName'), '', t('common.create'), t('common.cancel')))?.trim()
     if (name) doc.addCustomExpr(name)
@@ -194,7 +235,10 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
         <span className="muted" style={{ fontSize: 12 }}>{t('figura.faceHelp')}</span>
         {!big && <FaceBoxes doc={doc} />}
         <Legend />
-        <button className="btn primary" onClick={generateAll}><Icon name="sparkle" />{t('figura.generate')}</button>
+        <div className="row" style={{ gap: 6 }}>
+          <button className="btn primary grow" onClick={generateAll}><Icon name="sparkle" />{t('figura.generate')}</button>
+          <button className="btn" onClick={() => setSets(true)} title={t('faceSets.hint')}><Icon name="smile" />{t('faceSets.open')}</button>
+        </div>
         <label className="row" style={{ fontSize: 12 }} title={t('glow.eyesHint')}>
           <input type="checkbox" checked={!!doc.figura.glowEyes} onChange={(e) => doc.updateFigura({ glowEyes: e.target.checked })} />
           <Icon name="sun" size={13} />
@@ -206,43 +250,23 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
         <div className="hair-list">
           {frames.map((f) =>
             has(f) ? (
-              <div key={f} className={'layer' + (doc.faceFrame === f ? ' on' : '')} onClick={() => doc.selectFace(doc.faceFrame === f ? null : f)} onDoubleClick={() => setPainting(f)}>
+              <div
+                key={f}
+                className={'layer frame-row' + (doc.faceFrame === f ? ' on' : '')}
+                onClick={() => doc.selectFace(doc.faceFrame === f ? null : f)}
+                onDoubleClick={() => setPainting(f)}
+                onContextMenu={(e) => frameMenu(e, f)}
+              >
                 <Icon name="brush" size={13} />
                 <span className="lname">{frameLabel(t, doc.figura, f)}</span>
-                {custom(f) && (
-                  <label className="row muted" style={{ fontSize: 11, gap: 3 }} title={t('figura.coversEyesHint')} onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" checked={custom(f)!.coversEyes} onChange={(e) => doc.updateCustomExpr(custom(f)!.id, { coversEyes: e.target.checked })} />
-                    {t('figura.coversEyes')}
-                  </label>
-                )}
-                {custom(f) ? (
-                  <button
-                    className="icon-btn sm"
-                    title={t('common.rename')}
-                    onClick={async (e) => {
-                      e.stopPropagation()
-                      const name = (await promptBox(t('figura.customName'), custom(f)!.name, t('common.ok'), t('common.cancel')))?.trim()
-                      if (name) doc.updateCustomExpr(custom(f)!.id, { name })
-                    }}
-                  >
-                    <Icon name="edit" size={13} />
-                  </button>
-                ) : (
-                  <button className="icon-btn sm" title={f === 'base' ? t('figura.restartFromFace') : t('figura.regenerate')} onClick={(e) => (e.stopPropagation(), doc.generateFaces([f]))}><Icon name="sparkle" size={13} /></button>
-                )}
-                {f !== 'base' && (
-                  <button className="icon-btn sm" title={t('figura.restartFromFace')} onClick={(e) => (e.stopPropagation(), doc.createBlankFace(f, true))}><Icon name="copy" size={13} /></button>
-                )}
                 <button className="icon-btn sm" title={t('figura.paintWindow')} onClick={(e) => (e.stopPropagation(), setPainting(f))}><Icon name="edit" size={13} /></button>
-                <button className="icon-btn sm" title={t('figura.clearFrame')} onClick={(e) => (e.stopPropagation(), doc.clearFace(f))}><Icon name="eraser" size={13} /></button>
-                <button className="icon-btn sm" title={t('common.delete')} onClick={(e) => (e.stopPropagation(), custom(f) ? doc.removeCustomExpr(custom(f)!.id) : doc.removeFace(f))}><Icon name="trash" size={13} /></button>
+                <button className="icon-btn sm" title={t('figura.more')} onClick={(e) => frameMenu(e, f)}><Icon name="more" size={13} /></button>
               </div>
             ) : (
-              <div key={f} className="layer missing-frame">
+              <div key={f} className="layer frame-row missing-frame" onClick={(e) => newMenu(e, f)}>
+                <Icon name="plus" size={13} />
                 <span className="lname muted">{frameLabel(t, doc.figura, f)}</span>
-                {f !== 'base' && <button className="btn sm-btn" title={t('figura.drawOwnHint')} onClick={() => doc.createBlankFace(f)}><Icon name="brush" size={12} />{t('figura.drawOwn')}</button>}
-                <button className="btn sm-btn" title={t('figura.fromFaceHint')} onClick={() => doc.createBlankFace(f, true)}><Icon name="copy" size={12} />{t('figura.fromFace')}</button>
-                {!custom(f) && f !== 'base' && <button className="btn sm-btn" onClick={() => doc.generateFaces([f])}><Icon name="sparkle" size={12} />{t('figura.auto')}</button>}
+                <button className="icon-btn sm" title={t('figura.create')} onClick={(e) => newMenu(e, f)}><Icon name="more" size={13} /></button>
               </div>
             )
           )}
@@ -250,6 +274,8 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
         <button className="btn" onClick={addCustom}><Icon name="plus" />{t('figura.addCustom')}</button>
       </div>
       {painting && <FacePainter doc={doc} frame={painting} onClose={() => setPainting(null)} />}
+      {sets && <FaceSetWindow doc={doc} onClose={() => setSets(false)} />}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
       {big && (
         <Modal title={t('figura.face')} onClose={() => setBig(false)} footer={<button className="btn primary" onClick={() => setBig(false)}>{t('common.close')}</button>}>
           <span className="muted" style={{ fontSize: 12 }}>{t('figura.faceHelp')} {t('figura.zoomHelp')}</span>

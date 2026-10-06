@@ -44,7 +44,7 @@ export interface Storage {
   deleteAsset(kind: string, id: string): Promise<boolean>
   exportFigura(folder: string, files: Record<string, string | Uint8Array>, attachIds?: string[]): Promise<string | null>
   listAvatars(): Promise<AvatarMeta[]>
-  importAvatars(paths?: string[]): Promise<{ added: AvatarMeta[]; failed: string[] } | null>
+  importAvatars(paths?: string[], archives?: boolean): Promise<{ added: AvatarMeta[]; failed: string[] } | null>
   updateAvatar(id: string, patch: { name?: string; category?: string; thumb3d?: string; rights?: Rights }): Promise<void>
   avatarFiles(id: string): Promise<{ path: string; size: number }[]>
   readAvatarFile(id: string, rel: string): Promise<string | null>

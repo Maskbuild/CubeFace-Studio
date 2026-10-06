@@ -112,11 +112,13 @@ export class PaintSession {
       if (c[3] > 0) ed.set({ color: [c[0], c[1], c[2], 255] })
       return false
     }
+    const sel = ed.selection
     if (ed.tool === 'bucket') {
-      if (doc.fillHair(id, ed.color, ed.brush.opacity)) ed.pushRecent(ed.color)
+      if (sel ? fillSelection(doc, ed.color, ed.brush.opacity) : doc.fillHair(id, ed.color, ed.brush.opacity)) ed.pushRecent(ed.color)
       return false
     }
-    if (ed.tool === 'gradient') return this.downGradient(h.img, { x: 0, y: 0, w: h.img.w, h: h.img.h }, x, y)
+    if (ed.tool === 'gradient') return this.downGradient(h.img, sel ?? { x: 0, y: 0, w: h.img.w, h: h.img.h }, x, y)
+    if (sel) clip = clip ? intersect(clip, sel) : sel
     if (ed.tool !== 'brush' && ed.tool !== 'eraser') return false
     const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
     this.stroke = doc.beginHairStroke(id, ed.color, b.opacity, ed.tool === 'eraser' ? 'erase' : 'paint')
@@ -140,12 +142,13 @@ export class PaintSession {
       if (c) ed.set({ color: [c[0], c[1], c[2], 255] })
       return false
     }
-    if (ed.tool === 'gradient') return this.downGradient(img, { x: 0, y: 0, w: img.w, h: img.h }, x, y)
+    const sel = ed.selection
+    if (ed.tool === 'gradient') return this.downGradient(img, sel ?? { x: 0, y: 0, w: img.w, h: img.h }, x, y)
     if (ed.tool !== 'brush' && ed.tool !== 'eraser') return false
     const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
     this.stroke = this.doc.beginFaceStroke(f, ed.color, b.opacity, ed.tool === 'eraser' ? 'erase' : 'paint')
     if (!this.stroke) return false
-    this.doc.stamp(this.stroke, x, y, b, null, ed.mirror)
+    this.doc.stamp(this.stroke, x, y, b, sel, ed.mirror)
     this.last = [x, y]
     this.lastClip = null
     return true
@@ -176,7 +179,7 @@ export class PaintSession {
     if (this.last[0] === x && this.last[1] === y) return
     const mirror = ed.mirror && !this.hairId // face frames mirror inside doc.stamp
     // skin strokes stay inside the selection
-    const sel = !this.hairId && !this.doc.faceFrame ? ed.selection : null
+    const sel = ed.selection
     const c = sel ? (clip ? intersect(clip, sel) : sel) : clip
     if (sel && !c) return
     if (sameFace) this.doc.strokeLine(this.stroke, this.last, [x, y], b, c, mirror)

@@ -142,3 +142,19 @@ describe('glowing parts', () => {
     expect(prepareAtlas(doc, 'figura').glow).not.toBeNull()
   })
 })
+
+describe('face sets', () => {
+  it('apply a saved face to another skin, rescaled, as one undo step', () => {
+    const a = make(64)
+    a.generateFaces()
+    a.updateFigura({ blinkMin: 1.5, glowEyes: true })
+    const b = make(128)
+    b.applyFaceSet(64, a.faces, a.faceSetConfig())
+    expect(b.faces.blink?.w).toBe(16)
+    expect(b.figura.eyeR.x).toBe(a.figura.eyeR.x * 2)
+    expect(b.figura.blinkMin).toBe(1.5)
+    expect(b.figura.glowEyes).toBe(true)
+    b.undo()
+    expect(b.faces.blink).toBeUndefined()
+  })
+})
