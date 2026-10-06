@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { allFrames, type FaceFrame } from '../../skin/figura'
+import { allFrames, FACE_RESOLUTIONS, type FaceFrame } from '../../skin/figura'
 import { parseHex, toHex } from '../../skin/color'
 import { PaintSession } from '../../lib/paint'
 import { useEditor, type Tool } from '../../store/editor'
@@ -29,6 +29,7 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
   const boxRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const frames = allFrames(doc.figura).filter((f) => doc.faces[f])
+  const faceSize = doc.faceSize()
   const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
   const [effect, setEffect] = useState<FaceEffect | null>(null)
   const state = useRef({ underlay, frame, effect })
@@ -203,7 +204,7 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
       unsubStore()
       ro.disconnect()
     }
-  }, [doc, frame])
+  }, [doc, frame, faceSize])
 
   useEffect(() => {
     redraw.current() // the underlay strength changed
@@ -266,6 +267,13 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
               </button>
             ))}
           </div>
+          <label className="slider" title={t('figura.faceResHint')}>
+            <span className="muted">{t('figura.faceRes')}</span>
+            <select className="input sm" value={doc.figura.faceRes ?? ''} onChange={(e) => doc.setFaceRes(e.target.value ? Number(e.target.value) : undefined)}>
+              <option value="">{t('figura.faceResSkin', { r: doc.res, n: doc.res / 8 })}</option>
+              {FACE_RESOLUTIONS.map((r) => <option key={r} value={r}>{t('figura.faceResOpt', { r, n: r / 8 })}</option>)}
+            </select>
+          </label>
           <div className="grow" />
           <label className="slider">
             <span className="muted">{t('figura.underlay')}</span>

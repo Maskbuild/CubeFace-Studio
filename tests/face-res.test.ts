@@ -9,7 +9,7 @@ import { figuraDefaults } from '../src/renderer/src/skin/figura'
 
 describe('face image size', () => {
   it('rescales frames and eye boxes and keeps them when the skin size changes', () => {
-    const doc = new SkinDoc({ name: 'T', res: 64 })
+    const doc = new SkinDoc({ name: 'T', res: 64, variant: 'wide' })
     doc.generateFaces()
     const eye = doc.figura.eyeR
     expect(doc.faces.blink!.w).toBe(8)
@@ -43,7 +43,7 @@ describe('face image size', () => {
   })
 
   it('shrinks detailed faces to the skin width for Bedrock', () => {
-    const doc = new SkinDoc({ name: 'T', res: 64 })
+    const doc = new SkinDoc({ name: 'T', res: 64, variant: 'wide' })
     doc.generateFaces()
     doc.setFaceRes(1024)
     expect(prepareAtlas(doc, 'bedrock').atlas.img.w).toBe(64)

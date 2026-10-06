@@ -29,6 +29,7 @@ export function auriaConf(cfg: FiguraConfig): string {
     `   holdTime = ${Math.round(Math.min(2000, Math.max(50, a.holdTime)))},`,
     `   animationSpeed = ${lua(Math.min(1, Math.max(0.05, a.animationSpeed)))},`,
     `   noAnimations = ${a.animations ? 'false' : 'true'},`,
+    '   backHint = "Right click: back", -- shown on sub pages (NKW addition)',
     '}',
     'return conf',
     ''
@@ -103,7 +104,6 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
   const pages = liveWheel(cfg, { frames: has, physics: chains.length > 0, glow: info.glow })
   const live = pages.filter((p, i) => i === 0 || pages.some((q) => q.items.some((it) => (it.type === 'page' || it.type === 'home') && it.page === p.id)))
   if (live[0]?.items.length) {
-    const pageIx = new Map(live.map((p, i) => [p.id, i + 1]))
     const exprs = live.flatMap((p) => p.items.filter((it) => it.type === 'expr').map((it) => it.expr!))
     const usedToggles = [...new Set(live.flatMap((p) => p.items.filter((it) => it.type === 'toggle').map((it) => it.toggle!)))]
     if (exprs.length)
@@ -159,25 +159,26 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
       const id2 = item(ic.kind === 'item' ? ic.id : 'minecraft:name_tag')
       return auria ? `:setIconItem("${id2}")` : `:item("${id2}")`
     }
-    // the page that first links to each page (Figura's wheel needs explicit "back" buttons)
-    const parent = new Map<string, number>()
-    live.forEach((p, i) => p.items.forEach((it) => it.type === 'page' && !parent.has(it.page!) && parent.set(it.page!, i + 1)))
 
     if (auria) {
-      // Auria's wheel (MIT, AuriaFoxGirl): animated, sub-pages with breadcrumbs, right click goes back
+      // Auria's wheel (MIT, AuriaFoxGirl): animated, breadcrumbs, right click goes back (a hint says so),
+      // so long pages only get a "Next" button
+      const screens = wheelScreens(live, (p) => Math.max(2, Math.round(p.groupSize || 8)), false)
+      const close = cfg.auriaStyle.closeOnExpr !== false ? ' wheel.setEnabled(false)' : ''
       add('local wheel = require("auria_wheel.main")', 'local P = {}')
-      live.forEach((p, i) => add(`P[${i + 1}] = wheel.newPage():setTitle("${str(p.title, 'Page')}")${p.groupSize ? `:setGroupSize(${Math.max(2, Math.round(p.groupSize))})` : ''}`))
-      live.forEach((p, i) => {
-        for (const it of p.items) {
+      screens.forEach((sc, i) => add(`P[${i + 1}] = wheel.newPage():setTitle("${str(sc.title, 'Page')}${sc.parts > 1 ? ` ${sc.part + 1}/${sc.parts}` : ''}")`))
+      screens.forEach((sc, i) => {
+        const head = `P[${i + 1}]`
+        for (const sl of sc.slots) {
+          if (sl.kind === 'next') add(`${head}:newAction():setTitle("Next"):setIconItem("minecraft:spectral_arrow"):setPage(P[${sl.to + 1}])`)
+          if (sl.kind !== 'item') continue
+          const it = sl.item
           const v = itemView(cfg, it)
-          const head = `P[${i + 1}]`
           const t = `:setTitle("${str(v.title, 'Action')}")${icon(v.icon, it.id)}`
           if (it.type === 'toggle') add(`${head}:newToggle()${t}:setToggled(true):onToggle(function(on) pings.nkwToggle(${usedToggles.indexOf(it.toggle!) + 1}, on) end)`)
-          else if (it.type === 'page' || it.type === 'home') add(`${head}:newAction()${t}:setPage(P[${pageIx.get(it.page ?? '') ?? 1}])`)
-          else add(`${head}:newAction()${t}:onPress(function() pings.nkwExpr(${it.type === 'clear' ? 0 : exprs.indexOf(it.expr!) + 1}) end)`)
+          else if (sl.to !== undefined) add(`${head}:newAction()${t}:setPage(P[${sl.to + 1}])`)
+          else add(`${head}:newAction()${t}:onPress(function() pings.nkwExpr(${it.type === 'clear' ? 0 : exprs.indexOf(it.expr!) + 1})${close} end)`)
         }
-        // right click goes back too, but a button is easier to find
-        if (i > 0) add(`P[${i + 1}]:newAction():setTitle("Back"):setIconItem("minecraft:arrow"):setPage(P[${parent.get(p.id) ?? 1}])`)
       })
       add('wheel.setPage(P[1])', '')
     } else {

@@ -165,20 +165,26 @@ describe('action wheel pages', () => {
     cfg.wheel = 'auria'
     cfg.wheelPages = syncWheel(cfg)
     cfg.wheelPages[1].items = cfg.wheelPages[1].items.map((it) => (it.expr === 'sad' ? { ...it, icon: { kind: 'emoji', text: ':cry:' } } : it))
-    cfg.wheelPages[1].groupSize = 4
+    cfg.wheelPages[1].groupSize = 2
     const s = buildScript('T', cfg, info, [hair])
     expect(s).toContain('P[1] = wheel.newPage():setTitle("Main")')
-    expect(s).toContain('P[2] = wheel.newPage():setTitle("Expressions"):setGroupSize(4)')
+    // 2 per page: 1 + Next on every part but the last (no Back: right click goes back)
+    const parts = Number(/setTitle\("Expressions 1\/(\d+)"\)/.exec(s)?.[1])
+    expect(parts).toBeGreaterThan(1)
+    expect(s).toContain('P[2]:newAction():setTitle("Next"):setIconItem("minecraft:spectral_arrow"):setPage(P[3])')
+    expect(s).not.toContain(`P[${parts + 1}]:newAction():setTitle("Next")`)
+    expect(s).toMatch(/pings\.nkwExpr\(\d+\) wheel\.setEnabled\(false\) end/)
     expect(s).toContain('P[1]:newAction():setTitle("Expressions"):setIconItem("minecraft:painting"):setPage(P[2])')
     expect(s).toContain('P[1]:newToggle():setTitle("Blinking")')
     expect(s).toContain('setIconEmoji(":cry:")')
-    expect(s).toContain(':newAction():setTitle("Back"):setIconItem("minecraft:arrow"):setPage(P[1])') // a Back button besides right click
+    expect(s).not.toContain('"Back"')
     parse(s)
     const conf = auriaConf({ ...cfg, auriaStyle: { ...DEFAULT_AURIA, overlay: '#ff0000', overlayAlpha: 0.3, blur: false, mode: 'TOGGLE', animations: false } })
     expect(conf).toContain('overlayColor = vec(1, 0, 0, 0.3)')
     expect(conf).toContain('postEffect = nil')
     expect(conf).toContain('mode = "TOGGLE"')
     expect(conf).toContain('noAnimations = true')
+    expect(conf).toContain('backHint = "Right click: back"')
     parse(conf)
   })
 

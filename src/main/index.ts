@@ -150,7 +150,8 @@ function registerIpc() {
       for (const n of Object.keys(files)) if (!/^[\w\-. ]+(\/[\w\-. ]+)*$/.test(n) || n.split('/').includes('..')) throw new Error('bad file name')
       if (merge && attachIds.length) {
         const metas = await avatars.list()
-        await mergeAvatars(path.join(tmp, safe), [
+        // merged: avatar.json at the zip root, so Figura loads the .zip itself as one avatar
+        await mergeAvatars(tmp, [
           { files, label: safe },
           ...attachIds.map((id) => ({ dir: avatars.filesDir(id), label: metas.find((m) => m.id === id)?.name ?? id }))
         ])

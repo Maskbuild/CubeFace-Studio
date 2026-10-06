@@ -79,6 +79,9 @@ local pageAngleOffsets = {
 }
 
 local breadcrumbsModel = hudModel:newPart("")
+-- NKW addition: a hint below the wheel on sub pages ("Right click: back", conf.backHint)
+local backHint = hudModel:newPart("")
+local backHintText = backHint:newText(""):setAlignment("CENTER"):setShadow(true)
 local breadcrumbLen = 0
 local breadcrumbOldLen = 0
 ---@type auria.wheel.breadcrumb[]
@@ -1283,6 +1286,11 @@ local function renderBreadcrumbs(delta, globalVisible)
    local pos = vec(math.round(width / 2), 124, 0)
    breadcrumbsModel:setScale(globalVisible)
       :setPos(pos * globalVisible)
+
+   local hint = mod.conf.backHint
+   local hintOpacity = (hint and #pageHistory >= 2) and globalVisible * globalVisible or 0
+   backHintText:setText(hint or ""):setOpacity(hintOpacity):setVisible(hintOpacity > 0.05)
+   backHint:setScale(globalVisible):setPos(vec(0, -124, 0) * globalVisible)
 end
 
 hudModelRoot.preRender = function(delta)

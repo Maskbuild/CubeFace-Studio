@@ -27,7 +27,7 @@ export function ExportDialog({ doc, onClose }: { doc: SkinDoc; onClose: () => vo
   // Figura to include: starts with the ones shown with this skin; any library avatar can be added
   const [lib, setLib] = useState<AvatarMeta[]>([])
   const [include, setInclude] = useState<string[]>(() => doc.figura.attached.filter((a) => a.enabled).map((a) => a.id))
-  const [together, setTogether] = useState<'separate' | 'merge'>('separate')
+  const [together, setTogether] = useState<'separate' | 'merge'>('merge')
   const [asZip, setAsZip] = useState(true)
   const [picking, setPicking] = useState(false)
   useEffect(() => {

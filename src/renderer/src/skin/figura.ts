@@ -56,7 +56,7 @@ export interface WheelPage {
   items: WheelItem[]
   /** New expressions are added to this page automatically. */
   auto?: boolean
-  /** Buttons per ring before paging (auria wheel); empty = all on one ring. */
+  /** Buttons per page before a "Next" button (auria wheel); empty = 8. */
   groupSize?: number
 }
 
@@ -69,6 +69,8 @@ export interface AuriaStyle {
   holdTime: number // ms before a press counts as "held" (MIXED)
   animationSpeed: number // 0..1
   animations: boolean
+  /** Close the wheel after picking an expression. */
+  closeOnExpr?: boolean
 }
 
 export const DEFAULT_EXPR: Record<Expression, { title: string; icon: string }> = {
@@ -89,7 +91,7 @@ export const DEFAULT_TOGGLE: Record<Exclude<WheelToggle, `glowHair:${string}`>, 
   glowEyes: { title: 'Glowing eyes', icon: 'minecraft:ender_eye' },
   glowSkin: { title: 'Skin glow', icon: 'minecraft:glow_ink_sac' }
 }
-export const DEFAULT_AURIA: AuriaStyle = { overlay: '#33383f', overlayAlpha: 0.5, blur: true, mode: 'MIXED', holdTime: 250, animationSpeed: 0.5, animations: true }
+export const DEFAULT_AURIA: AuriaStyle = { overlay: '#33383f', overlayAlpha: 0.5, blur: true, mode: 'MIXED', holdTime: 250, animationSpeed: 0.5, animations: true, closeOnExpr: true }
 
 let wid = 0
 export const wheelId = () => Date.now().toString(36) + (wid++).toString(36)
@@ -332,13 +334,14 @@ export interface WheelScreen {
  * for "Back" (previous part, else the page that links here), and a part with more buttons after
  * it keeps one for "Next". Page and home buttons point at the target page's first screen.
  */
-export function wheelScreens(pages: WheelPage[], per = WHEEL_SLOTS): WheelScreen[] {
+export function wheelScreens(pages: WheelPage[], per: number | ((p: WheelPage) => number) = WHEEL_SLOTS, withBack = true): WheelScreen[] {
   const chunks = pages.map((p, pi) => {
     const out: WheelItem[][] = []
     let rest = p.items
+    const size = typeof per === 'number' ? per : per(p)
     do {
-      const back = pi > 0 || out.length > 0
-      let cap = per - (back ? 1 : 0)
+      const back = withBack && (pi > 0 || out.length > 0)
+      let cap = size - (back ? 1 : 0)
       if (rest.length > cap) cap -= 1
       cap = Math.max(1, cap)
       out.push(rest.slice(0, cap))
@@ -358,7 +361,7 @@ export function wheelScreens(pages: WheelPage[], per = WHEEL_SLOTS): WheelScreen
       const slots: WheelSlot[] = items.map((item): WheelSlot =>
         item.type === 'page' || item.type === 'home' ? { kind: 'item', item, to: start.get(item.page ?? '') ?? 0 } : { kind: 'item', item }
       )
-      if (pi > 0 || part > 0) slots.push({ kind: 'back', to: part > 0 ? at - 1 : (start.get(parent.get(p.id) ?? '') ?? 0) })
+      if (withBack && (pi > 0 || part > 0)) slots.push({ kind: 'back', to: part > 0 ? at - 1 : (start.get(parent.get(p.id) ?? '') ?? 0) })
       if (part < chunks[pi].length - 1) slots.push({ kind: 'next', to: at + 1 })
       screens.push({ page: p.id, title: p.title, part, parts: chunks[pi].length, slots })
     })

@@ -129,48 +129,54 @@ function FiguraPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPag
   )
 }
 
-/** Auria's wheel: tinted backdrop, breadcrumbs, round buttons, switches under toggles. */
+/** Auria's wheel: tinted backdrop, breadcrumbs, round buttons, switches under toggles, right click goes back. */
 function AuriaPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPage }: PreviewProps) {
+  const { t } = useTranslation()
   const c = doc.figura
   const a = c.auriaStyle
   const [hover, setHover] = useState<string | null>(null)
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
-  const [group, setGroup] = useState(0)
-  const page = pages.find((p) => p.id === pageId) ?? pages[0]
-  // breadcrumb trail: Home > ... > this page (first link found)
-  const trail = useMemo(() => {
-    const out: WheelPage[] = [page]
-    for (let guard = 0; guard < 8 && out[0] !== pages[0]; guard++) {
-      const par = pages.find((p) => p.items.some((it) => it.type === 'page' && it.page === out[0].id))
-      if (!par || out.includes(par)) break
-      out.unshift(par)
-    }
-    if (out[0] !== pages[0]) out.unshift(pages[0])
-    return out
-  }, [pages, page])
-  useEffect(() => setGroup(0), [pageId])
-  // sub-pages get a Back button (exported the same way)
-  const all: WheelItem[] = trail.length > 1 ? [...page.items, { id: '__back', type: 'page', page: trail[trail.length - 2].id, title: 'Back', icon: { kind: 'item', id: 'minecraft:arrow' } }] : page.items
-  const per = page.groupSize ? Math.max(2, page.groupSize) : Math.max(1, all.length)
-  const groups = Math.max(1, Math.ceil(all.length / per))
-  const gi = Math.min(group, groups - 1)
-  const items = all.slice(gi * per, gi * per + per)
+  // long pages are split with a "Next" button (no Back: right click goes back, like in game)
+  const screens = useMemo(() => wheelScreens(pages, (p) => Math.max(2, Math.round(p.groupSize || 8)), false), [pages])
+  const [history, setHistory] = useState<number[]>([0])
+  const at = Math.min(history[history.length - 1] ?? 0, screens.length - 1)
+  // a page picked outside the ring (tabs) starts a fresh trail
+  useEffect(() => {
+    if (screens[at]?.page !== pageId) setHistory([0, ...[Math.max(0, screens.findIndex((x) => x.page === pageId))].filter((x) => x > 0)])
+  }, [pageId, screens, at])
+  const screen = screens[at]
+  const open = (to: number) => {
+    setHistory((h) => [...h, to])
+    if (screens[to] && screens[to].page !== pageId) onOpenPage(screens[to].page)
+  }
+  const back = () => {
+    if (history.length < 2) return
+    const h = history.slice(0, -1)
+    setHistory(h)
+    const to = screens[h[h.length - 1]]
+    if (to && to.page !== pageId) onOpenPage(to.page)
+  }
+  const trail = history.map((i) => screens[i]).filter(Boolean)
+  const items: (WheelItem & { to?: number })[] = (screen?.slots ?? []).map((sl) =>
+    sl.kind === 'item' ? { ...sl.item, to: sl.to } : { id: '__next', type: 'page', title: t('wheel.next'), icon: { kind: 'item', id: 'minecraft:spectral_arrow' }, to: sl.to }
+  )
   const n = Math.max(1, items.length)
   const R = 96
   const hov = items.find((it) => it.id === (hover ?? selected))
   const rgb = /^#?([0-9a-f]{6})$/i.exec(a.overlay)?.[1] ?? '33383f'
   const bg = `rgba(${parseInt(rgb.slice(0, 2), 16)}, ${parseInt(rgb.slice(2, 4), 16)}, ${parseInt(rgb.slice(4, 6), 16)}, ${a.overlayAlpha})`
   return (
-    <div className={'wheel-ring auria' + (a.blur ? ' blur' : '') + (a.animations ? ' anim' : '')} style={{ ['--auria-bg' as string]: bg }} onContextMenu={(e) => (e.preventDefault(), trail.length > 1 && onOpenPage(trail[trail.length - 2].id))}>
+    <div className={'wheel-ring auria' + (a.blur ? ' blur' : '') + (a.animations ? ' anim' : '')} style={{ ['--auria-bg' as string]: bg }} onContextMenu={(e) => (e.preventDefault(), back())}>
       <div className="auria-crumbs">
         {trail.map((p, i) => (
-          <span key={p.id} onClick={() => onOpenPage(p.id)}>
+          <span key={i}>
             {i > 0 && <b>›</b>}
             {i === 0 ? '⌂ ' : ''}
-            {p.title || 'Page'}
+            {(p.title || 'Page') + (p.parts > 1 ? ` ${p.part + 1}/${p.parts}` : '')}
           </span>
         ))}
       </div>
+      {history.length > 1 && <div className="auria-hint">{t('wheel.rightClickBack')}</div>}
       <svg viewBox="-150 -150 300 300" width="100%" height="100%">
         {items.map((it, i) => {
           const ang = (i / n) * Math.PI * 2 - Math.PI / 2
@@ -185,9 +191,8 @@ function AuriaPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPage
               onMouseEnter={() => setHover(it.id)}
               onMouseLeave={() => setHover(null)}
               onClick={() => {
-                onSelect(it.id)
-                if (it.type === 'page' && it.page) onOpenPage(it.page)
-                if (it.type === 'home') onOpenPage(pages.some((x) => x.id === it.page) ? it.page! : pages[0].id)
+                if (it.id !== '__next') onSelect(it.id)
+                if (it.to !== undefined) open(it.to)
                 if (it.type === 'toggle') setToggled((m) => ({ ...m, [it.id]: !on }))
               }}
             >
@@ -206,13 +211,6 @@ function AuriaPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPage
         })}
         <text className="ring-title light" y={4} textAnchor="middle">{hov ? itemView(c, hov).title : ''}</text>
       </svg>
-      {groups > 1 && (
-        <div className="auria-groups">
-          <button onClick={() => setGroup((gi + groups - 1) % groups)}>‹</button>
-          {gi + 1} / {groups}
-          <button onClick={() => setGroup((gi + 1) % groups)}>›</button>
-        </div>
-      )}
     </div>
   )
 }
@@ -342,7 +340,7 @@ export function WheelWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => voi
               {auria && (
                 <label className="field" style={{ width: 120 }}>
                   <span className="muted">{t('wheel.groupSize')}</span>
-                  <input className="input" type="number" min={0} max={16} value={page.groupSize ?? 0} onChange={(e) => editPage({ groupSize: Number(e.target.value) || undefined })} />
+                  <input className="input" type="number" min={0} max={16} value={page.groupSize ?? ''} placeholder="8" onChange={(e) => editPage({ groupSize: Number(e.target.value) || undefined })} />
                 </label>
               )}
               <label className="row" title={t('wheel.autoHint')}>
@@ -499,6 +497,10 @@ export function WheelWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => voi
                   )}
                 </div>
                 <div className="row" style={{ flexWrap: 'wrap', gap: 10 }}>
+                  <label className="row" title={t('wheel.closeOnExprHint')}>
+                    <input type="checkbox" checked={c.auriaStyle.closeOnExpr !== false} onChange={(e) => doc.updateFigura({ auriaStyle: { ...c.auriaStyle, closeOnExpr: e.target.checked } })} />
+                    {t('wheel.closeOnExpr')}
+                  </label>
                   <label className="row">
                     <input type="checkbox" checked={c.auriaStyle.animations} onChange={(e) => doc.updateFigura({ auriaStyle: { ...c.auriaStyle, animations: e.target.checked } })} />
                     {t('wheel.animations')}
