@@ -17,6 +17,9 @@ import { storage } from '../../lib/storage'
 import { PaintSession } from '../../lib/paint'
 import { useEditor } from '../../store/editor'
 import { Toolbar } from './Toolbar'
+import { applyPose, limbAngles } from '../../pose/apply'
+import { emoteLength, sampleEmote, type Bone, type PoseState } from '../../pose/emote'
+import { usePoseClock } from '../../pose/library'
 
 const MINI = { w: 170, h: 230, margin: 12 }
 const HOME_POS = new THREE.Vector3(0, 22, 58)
@@ -140,6 +143,23 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       }
     })
     gizmo.addEventListener('change', () => (dirty = true))
+
+    // ---- pose mode: rotate the selected part with a gizmo --------------------------------
+    const poseGizmo = new TransformControls(camera, renderer.domElement)
+    poseGizmo.setMode('rotate')
+    poseGizmo.setSpace('local')
+    poseGizmo.setSize(0.8)
+    const poseHelper = poseGizmo.getHelper()
+    scene.add(poseHelper)
+    poseGizmo.addEventListener('dragging-changed', (e) => (controls.enabled = !e.value))
+    poseGizmo.addEventListener('objectChange', () => {
+      const s = useEditor.getState()
+      const bone = s.poseBone
+      if (!bone || bone === 'body' || !poseGizmo.object) return
+      const a = limbAngles(poseGizmo.object.quaternion)
+      s.set({ pose: { ...s.pose, [bone]: { ...s.pose[bone], ...a } } })
+    })
+    const posing = () => useEditor.getState().mode === 'pose'
     const syncHair = () => {
       const s = useEditor.getState()
       rig.sync(s.figura ? doc.hair : [])
@@ -147,7 +167,14 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       rig.showOutlines = s.hairOutlines
       rig.setGrid(s.grid, isDark())
       rig.refreshOutlines()
-      const root = doc.hairId && s.figura && s.motion === 'off' ? rig.root(doc.hairId) : undefined
+      const pose = s.mode === 'pose'
+      model.setBendable(pose)
+      // the pose gizmo turns limbs and the head (the whole body uses the sliders)
+      const bonePart = pose && !s.emote && s.poseBone && s.poseBone !== 'body' && s.poseBone !== 'torso' ? model.parts[s.poseBone] : undefined
+      if (bonePart) poseGizmo.attach(bonePart)
+      else poseGizmo.detach()
+      poseHelper.visible = !!bonePart
+      const root = doc.hairId && s.figura && s.motion === 'off' && !pose ? rig.root(doc.hairId) : undefined
       if (root) gizmo.attach(root)
       else gizmo.detach()
       gizmoHelper.visible = !!root
@@ -157,9 +184,9 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       fig.talk = s.figTalk
       fig.sync(doc)
       syncAttached(s.figura)
-      driver.mode = s.motion
-      if (driver.mode !== 'off') model.mirrorLines.visible = false // the guide doesn't follow the animated head
-      if (driver.mode === 'off') {
+      driver.mode = pose ? 'off' : s.motion
+      if (driver.mode !== 'off' || pose) model.mirrorLines.visible = false // the guide doesn't follow the animated head
+      if (driver.mode === 'off' && !pose) {
         model.resetPose()
         rig.applyPhysics(0, false)
       }
@@ -170,7 +197,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     const sync = () => {
       const s = useEditor.getState()
       model.setHidden(s.hidden)
-      model.setGrid(s.grid, isDark(), s.target)
+      model.setGrid(s.grid && s.mode !== 'pose', isDark(), s.target)
       model.setMirror(s.mirror, getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#3fd6e3')
       const orbit = s.tool === 'orbit'
       controls.mouseButtons = { LEFT: orbit ? THREE.MOUSE.ROTATE : (null as unknown as THREE.MOUSE), MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE }
@@ -247,7 +274,19 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
 
     const session = new PaintSession(doc)
     let spaceOrbit = false
+    const PART_BONE: Record<string, Bone> = { head: 'head', body: 'body', rightArm: 'rightArm', leftArm: 'leftArm', rightLeg: 'rightLeg', leftLeg: 'leftLeg' }
+    const pickBone = (ev: PointerEvent) => {
+      const r = renderer.domElement.getBoundingClientRect()
+      ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1)
+      ray.setFromCamera(ndc, camera)
+      const hit = ray.intersectObjects(model.meshes.filter((m) => m.visible), false)[0]
+      useEditor.getState().set({ poseBone: hit ? PART_BONE[hit.object.parent?.name ?? ''] ?? null : null })
+    }
     const onDown = (ev: PointerEvent) => {
+      if (posing()) {
+        if (ev.button === 0 && !spaceOrbit && poseGizmo.axis === null) pickBone(ev)
+        return
+      }
       if (ev.button !== 0 || useEditor.getState().tool === 'orbit' || spaceOrbit || gizmo.axis !== null) return
       let hit = hitTexel(ev)
       // clicking anything but the face while a face frame is selected leaves face painting
@@ -286,6 +325,28 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
 
     controls.addEventListener('change', () => (dirty = true))
     api.current = { resetView: frameView }
+    /** Render the current view to a transparent PNG at a chosen size (pose mode "save image"). */
+    const shot = (W: number, H: number) => {
+      const pr = renderer.getPixelRatio()
+      renderer.setPixelRatio(1)
+      renderer.setSize(W, H, false)
+      camera.aspect = W / H
+      camera.updateProjectionMatrix()
+      renderer.setViewport(0, 0, W, H)
+      renderer.setScissor(0, 0, W, H)
+      const hide = [floor, gizmoHelper, poseHelper].map((o) => [o, o.visible] as const)
+      hide.forEach(([o]) => (o.visible = false))
+      model.setGrid(false, false)
+      rig.setGrid(false, false)
+      renderer.render(scene, camera)
+      const url = renderer.domElement.toDataURL('image/png')
+      hide.forEach(([o, v]) => (o.visible = v))
+      renderer.setPixelRatio(pr)
+      w = h = 0 // resize back on the next frame
+      sync()
+      return url
+    }
+    useEditor.getState().set({ poseShot: shot })
     frameView()
 
     // ---- render loop -------------------------------------------------------------------
@@ -294,6 +355,8 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     const t0 = performance.now()
     let last = performance.now()
     let figAcc = 0
+    let poseT = 0, poseAcc = 0, clockAt = 0
+    const lastPose = { y: 0, yaw: 0 }
     const frame = () => {
       raf = requestAnimationFrame(frame)
       const now = performance.now()
@@ -306,7 +369,43 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
         driver.cameraLook = [pitch, yaw]
       }
       let alpha = 1
-      if (driver.mode !== 'off') {
+      if (posing()) {
+        const s = useEditor.getState()
+        let state: PoseState = s.pose
+        if (s.emote) {
+          const clock = usePoseClock.getState()
+          if (clock.seek !== null) {
+            poseT = clock.seek
+            usePoseClock.setState({ seek: null })
+          }
+          if (s.emotePlaying) poseT += dt * 20 * s.emoteSpeed
+          const len = emoteLength(s.emote)
+          if (!s.emote.loop && poseT >= len) {
+            poseT = len
+            if (s.emotePlaying) s.set({ emotePlaying: false })
+          }
+          state = sampleEmote(s.emote, poseT)
+          if (now - clockAt > 90) {
+            clockAt = now
+            usePoseClock.setState({ tick: s.emote.loop ? poseT % Math.max(1, s.emote.endTick) : poseT })
+          }
+        } else poseT = 0
+        applyPose(model, state)
+        // hair follows the head: one physics step per game tick
+        poseAcc += dt
+        while (poseAcc >= 0.05) {
+          poseAcc -= 0.05
+          const head = state.head ?? {}
+          const body = state.body ?? {}
+          const yaw = (head.yaw ?? 0) + (body.yaw ?? 0)
+          const y = body.y ?? 0
+          rig.tick({ vx: 0, vy: y - lastPose.y, vz: 0, pitch: (head.pitch ?? 0) + (body.pitch ?? 0), yawRate: lastPose.yaw - yaw })
+          lastPose.y = y
+          lastPose.yaw = yaw
+        }
+        rig.applyPhysics(poseAcc / 0.05, true)
+        dirty = true
+      } else if (driver.mode !== 'off') {
         alpha = driver.update(dt, model, (m) => rig.tick(m))
         rig.applyPhysics(alpha, true)
         dirty = true
@@ -321,7 +420,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
         }
         // smooth head: the head lags behind where the animation points it
         const head = model.parts.head
-        if (cfg.smoothHead && driver.mode !== 'off') {
+        if (cfg.smoothHead && driver.mode !== 'off' && !posing()) {
           if (!smoothInit) smoothHead.copy(head.quaternion), (smoothInit = true)
           smoothHead.slerp(head.quaternion, 1 - Math.pow(1 - cfg.headSpeed, dt * 20))
           head.quaternion.copy(smoothHead)
@@ -392,6 +491,9 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       window.removeEventListener('keyup', onKey)
       gizmo.detach()
       gizmo.dispose()
+      poseGizmo.detach()
+      poseGizmo.dispose()
+      if (useEditor.getState().poseShot === shot) useEditor.getState().set({ poseShot: null })
       controls.dispose()
       rig.disposeAll()
       fig.dispose()

@@ -7,6 +7,7 @@ import { BUILTIN_PALETTES, type Palette } from '../skin/palette'
 import { storage } from '../lib/storage'
 import type { MotionMode } from '../three/motion'
 import type { ExprKey } from '../skin/figura'
+import type { Bone, Emote, PoseState } from '../pose/emote'
 
 export type Tool = 'brush' | 'eraser' | 'bucket' | 'picker' | 'orbit'
 export type PaintTarget = 'auto' | 'base' | 'overlay'
@@ -32,7 +33,15 @@ interface EditorStore {
   /** Show Figura extras (hair planes + physics) in the viewport. */
   figura: boolean
   /** Workspace mode chosen with the top-right buttons. */
-  mode: 'skin' | 'figura'
+  mode: 'skin' | 'figura' | 'pose'
+  /** Pose mode: the pose being edited, the selected part and the animation playing (not saved). */
+  pose: PoseState
+  poseBone: Bone | null
+  emote: Emote | null
+  emotePlaying: boolean
+  emoteSpeed: number
+  /** Pose-mode viewport hooks (set by the viewport). */
+  poseShot: ((w: number, h: number) => string) | null
   /** Figura preview state (not saved). */
   figExpr: ExprKey | null
   figTalk: boolean
@@ -72,6 +81,12 @@ export const useEditor = create<EditorStore>((set, get) => ({
   preview: true,
   figura: true,
   mode: 'skin',
+  pose: {},
+  poseBone: null,
+  emote: null,
+  emotePlaying: false,
+  emoteSpeed: 1,
+  poseShot: null,
   figExpr: null,
   figTalk: false,
   motion: 'off',
@@ -85,7 +100,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   clipboard: null,
   renameLayerId: null,
 
-  setDoc: (doc) => set({ doc, tick: get().tick + 1, approvedNoMod: new Set(), mode: 'skin', figExpr: null, figTalk: false }),
+  setDoc: (doc) => set({ doc, tick: get().tick + 1, approvedNoMod: new Set(), mode: 'skin', figExpr: null, figTalk: false, pose: {}, poseBone: null, emote: null, emotePlaying: false }),
   bump: () => set({ tick: get().tick + 1 }),
   set: (p) => set(p),
   // brush/eraser keep separate settings; the active one depends on the current tool

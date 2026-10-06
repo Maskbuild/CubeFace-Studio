@@ -27,6 +27,17 @@ export function Toolbar({ onResetView }: { onResetView: () => void }) {
   const b = s.tool === 'eraser' ? s.eraser : s.brush
   const pct = (v: number) => Math.round(v * 100) + '%'
 
+  // pose mode: nothing to paint, just the view controls
+  if (s.mode === 'pose')
+    return (
+      <div className="toolbar">
+        <span className="muted" style={{ fontSize: 12, padding: '0 6px' }}>{t('pose.toolbarHint')}</span>
+        <div className="grow" />
+        <button className={'icon-btn' + (s.preview ? ' active' : '')} title={t('tools.preview')} onClick={() => s.set({ preview: !s.preview })}><Icon name="eye" size={17} /></button>
+        <button className="icon-btn" title={t('tools.resetView')} onClick={onResetView}><Icon name="reset" size={17} /></button>
+      </div>
+    )
+
   return (
     <div className="toolbar">
       {TOOLS.map(([id, icon]) => (

@@ -179,7 +179,7 @@ export function IconPicker({ doc, value, version, auria, onPick, onClose }: { do
             </div>
             <PackNotice state={state} version={version} />
             {pack && (
-              <div className="item-grid">
+              <div className="mc-grid">
                 {items.map((i) => (
                   <ItemCell key={i.id} pack={pack} id={i.id} name={i.name} on={value.kind === 'item' && strip(value.id) === i.id} onPick={() => onPick({ kind: 'item', id: 'minecraft:' + i.id })} />
                 ))}

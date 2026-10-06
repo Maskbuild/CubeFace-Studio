@@ -33,32 +33,51 @@ function bounds(c: CuboidDef, extra = 0): [V3, V3] {
   ]
 }
 
-/** Geometry with 2 triangles per face in face order, so raycast faceIndex>>1 = face index. */
-export function cuboidGeometry(c: CuboidDef): THREE.BufferGeometry {
+const SIDES: FaceName[] = ['front', 'back', 'left', 'right']
+
+/**
+ * Geometry with 2 triangles per face in face order, so raycast faceIndex>>1 = face index.
+ * With `bend`, the sides of arms, legs and the body are split at half height and every vertex
+ * gets a bend weight ("bw": 0 = fixed half, 0.5 = the joint, 1 = the half that folds), like
+ * bendy-lib. Only for posing: split faces break the faceIndex mapping painting relies on.
+ */
+export function cuboidGeometry(c: CuboidDef, bend = false): THREE.BufferGeometry {
   const [lo, hi] = bounds(c)
-  const pos: number[] = [], uv: number[] = [], col: number[] = [], nor: number[] = [], idx: number[] = []
-  c.faces.forEach((f, fi) => {
-    const corners: [number, number][] = [[0, 0], [1, 0], [0, 1], [1, 1]]
+  const split = bend && c.part !== 'head'
+  const upperFolds = c.part === 'body' // the body folds its top half; limbs fold the bottom half
+  const pos: number[] = [], uv: number[] = [], col: number[] = [], nor: number[] = [], idx: number[] = [], bw: number[] = []
+  let b = 0
+  const quad = (f: CuboidDef['faces'][number], t0: number, t1: number) => {
+    const corners: [number, number][] = [[0, t0], [1, t0], [0, t1], [1, t1]]
     const p = corners.map(([s, t]) => facePoint(f.name, lo, hi, s, t))
     corners.forEach(([s, t], k) => {
       pos.push(...p[k])
       uv.push((f.rect.x + s * f.rect.w) / 64, (f.rect.y + t * f.rect.h) / 64)
       col.push(SHADE[f.name], SHADE[f.name], SHADE[f.name])
       nor.push(...NORMAL[f.name])
+      const down = f.name === 'top' ? 0 : f.name === 'bottom' ? 1 : t // 0 at the top .. 1 at the bottom
+      bw.push(upperFolds ? 1 - down : down)
     })
-    const b = fi * 4
     // pick the winding whose geometric normal points outward
     const e1 = new THREE.Vector3(...p[2]).sub(new THREE.Vector3(...p[0]))
     const e2 = new THREE.Vector3(...p[1]).sub(new THREE.Vector3(...p[0]))
     const outward = new THREE.Vector3().crossVectors(e1, e2).dot(new THREE.Vector3(...NORMAL[f.name])) > 0
     if (outward) idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3)
     else idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2)
-  })
+    b += 4
+  }
+  for (const f of c.faces) {
+    if (split && SIDES.includes(f.name)) {
+      quad(f, 0, 0.5)
+      quad(f, 0.5, 1)
+    } else quad(f, 0, 1)
+  }
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
+  if (split) g.setAttribute('bw', new THREE.Float32BufferAttribute(bw, 1))
   g.setIndex(idx)
   return g
 }
@@ -136,6 +155,9 @@ export class SkinModel {
   private hidden: Record<string, boolean> = {}
   private variant: Variant
   private res: number
+  /** Limbs and body split at the joints so poses can bend them (pose mode). */
+  private bendable = false
+  private bent = new Set<PartId>()
   /** Accent-coloured lines marking the X=0 mirror plane on the model surface. */
   readonly mirrorLines: THREE.LineSegments
 
@@ -200,8 +222,14 @@ export class SkinModel {
     this.meshes = []
     this.grids = []
     cuboids(variant).forEach((c, i) => {
-      const m = new THREE.Mesh(cuboidGeometry(c), c.kind === 'base' ? this.baseMat : this.overlayMat)
+      const geo = cuboidGeometry(c, this.bendable)
+      const m = new THREE.Mesh(geo, c.kind === 'base' ? this.baseMat : this.overlayMat)
       m.userData = { cuboid: i, key: c.key, kind: c.kind } satisfies MeshInfo
+      if (geo.getAttribute('bw')) {
+        m.userData.part = c.part
+        m.userData.rest = new Float32Array(geo.getAttribute('position').array as Float32Array)
+        m.userData.joint = new THREE.Vector3(c.min[0] + c.size[0] / 2, c.min[1] + c.size[1] / 2, c.min[2] + c.size[2] / 2)
+      }
       m.renderOrder = c.kind === 'overlay' ? 1 : 0
       const part = this.parts[c.part]
       m.position.set(-PIVOTS[c.part][0], -PIVOTS[c.part][1], -PIVOTS[c.part][2])
@@ -218,8 +246,49 @@ export class SkinModel {
 
   /** Back to the neutral standing pose. */
   resetPose() {
-    for (const g of Object.values(this.parts)) g.rotation.set(0, 0, 0)
-    this.group.position.y = 0
+    for (const p of PARTS) {
+      this.parts[p].rotation.set(0, 0, 0)
+      this.parts[p].position.set(...PIVOTS[p])
+    }
+    this.group.position.set(0, 0, 0)
+    this.group.quaternion.identity()
+    for (const p of [...this.bent]) this.setBend(p, 0, 0)
+  }
+
+  /** Split limbs at the joints (pose mode) or go back to plain boxes (painting). */
+  setBendable(on: boolean) {
+    if (on === this.bendable) return
+    this.bendable = on
+    this.bent.clear()
+    this.build(this.variant)
+  }
+
+  /**
+   * Fold a part like bendy-lib: the lower half of a limb (upper half of the body) turns by
+   * `angle` about a horizontal axis through the joint; `axis` turns that axis about the limb.
+   */
+  setBend(part: PartId, angle: number, axis: number) {
+    if (!this.bendable) return
+    const dir = new THREE.Vector3(Math.cos(axis), 0, -Math.sin(axis))
+    const q = new THREE.Quaternion()
+    const v = new THREE.Vector3()
+    for (const m of this.meshes) {
+      if (m.userData.part !== part) continue
+      const pos = m.geometry.getAttribute('position') as THREE.BufferAttribute
+      const bw = m.geometry.getAttribute('bw') as THREE.BufferAttribute
+      const rest = m.userData.rest as Float32Array
+      const joint = m.userData.joint as THREE.Vector3
+      for (let i = 0; i < pos.count; i++) {
+        const w = bw.getX(i)
+        v.set(rest[i * 3], rest[i * 3 + 1], rest[i * 3 + 2])
+        if (w && angle) v.sub(joint).applyQuaternion(q.setFromAxisAngle(dir, angle * w)).add(joint)
+        pos.setXYZ(i, v.x, v.y, v.z)
+      }
+      pos.needsUpdate = true
+      m.geometry.computeBoundingSphere()
+    }
+    if (angle) this.bent.add(part)
+    else this.bent.delete(part)
   }
 
   setHidden(hidden: Record<string, boolean>) {

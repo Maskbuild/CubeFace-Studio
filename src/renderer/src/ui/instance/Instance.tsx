@@ -18,13 +18,15 @@ import { pasteLayer } from '../../lib/layerActions'
 import { readDroppedImages } from '../../lib/files'
 import { FacePanel } from '../figura/FacePanel'
 import { FiguraPanel } from '../figura/FiguraPanel'
+import { PoseLibraryPanel } from '../pose/PoseLibraryPanel'
+import { PosePanel } from '../pose/PosePanel'
 
 
 export function Instance({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
   const { setDoc, bump, mode, set } = useEditor()
-  const switchMode = (m: 'skin' | 'figura') => {
-    if (m === 'skin') doc.selectFace(null)
+  const switchMode = (m: 'skin' | 'figura' | 'pose') => {
+    if (m !== 'figura') doc.selectFace(null)
     set({ mode: m })
   }
   // draggable split between the UV panel and the panel below it (remembered per machine)
@@ -124,20 +126,26 @@ export function Instance({ doc }: { doc: SkinDoc }) {
         <div className="seg">
           <button className={mode === 'skin' ? 'on' : ''} onClick={() => switchMode('skin')}>{t('mode.skin')}</button>
           <button className={mode === 'figura' ? 'on' : ''} onClick={() => switchMode('figura')}>{t('mode.figura')}</button>
-          <button disabled title={t('common.comingSoon')}>{t('mode.pose')}</button>
+          <button className={mode === 'pose' ? 'on' : ''} onClick={() => switchMode('pose')}>{t('mode.pose')}</button>
         </div>
       </header>
       <div className="workspace">
         <aside className="side left">
-          <div style={{ height: uvHeight, flex: 'none', display: 'flex', flexDirection: 'column' }}>
-            <UVPanel doc={doc} />
-          </div>
-          <div className="splitter" onPointerDown={startSplit} title={t('ui.dragResize')} />
-          {/* Skin and Figura are separate pages, switched with the top-right buttons */}
-          {mode === 'skin' ? <LayerPanel doc={doc} /> : <FacePanel doc={doc} />}
+          {mode === 'pose' ? (
+            <PoseLibraryPanel />
+          ) : (
+            <>
+              <div style={{ height: uvHeight, flex: 'none', display: 'flex', flexDirection: 'column' }}>
+                <UVPanel doc={doc} />
+              </div>
+              <div className="splitter" onPointerDown={startSplit} title={t('ui.dragResize')} />
+              {/* Skin and Figura are separate pages, switched with the top-right buttons */}
+              {mode === 'skin' ? <LayerPanel doc={doc} /> : <FacePanel doc={doc} />}
+            </>
+          )}
         </aside>
         <Viewport doc={doc} />
-        <aside className="side right">{mode === 'skin' ? <RightPanel doc={doc} /> : <FiguraPanel doc={doc} />}</aside>
+        <aside className="side right">{mode === 'skin' ? <RightPanel doc={doc} /> : mode === 'figura' ? <FiguraPanel doc={doc} /> : <PosePanel />}</aside>
       </div>
       {help && <ShortcutsDialog onClose={() => setHelp(false)} />}
       {exporting && <ExportDialog doc={doc} onClose={() => setExporting(false)} />}
