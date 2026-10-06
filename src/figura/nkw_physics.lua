@@ -25,6 +25,7 @@ local chains = {}
 local D2R, R2D = math.pi / 180, 180 / math.pi
 local LAG = 0.72 -- each lower segment follows at 72% of the stiffness above it
 local ROOT = 0.3 -- the top segment shows 30% of its swing, the tip 100%
+local MAX_ROLL = 0.35 -- largest sideways swing (rad, about 20 degrees)
 local FL_SPEED, FL_TRAVEL, FL_OUT, FL_ROLL = 2.4, 0.9, 0.35, 0.18 -- flutter wave (rad/s, rad, rad, rad)
 local time = 0
 local function weight(i, n) return n <= 1 and 0.6 or ROOT + (1 - ROOT) * (i - 1) / (n - 1) end
@@ -74,7 +75,7 @@ local function step(c, m)
     c.r[i] = c.r[i] + c.vr[i]
     if c.a[i] < c.lo then c.a[i], c.va[i] = c.lo, 0 end
     if c.a[i] > c.hi then c.a[i], c.va[i] = c.hi, 0 end
-    c.r[i] = math.max(-0.9, math.min(0.9, c.r[i]))
+    c.r[i] = math.max(-MAX_ROLL, math.min(MAX_ROLL, c.r[i]))
   end
 end
 
@@ -104,14 +105,16 @@ end)
 events.RENDER:register(function(delta)
   if not P.enabled then return end
   for _, c in ipairs(chains) do
-    local lastA, lastR = 0, 0
-    for i = 1, c.n do
-      -- interpolate absolute angles, then rotate each segment by the difference to its parent
-      local w = weight(i, c.n)
-      local a = (c.pa[i] + (c.a[i] - c.pa[i]) * delta) * w
-      local r = (c.pr[i] + (c.r[i] - c.pr[i]) * delta) * w
-      c.parts[i]:setRot(c.rest[i] + vec((a - lastA) * R2D * c.axis, 0, -(r - lastR) * R2D))
-      lastA, lastR = a, r
+    local lastA = 0
+    -- the sideways swing turns the whole plane from its root (the top segment): rolling each
+    -- segment inside the plane made the edges of the joints miss each other (torn, zigzag hair)
+    local n = c.n
+    local roll = (c.pr[n] + (c.r[n] - c.pr[n]) * delta) * weight(n, n)
+    for i = 1, n do
+      -- interpolate absolute angles, then bend each segment by the difference to its parent
+      local a = (c.pa[i] + (c.a[i] - c.pa[i]) * delta) * weight(i, n)
+      c.parts[i]:setRot(c.rest[i] + vec((a - lastA) * R2D * c.axis, 0, i == 1 and -roll * R2D or 0))
+      lastA = a
     end
   end
 end)

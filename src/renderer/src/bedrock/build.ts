@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import vanillaEntity from '../../../bedrock/player.entity.json'
 import vanillaRc from '../../../bedrock/player.render_controllers.json'
 import { cuboids, type PartId, type Variant } from '../skin/layout'
-import { criticalKeep, FLUTTER, hairOpts, LAG, livePhys, rootWeight, type HairInfo, type HairPhys } from '../skin/hair'
+import { criticalKeep, FLUTTER, MAX_ROLL, hairOpts, LAG, livePhys, rootWeight, type HairInfo, type HairPhys } from '../skin/hair'
 import { coversEyes, type FaceFrame, type FiguraConfig } from '../skin/figura'
 import type { AtlasSlot } from '../figura/atlas'
 
@@ -186,14 +186,15 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
         `${VA} = ((${VA} ?? 0) + (v.${prefix}ot + ${wave} * ${FLUTTER.out} - (${A} ?? 0)) * ${r4(k)} * v.nkw_dt) * math.pow(${keep}, v.nkw_dt);`,
         `${A} = math.clamp((${A} ?? 0) + ${VA} * v.nkw_dt, ${r4(-p.limitIn * 0.01745)}, ${r4(p.limitOut * 0.01745)});`,
         `${VR} = ((${VR} ?? 0) + (v.${prefix}rt + ${wave} * ${FLUTTER.roll} - (${R} ?? 0)) * ${r4(k)} * v.nkw_dt) * math.pow(${keep}, v.nkw_dt);`,
-        `${R} = math.clamp((${R} ?? 0) + ${VR} * v.nkw_dt, -0.9, 0.9);`
+        `${R} = math.clamp((${R} ?? 0) + ${VR} * v.nkw_dt, -${MAX_ROLL}, ${MAX_ROLL});`
       )
       const n = bonesList.length
       const w = r4(rootWeight(i, n))
       const pw = i ? r4(rootWeight(i - 1, n)) : 0
       const pa = i ? ` - v.${prefix}a${i - 1} * ${pw}` : ''
-      const pr = i ? ` - v.${prefix}r${i - 1} * ${pw}` : ''
-      anim[bone] = { rotation: [`(${A} * ${w}${pa}) * ${r4(57.3 * cfg.swingAxis)}`, 0, `(${R} * ${w}${pr}) * 57.3`] }
+      // sideways swing only on the first bone (the plane turns as one piece; per-bone roll tore it)
+      const tip = `v.${prefix}r${n - 1} * ${r4(rootWeight(n - 1, n))}`
+      anim[bone] = { rotation: [`(${A} * ${w}${pa}) * ${r4(57.3 * cfg.swingAxis)}`, 0, i ? 0 : `(${tip}) * 57.3`] }
     })
   }
   if (cfg.hairPhysics) chains.forEach((c, i) => spring(`nkw_c${i}`, c.bones, c.hair.side, livePhys(c.hair.phys, hairOpts(c.hair).hang), hairOpts(c.hair).flutter))

@@ -109,6 +109,9 @@ export function strandVariation(i: number, n: number): { phase: number; jitter: 
   return { phase: (i * 2.39996) % (2 * Math.PI), jitter: (((i * 7) % 5) / 4) * 0.24 - 0.12 }
 }
 
+/** Largest sideways swing of a plane (rad, about 20°). */
+export const MAX_ROLL = 0.35
+
 /** Flutter wave: rad/s, travel between segments (rad), outward and sideways amplitude (rad). */
 export const FLUTTER = { speed: 2.4, travel: 0.9, out: 0.35, roll: 0.18 }
 
@@ -230,12 +233,14 @@ export class HairSim {
       this.r[i] += this.vr[i]
       if (this.a[i] < lo) (this.a[i] = lo), (this.va[i] = 0)
       if (this.a[i] > hi) (this.a[i] = hi), (this.va[i] = 0)
-      this.r[i] = Math.max(-0.9, Math.min(0.9, this.r[i]))
+      this.r[i] = Math.max(-MAX_ROLL, Math.min(MAX_ROLL, this.r[i]))
     }
     const n = this.segments
     for (let i = 0; i < n; i++) {
       this.out[i] = this.a[i] * rootWeight(i, n) - (i ? this.a[i - 1] * rootWeight(i - 1, n) : 0)
-      this.roll[i] = this.r[i] * rootWeight(i, n) - (i ? this.r[i - 1] * rootWeight(i - 1, n) : 0)
+      // the sideways swing turns the whole plane from its root: rolling each segment in the plane
+      // made the edges of the joints miss each other (a torn, zigzag look in game)
+      this.roll[i] = i ? 0 : this.r[n - 1] * rootWeight(n - 1, n)
     }
   }
 
@@ -243,7 +248,7 @@ export class HairSim {
   sample(i: number, alpha: number): [number, number] {
     const n = this.segments
     const lerp = (prev: Float64Array, cur: Float64Array, j: number) => (j < 0 ? 0 : (prev[j] + (cur[j] - prev[j]) * alpha) * rootWeight(j, n))
-    return [lerp(this.pa, this.a, i) - lerp(this.pa, this.a, i - 1), lerp(this.pr, this.r, i) - lerp(this.pr, this.r, i - 1)]
+    return [lerp(this.pa, this.a, i) - lerp(this.pa, this.a, i - 1), i ? 0 : lerp(this.pr, this.r, n - 1)]
   }
 }
 

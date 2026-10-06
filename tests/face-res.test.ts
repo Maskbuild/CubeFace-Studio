@@ -79,3 +79,29 @@ describe('no z-fighting in game', () => {
     for (let i = 1; i < zs.length; i++) expect(zs[i] - zs[i - 1]).toBeGreaterThanOrEqual(0.0049)
   })
 })
+
+import { HairSim, MAX_ROLL, livePhys as livePhys2 } from '../src/renderer/src/skin/hair'
+describe('hair stays in one piece', () => {
+  it('turns sideways only at the root (no in-plane twist between segments)', () => {
+    const h = hairDefaults('back', 'long')
+    const sim = new HairSim(6, 'back', livePhys2(h.phys, true))
+    for (let t = 0; t < 40; t++) sim.step({ vz: 0.2, vx: 0.4, vy: 0, pitch: 0.3, yawRate: 0.2 })
+    for (let i = 1; i < 6; i++) expect(sim.sample(i, 1)[1]).toBe(0)
+    const root = sim.sample(0, 1)[1]
+    expect(root).not.toBe(0)
+    expect(Math.abs(root)).toBeLessThanOrEqual(MAX_ROLL)
+  })
+})
+
+import { attachedPos, hairAttached, hairDefaults } from '../src/renderer/src/skin/hair'
+describe('hair attached to the head', () => {
+  it('flags planes hanging from the neck or inside the head, and snaps them back', () => {
+    const back = hairDefaults('back', 'long')
+    expect(hairAttached(back)).toBe(true)
+    expect(hairAttached(hairDefaults('front', 'short'))).toBe(true)
+    const neck = { ...back, pos: [0, 0, -3] as [number, number, number] } // the in-game report
+    expect(hairAttached(neck)).toBe(false)
+    expect(attachedPos(neck)).toEqual([0, 8, -4.6])
+    expect(hairAttached({ ...back, pos: [4.6, 7, 0] })).toBe(true) // on the side of the head
+  })
+})
