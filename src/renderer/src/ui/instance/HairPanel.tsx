@@ -163,23 +163,22 @@ export function HairPanel({ doc, onOpenPresets }: { doc: SkinDoc; onOpenPresets:
       {sel && <HairProps doc={doc} h={sel} />}
 
       {doc.hair.length > 0 && (
-        <>
-          <label className="row muted" style={{ fontSize: 12 }}>
-            <input type="checkbox" checked={hairOutlines} onChange={() => set({ hairOutlines: !hairOutlines })} />
-            {t('hair.outlines')}
-          </label>
-          <div className="field" style={{ gap: 4 }}>
-            <span className="muted">{t('hair.motion')}</span>
-            <div className="seg" style={{ flexWrap: 'wrap' }}>
-              {MOTION_MODES.map((m: MotionMode) => (
-                <button key={m} className={motion === m ? 'on' : ''} disabled={!figura && m !== 'off'} onClick={() => set({ motion: m })}>
-                  {t(`hair.motions.${m}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
+        <label className="row muted" style={{ fontSize: 12 }}>
+          <input type="checkbox" checked={hairOutlines} onChange={() => set({ hairOutlines: !hairOutlines })} />
+          {t('hair.outlines')}
+        </label>
       )}
+      {/* test motions are always available on the skin page (they don't need hair or Preview) */}
+      <div className="field" style={{ gap: 4 }}>
+        <span className="muted">{t('hair.motion')}</span>
+        <div className="seg" style={{ flexWrap: 'wrap' }}>
+          {MOTION_MODES.map((m: MotionMode) => (
+            <button key={m} className={motion === m ? 'on' : ''} onClick={() => set({ motion: m })}>
+              {t(`hair.motions.${m}`)}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

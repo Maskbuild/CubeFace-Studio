@@ -23,7 +23,7 @@ function faceCorners(d: Dir, lo: V3, hi: V3): V3[] {
     case 'east': return [[x1, y1, z1], [x1, y1, z0], [x1, y0, z1], [x1, y0, z0]]
     case 'west': return [[x0, y1, z0], [x0, y1, z1], [x0, y0, z0], [x0, y0, z1]]
     case 'up': return [[x0, y1, z0], [x1, y1, z0], [x0, y1, z1], [x1, y1, z1]]
-    case 'down': return [[x0, y0, z0], [x1, y0, z0], [x0, y0, z1], [x1, y0, z1]]
+    case 'down': return [[x0, y0, z1], [x1, y0, z1], [x0, y0, z0], [x1, y0, z0]]
   }
 }
 

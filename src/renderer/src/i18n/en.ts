@@ -211,7 +211,7 @@ export const en = {
   figura: {
     paintWindow: 'Paint in a separate window (double-click)',
     underlay: 'Show face under',
-    painterHint: 'Wheel to zoom · right-drag to pan · Ctrl+Z undo',
+    painterHint: 'Wheel to zoom · right-drag to pan · B/E/I tools · [ ] size · M mirror · Ctrl+Z undo',
     fromFace: 'From face',
     fromFaceHint: 'Start from a copy of the current face — it fully replaces the old face',
     restartFromFace: 'Start over from the current face',

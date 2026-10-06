@@ -20,7 +20,8 @@ function facePoint(name: FaceName, lo: V3, hi: V3, s: number, t: number): V3 {
     case 'right': return [x0, Y, z0 + s * (z1 - z0)]
     case 'left': return [x1, Y, z1 - s * (z1 - z0)]
     case 'top': return [X(s), y1, z0 + t * (z1 - z0)]
-    case 'bottom': return [X(s), y0, z1 - t * (z1 - z0)]
+    // like Minecraft: the bottom texture's top row is at the back (same as the top face)
+    case 'bottom': return [X(s), y0, z0 + t * (z1 - z0)]
   }
 }
 

@@ -173,13 +173,6 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
       view.scale = ns
       schedule()
     }
-    // the editor's shortcuts are paused while a window is open, so handle undo/redo here
-    const key = (ev: KeyboardEvent) => {
-      if (!(ev.ctrlKey || ev.metaKey)) return
-      const k = ev.key.toLowerCase()
-      if (k === 'z') (ev.preventDefault(), ev.shiftKey ? doc.redo() : doc.undo())
-      else if (k === 'y') (ev.preventDefault(), doc.redo())
-    }
     const noMenu = (ev: Event) => ev.preventDefault()
     c.addEventListener('pointerdown', down)
     c.addEventListener('pointermove', move)
@@ -187,13 +180,11 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
     c.addEventListener('pointerleave', () => ((hover = null), schedule()))
     c.addEventListener('wheel', wheel, { passive: false })
     c.addEventListener('contextmenu', noMenu)
-    window.addEventListener('keydown', key)
     return () => {
       cancelAnimationFrame(raf)
       unsubDoc()
       unsubStore()
       ro.disconnect()
-      window.removeEventListener('keydown', key)
     }
   }, [doc, frame])
 
@@ -202,7 +193,8 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
   }, [underlay])
 
   return (
-    <div className="modal-back">
+    // "painter-open" lets the editor's drawing shortcuts (B/E/I, [ ], M, Alt, Ctrl+Z/Y) work here
+    <div className="modal-back painter-open">
       <div className="wardrobe painter">
         <header className="wardrobe-head">
           <Icon name="brush" size={18} />

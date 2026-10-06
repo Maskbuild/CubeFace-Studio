@@ -145,6 +145,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       rig.sync(s.figura ? doc.hair : [])
       rig.selectedId = doc.hairId
       rig.showOutlines = s.hairOutlines
+      rig.setGrid(s.grid, isDark())
       rig.refreshOutlines()
       const root = doc.hairId && s.figura && s.motion === 'off' ? rig.root(doc.hairId) : undefined
       if (root) gizmo.attach(root)
@@ -156,7 +157,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       fig.talk = s.figTalk
       fig.sync(doc)
       syncAttached(s.figura)
-      driver.mode = s.figura ? s.motion : 'off'
+      driver.mode = s.motion
       if (driver.mode !== 'off') model.mirrorLines.visible = false // the guide doesn't follow the animated head
       if (driver.mode === 'off') {
         model.resetPose()
@@ -208,7 +209,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       const s = useEditor.getState()
       // while a face frame is selected in Figura mode, the head front paints that frame
       const editFace = !!doc.faceFrame && (!only || only === 'face')
-      const targets = [...(only === 'skin' || editFace ? [] : rig.meshes), ...(only && only !== 'skin' && only !== 'face' ? [] : model.meshes.filter((m) => m.visible && m.parent?.visible !== false))]
+      const targets = [...(only === 'skin' || only === 'face' ? [] : rig.meshes), ...(only && only !== 'skin' && only !== 'face' ? [] : model.meshes.filter((m) => m.visible && m.parent?.visible !== false))]
       for (const hit of ray.intersectObjects(targets, false)) {
         const hinfo = hit.object.userData as Partial<HairMeshInfo>
         if (hinfo.hairId) {
@@ -225,7 +226,8 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
         if (editFace) {
           const cub = cuboids(doc.variant)[info.cuboid]
           const fi = Math.floor(hit.faceIndex! / 2)
-          if (cub.part !== 'head' || cub.faces[fi].name !== 'front') continue
+          // another part of the model: no face hit (on click, the caller leaves face mode)
+          if (cub.part !== 'head' || cub.faces[fi].name !== 'front') return null
           const r = faceRect(doc.variant, doc.res, { cuboid: info.cuboid, face: fi })
           const x = Math.min(r.w - 1, Math.max(0, Math.floor(hit.uv!.x * doc.res) - r.x))
           const y = Math.min(r.h - 1, Math.max(0, Math.floor(hit.uv!.y * doc.res) - r.y))
@@ -247,7 +249,12 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     let spaceOrbit = false
     const onDown = (ev: PointerEvent) => {
       if (ev.button !== 0 || useEditor.getState().tool === 'orbit' || spaceOrbit || gizmo.axis !== null) return
-      const hit = hitTexel(ev)
+      let hit = hitTexel(ev)
+      // clicking anything but the face while a face frame is selected leaves face painting
+      if (doc.faceFrame && !hit?.face) {
+        doc.selectFace(null)
+        hit = hitTexel(ev)
+      }
       if (!hit) return
       if (session.down(hit.x, hit.y, hit.clip, hit.hairId, !!hit.face)) renderer.domElement.setPointerCapture(ev.pointerId)
     }
@@ -357,11 +364,13 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
         const grid = useEditor.getState().grid
         const mirror = model.mirrorLines.visible
         model.setGrid(false, false)
+        rig.setGrid(false, false)
         model.mirrorLines.visible = false
         gizmoHelper.visible = false
         renderer.render(scene, miniCam)
         gizmoHelper.visible = !!gizmo.object
         model.setGrid(grid, isDark())
+        rig.setGrid(grid, isDark())
         model.mirrorLines.visible = mirror
       }
     }

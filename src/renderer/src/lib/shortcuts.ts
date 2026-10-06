@@ -68,7 +68,10 @@ export function bindShortcuts(doc: SkinDoc, a: Actions): () => void {
   const st = () => useEditor.getState()
 
   const down = (e: KeyboardEvent) => {
-    if (typing(e.target) || document.querySelector('.modal-back')) return
+    if (typing(e.target)) return
+    // inside the face painter only drawing keys work; other windows pause shortcuts
+    const painter = !!document.querySelector('.modal-back.painter-open')
+    if (document.querySelector('.modal-back:not(.painter-open)')) return
     const k = e.key.toLowerCase()
     const ctrl = e.ctrlKey || e.metaKey
     const s = st()
@@ -80,6 +83,7 @@ export function bindShortcuts(doc: SkinDoc, a: Actions): () => void {
     if (ctrl) {
       if (k === 'z') return run(() => (e.shiftKey ? doc.redo() : doc.undo()))
       if (k === 'y') return run(() => doc.redo())
+      if (painter) return
       if (k === 's') return run(a.save)
       if (k === 'e' && e.shiftKey) return run(a.exportPng)
       if (k === 'e') return run(() => layer && doc.mergeDown(layer.id))
@@ -107,6 +111,7 @@ export function bindShortcuts(doc: SkinDoc, a: Actions): () => void {
       }
       return
     }
+    if (painter && !(TOOL_KEYS[k] || ['m', 'h', '[', ']', '{', '}'].includes(e.key.toLowerCase()))) return
     if (e.key === 'F1' || e.key === '?') return run(a.help)
     if (e.key === 'F2') return run(() => layer && s.set({ renameLayerId: layer.id }))
     if (e.key === 'Delete') return run(() => layer && doc.removeLayer(layer.id))

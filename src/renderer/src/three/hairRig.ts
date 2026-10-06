@@ -13,6 +13,7 @@ interface Entry {
   segs: THREE.Group[]
   meshes: THREE.Mesh[]
   outline: THREE.LineSegments[]
+  grids: THREE.LineSegments[]
   tex: THREE.DataTexture
   mat: THREE.MeshBasicMaterial
   sim: HairSim
@@ -39,6 +40,27 @@ function segGeometry(w: number, len: number, v0: number, v1: number) {
   return g
 }
 
+/**
+ * Texel grid for one segment: every texture column, and the texture rows that fall inside
+ * this segment (rows per segment can be fractional), slightly in front of the plane.
+ */
+function segGridGeometry(w: number, len: number, cols: number, rowsPerSeg: number, seg: number) {
+  const pts: number[] = []
+  const z = 0.015
+  for (let i = 0; i <= cols; i++) {
+    const x = -w / 2 + (i * w) / cols
+    pts.push(x, 0, z, x, -len, z)
+  }
+  const top = seg * rowsPerSeg
+  for (let r = Math.ceil(top); r <= top + rowsPerSeg + 1e-6; r++) {
+    const y = -((r - top) / rowsPerSeg) * len
+    pts.push(-w / 2, y, z, w / 2, y, z)
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+  return g
+}
+
 function outlineGeometry(w: number, len: number) {
   const g = new THREE.BufferGeometry()
   const z = 0.01
@@ -54,6 +76,8 @@ export class HairRig {
   private entries = new Map<string, Entry>()
   private outlineMat = new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.6 })
   private selectedMat = new THREE.LineBasicMaterial({ color: 0x3fd6e3 })
+  private gridMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false })
+  private gridOn = false
   selectedId: string | null = null
   showOutlines = true
 
@@ -77,7 +101,7 @@ export class HairRig {
     for (const p of planes) {
       seen.add(p.id)
       const e = this.entries.get(p.id)
-      const shapeSame = e && e.plane.w === p.w && e.plane.h === p.h && e.plane.segments === p.segments
+      const shapeSame = e && e.plane.w === p.w && e.plane.h === p.h && e.plane.segments === p.segments && e.plane.img.w === p.img.w && e.plane.img.h === p.img.h
       if (e && shapeSame) {
         if (e.plane.img !== p.img) {
           e.tex.dispose()
@@ -104,6 +128,7 @@ export class HairRig {
     const segs: THREE.Group[] = []
     const meshes: THREE.Mesh[] = []
     const outline: THREE.LineSegments[] = []
+    const grids: THREE.LineSegments[] = []
     const len = p.h / p.segments
     let parent: THREE.Object3D = root
     for (let i = 0; i < p.segments; i++) {
@@ -113,7 +138,11 @@ export class HairRig {
       m.userData = { hairId: p.id, seg: i } satisfies HairMeshInfo
       m.renderOrder = 1
       const o = new THREE.LineSegments(outlineGeometry(p.w, len), this.outlineMat)
-      g.add(m, o)
+      const gr = new THREE.LineSegments(segGridGeometry(p.w, len, p.img.w, p.img.h / p.segments, i), this.gridMat)
+      gr.visible = this.gridOn
+      gr.renderOrder = 2
+      grids.push(gr)
+      g.add(m, o, gr)
       parent.add(g)
       parent = g
       segs.push(g)
@@ -121,7 +150,7 @@ export class HairRig {
       outline.push(o)
     }
     this.head.add(root)
-    const e: Entry = { plane: p, root, segs, meshes, outline, tex, mat, sim: new HairSim(p.segments, p.side, p.phys) }
+    const e: Entry = { plane: p, root, segs, meshes, outline, grids, tex, mat, sim: new HairSim(p.segments, p.side, p.phys) }
     this.place(e)
     return e
   }
@@ -138,6 +167,13 @@ export class HairRig {
     e.root.traverse((o) => (o as THREE.Mesh).geometry?.dispose())
     e.mat.dispose()
     e.tex.dispose()
+  }
+
+  /** Texel grid on every plane (follows the editor's Grid button). */
+  setGrid(on: boolean, dark: boolean) {
+    this.gridOn = on
+    this.gridMat.color.set(dark ? 0xffffff : 0x000000)
+    for (const e of this.entries.values()) for (const g of e.grids) g.visible = on
   }
 
   refreshOutlines() {
@@ -172,6 +208,7 @@ export class HairRig {
     for (const e of this.entries.values()) this.dispose(e)
     this.entries.clear()
     this.outlineMat.dispose()
+    this.gridMat.dispose()
     this.selectedMat.dispose()
   }
 }

@@ -177,7 +177,7 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
         <span className="muted">{t('hair.motion')}</span>
         <div className="seg" style={{ flexWrap: 'wrap' }}>
           {MOTION_MODES.map((m) => (
-            <button key={m} className={motion === m ? 'on' : ''} disabled={!preview && m !== 'off'} onClick={() => set({ motion: m })}>{t(`hair.motions.${m}`)}</button>
+            <button key={m} className={motion === m ? 'on' : ''} onClick={() => set({ motion: m })}>{t(`hair.motions.${m}`)}</button>
           ))}
         </div>
       </div>

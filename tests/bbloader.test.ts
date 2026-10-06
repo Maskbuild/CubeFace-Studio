@@ -73,3 +73,28 @@ describe('attached avatars follow the skin', () => {
     expect(got.distanceTo(expected)).toBeLessThan(1e-6)
   })
 })
+
+import { cuboidGeometry } from '../src/renderer/src/three/model'
+import { cuboids } from '../src/renderer/src/skin/layout'
+
+describe('bottom face orientation (Minecraft rule: texture top row at the back)', () => {
+  it('editor model: head bottom texel (16,0) sits at the back, on the player\'s right', () => {
+    const head = cuboids('wide').find((c) => c.key === 'head.base')!
+    const g = cuboidGeometry(head)
+    const pos = g.getAttribute('position'), uv = g.getAttribute('uv')
+    // bottom face = 2nd face -> vertices 4..7; find the one with uv (16,0)/64
+    let found: number[] | null = null
+    for (let i = 4; i < 8; i++) if (Math.abs(uv.getX(i) - 16 / 64) < 1e-6 && Math.abs(uv.getY(i)) < 1e-6) found = [pos.getX(i), pos.getY(i), pos.getZ(i)]
+    expect(found).toEqual([-4, 24, -4])
+  })
+
+  it('loaded Blockbench model agrees with the editor model', async () => {
+    const { model } = buildModel({
+      name: 'T', variant: 'wide', res: 64, atlasW: 64, atlasH: 64, atlasDataUrl: '', slots: {}, hair: [], figura: figuraDefaults(64), faceFrames: []
+    })
+    const m = await loadBBModel(model, async () => null)
+    const v = vertices(m.root)
+    const at = v.filter((q) => q.p.distanceTo(new THREE.Vector3(-4, 24, -4)) < 1e-4).map((q) => q.uv.map((n) => Math.round(n * 64)))
+    expect(at).toContainEqual([16, 0])
+  })
+})
