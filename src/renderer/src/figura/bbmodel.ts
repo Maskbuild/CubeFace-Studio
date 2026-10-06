@@ -53,10 +53,10 @@ export interface ModelInfo {
   replaces: string[]
   /** Atlas size and slots (wheel icons drawn from the avatar texture). */
   atlas: { w: number; h: number; slots: Record<string, AtlasSlot> }
-  /** Eye planes that follow the look (part names under Head.Face), if exported. */
-  eyes?: { R?: string; L?: string }
-  /** A glow (emissive) texture is part of the model. */
-  glow?: boolean
+  /** What glows (the glow texture is exported): eye plane, skin cubes (paths), hair plane ids. */
+  glow?: { eyes: boolean; skin: boolean; hair: string[]; skinParts: string[] }
+  /** Hair plane id -> its group under Head. */
+  hairGroups?: Record<string, string>
 }
 
 export interface ModelInput {
@@ -68,6 +68,8 @@ export interface ModelInput {
   atlasDataUrl: string
   /** Glow (emissive) texture with the same layout; Figura pairs "skin_e" with "skin". */
   glowDataUrl?: string
+  /** Some skin layers glow (so the skin cubes get a glow switch). */
+  glowSkin?: boolean
   slots: Record<string, AtlasSlot>
   hair: HairInfo[]
   figura: FiguraConfig
@@ -133,6 +135,7 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
   const parts = {} as Record<PartId, BBGroup>
   for (const p of Object.keys(GROUP) as PartId[]) parts[p] = group(GROUP[p], bb(PIVOT[p]))
   const roots: BBGroup[] = Object.values(parts)
+  const skinPaths: string[] = []
 
   cuboids(inp.variant).forEach((c, ci) => {
     if (inp.used && !inp.used[ci]) return
@@ -146,8 +149,10 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
       if (flip === 'down') return [r.x + r.w, r.y, r.x, r.y + r.h]
       return [r.x, r.y, r.x + r.w, r.y + r.h]
     }
+    const cubeName = (GROUP[c.part] + (c.kind === 'overlay' ? 'Layer' : '')).replace('HeadLayer', 'Hat')
+    skinPaths.push(`${GROUP[c.part]}.${cubeName}`)
     cube(parts[c.part], {
-      name: (GROUP[c.part] + (c.kind === 'overlay' ? 'Layer' : '')).replace('HeadLayer', 'Hat'),
+      name: cubeName,
       from: [-hi[0], lo[1], -hi[2]],
       to: [-lo[0], hi[1], -lo[2]],
       origin: bb(PIVOT[c.part]),
@@ -175,19 +180,11 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
     plane(faceGroup, name, -4, 4, 24, 32, r4(-4.02 - i * 0.001), slotUV(s))
     info.faceParts[fr] = name
   })
-  // eyes that follow the look: the eye box's centre tile, just in front of the base face
-  const fk = inp.res / 64 // face texels per head pixel
-  for (const [side, key] of [['R', 'eye_R'], ['L', 'eye_L']] as const) {
-    const s = inp.slots[key]
-    const r = side === 'R' ? inp.figura.eyeR : inp.figura.eyeL
-    if (!s || !inp.figura.eyeFollow) continue
-    const x0 = -4 + r.x / fk, x1 = -4 + (r.x + r.w) / fk // head space, player's right is -X
-    const y1 = 32 - r.y / fk, y0 = 32 - (r.y + r.h) / fk
-    const name = 'Eye' + side
-    plane(faceGroup, name, r4(-x1), r4(-x0), r4(y0), r4(y1), -4.0205, slotUV(s, { x: r.w, y: r.h, w: r.w, h: r.h }))
-    ;(info.eyes ??= {})[side] = name
-  }
-  info.glow = !!inp.glowDataUrl
+  // glowing eyes: the eye boxes on their own plane just in front of the base face
+  const eyeSlot = inp.slots.eyes_glow
+  if (eyeSlot) plane(faceGroup, 'GlowEyes', -4, 4, 24, 32, -4.0205, slotUV(eyeSlot))
+  const glowLayers = !!inp.glowDataUrl
+  info.glow = glowLayers ? { eyes: !!eyeSlot, skin: inp.glowSkin ?? false, hair: [], skinParts: [] } : undefined
   // ---- hair planes: one chain per strand (a plane can be split into strands that swing apart) ----
   inp.hair.forEach((h, hi) => {
     const s = inp.slots['hair_' + h.id]
@@ -223,8 +220,11 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
       }
       info.hairChains.push({ path: [name, ...path], id: h.id, strand: j, strands: o.strands })
     }
+    if (h.glow && info.glow) info.glow.hair.push(h.id)
+    ;(info.hairGroups ??= {})[h.id] = name
   })
 
+  if (info.glow?.skin) info.glow.skinParts = skinPaths
   const outline = (g: BBGroup): object => ({ uuid: g.uuid, isOpen: false, children: g.children.map((c) => (typeof c === 'string' ? c : outline(c))) })
   const model = {
     meta: { format_version: '5.0', model_format: 'free', box_uv: false },

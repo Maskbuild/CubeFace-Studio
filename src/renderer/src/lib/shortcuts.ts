@@ -1,6 +1,7 @@
 import type { SkinDoc } from '../skin/doc'
 import { useEditor, type Tool } from '../store/editor'
 import { copyLayer, importAsNewLayers } from './layerActions'
+import { cancelFloating, commitFloating, copySelection, deleteSelection, floatingPos, hasFloating, moveFloatingTo, noteLayerCopy, select, selectAll } from './selection'
 
 /** Shown in the shortcuts dialog (keys, i18n label key). */
 export const SHORTCUTS: { group: string; items: [string, string][] }[] = [
@@ -22,6 +23,9 @@ export const SHORTCUTS: { group: string; items: [string, string][] }[] = [
       ['B', 'brush'],
       ['E', 'eraser'],
       ['G', 'bucket'],
+      ['S', 'select'],
+      ['Ctrl+A', 'selectAll'],
+      ['Enter / Esc', 'placeCancel'],
       ['U', 'gradient'],
       ['I / Alt (hold)', 'picker'],
       ['O / Space (hold)', 'orbit'],
@@ -49,13 +53,26 @@ export const SHORTCUTS: { group: string; items: [string, string][] }[] = [
   }
 ]
 
-const TOOL_KEYS: Record<string, Tool> = { b: 'brush', e: 'eraser', g: 'bucket', u: 'gradient', i: 'picker', o: 'orbit' }
+const TOOL_KEYS: Record<string, Tool> = { b: 'brush', e: 'eraser', g: 'bucket', u: 'gradient', s: 'select', i: 'picker', o: 'orbit' }
 
 interface Actions {
   save(): void
   exportPng(): void
   help(): void
   newLayerName(): string
+}
+
+/**
+ * The key as on a US keyboard, from the physical key (e.code), so shortcuts work the same with
+ * a Thai or any other keyboard layout active.
+ */
+export function keyOf(e: KeyboardEvent): string {
+  if (/^Key[A-Z]$/.test(e.code)) return e.code.slice(3).toLowerCase()
+  if (/^Digit\d$/.test(e.code)) return e.code.slice(5)
+  if (e.code === 'BracketLeft') return '['
+  if (e.code === 'BracketRight') return ']'
+  if (e.code === 'Slash') return '/'
+  return e.key.toLowerCase()
 }
 
 const typing = (t: EventTarget | null) => {
@@ -73,7 +90,7 @@ export function bindShortcuts(doc: SkinDoc, a: Actions): () => void {
     // inside the face painter only drawing keys work; other windows pause shortcuts
     const painter = !!document.querySelector('.modal-back.painter-open')
     if (document.querySelector('.modal-back:not(.painter-open)')) return
-    const k = e.key.toLowerCase()
+    const k = keyOf(e)
     const ctrl = e.ctrlKey || e.metaKey
     const s = st()
     const layer = doc.active
@@ -82,13 +99,19 @@ export function bindShortcuts(doc: SkinDoc, a: Actions): () => void {
       fn()
     }
     if (ctrl) {
+      // with a floating piece, undo puts it back; anything else places it first
+      if (k === 'z' && !e.shiftKey && hasFloating()) return run(() => cancelFloating(doc))
+      if (hasFloating() && k !== 'c') commitFloating(doc)
       if (k === 'z') return run(() => (e.shiftKey ? doc.redo() : doc.undo()))
       if (k === 'y') return run(() => doc.redo())
       if (painter) return
       if (k === 's') return run(a.save)
       if (k === 'e' && e.shiftKey) return run(a.exportPng)
       if (k === 'e') return run(() => layer && doc.mergeDown(layer.id))
-      if (k === 'c') return run(() => copyLayer(doc))
+      if (k === 'a' && s.mode === 'skin') return run(() => selectAll(doc))
+      if (k === 'c' && s.selection && s.mode === 'skin') return run(() => copySelection(doc))
+      if (k === 'x' && s.selection && s.mode === 'skin') return run(() => copySelection(doc) && deleteSelection(doc))
+      if (k === 'c') return run(() => (noteLayerCopy(), copyLayer(doc)))
       if (k === 'x') return run(async () => {
         if (!layer || doc.layers.length <= 1) return
         await copyLayer(doc)
@@ -112,18 +135,32 @@ export function bindShortcuts(doc: SkinDoc, a: Actions): () => void {
       }
       return
     }
-    if (painter && !(TOOL_KEYS[k] || ['m', 'h', '[', ']', '{', '}'].includes(e.key.toLowerCase()))) return
-    if (e.key === 'F1' || e.key === '?') return run(a.help)
+    if (painter && !(TOOL_KEYS[k] || ['m', 'h', '[', ']'].includes(k))) return
+    if (e.key === 'F1' || (k === '/' && e.shiftKey)) return run(a.help)
     if (e.key === 'F2') return run(() => layer && s.set({ renameLayerId: layer.id }))
-    if (e.key === 'Delete') return run(() => layer && doc.removeLayer(layer.id))
-    if (e.key === 'Escape') return run(() => (doc.selectHair(null), doc.selectFace(null)))
+    if (e.key === 'Delete') return run(() => (s.selection && s.mode === 'skin' ? deleteSelection(doc) : layer && doc.removeLayer(layer.id)))
+    if (e.key === 'Enter' && hasFloating()) return run(() => commitFloating(doc))
+    if (e.key === 'Escape') {
+      if (hasFloating()) return run(() => cancelFloating(doc))
+      if (s.selection) return run(() => select(null))
+      return run(() => (doc.selectHair(null), doc.selectFace(null)))
+    }
+    // arrows nudge the floating piece (or the selection box) one texel
+    if (e.key.startsWith('Arrow') && (hasFloating() || s.selection)) {
+      const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0
+      const dy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0
+      const f = floatingPos()
+      if (f) return run(() => moveFloatingTo(doc, f.x + dx, f.y + dy))
+      const r = s.selection!
+      return run(() => select({ ...r, x: r.x + dx, y: r.y + dy }))
+    }
     if (e.altKey) return
     if (TOOL_KEYS[k]) return run(() => s.set({ tool: TOOL_KEYS[k] }))
     if (k === 'm') return run(() => s.set({ mirror: !s.mirror }))
     if (k === 'h') return run(() => s.set({ grid: !s.grid }))
     if (k === 'p') return run(() => s.set({ preview: !s.preview }))
-    if (e.key === '[' || e.key === ']' || e.key === '{' || e.key === '}') {
-      const up = e.key === ']' || e.key === '}'
+    if (k === '[' || k === ']') {
+      const up = k === ']'
       const b = s.tool === 'eraser' ? s.eraser : s.brush
       return run(() =>
         e.shiftKey ? s.setBrush({ opacity: Math.round(Math.min(1, Math.max(0.05, b.opacity + (up ? 0.1 : -0.1))) * 100) / 100 }) : s.setBrush({ size: Math.max(1, b.size + (up ? 1 : -1)) })

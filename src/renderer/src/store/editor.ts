@@ -7,9 +7,10 @@ import { BUILTIN_PALETTES, type Palette } from '../skin/palette'
 import { storage } from '../lib/storage'
 import type { MotionMode } from '../three/motion'
 import type { ExprKey } from '../skin/figura'
+import type { Rect } from '../skin/layout'
 import type { Bone, Emote, PoseState } from '../pose/emote'
 
-export type Tool = 'brush' | 'eraser' | 'bucket' | 'gradient' | 'picker' | 'orbit'
+export type Tool = 'brush' | 'eraser' | 'bucket' | 'gradient' | 'select' | 'picker' | 'orbit'
 export type PaintTarget = 'auto' | 'base' | 'overlay'
 
 interface BrushSettings {
@@ -54,6 +55,10 @@ interface EditorStore {
   color2: RGBA
   /** Gradient bands (0 = smooth). */
   gradientSteps: number
+  /** Selected area of the skin (texels); painting stays inside it. */
+  selection: Rect | null
+  /** A pasted / moved piece is floating over the layer (placed with Enter). */
+  floatingOn: boolean
   recent: string[]
   hidden: Record<string, boolean> // cuboid key -> hidden
   palettes: Palette[] // user palettes (global, shared by all skins)
@@ -100,6 +105,8 @@ export const useEditor = create<EditorStore>((set, get) => ({
   color: [64, 196, 200, 255],
   color2: [255, 255, 255, 255],
   gradientSteps: 0,
+  selection: null,
+  floatingOn: false,
   recent: [],
   hidden: {},
   palettes: [],
@@ -108,7 +115,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   clipboard: null,
   renameLayerId: null,
 
-  setDoc: (doc) => set({ doc, tick: get().tick + 1, approvedNoMod: new Set(), mode: 'skin', figExpr: null, figTalk: false, pose: {}, poseBone: null, emote: null, emotePlaying: false }),
+  setDoc: (doc) => set({ doc, tick: get().tick + 1, approvedNoMod: new Set(), mode: 'skin', selection: null, floatingOn: false, figExpr: null, figTalk: false, pose: {}, poseBone: null, emote: null, emotePlaying: false }),
   bump: () => set({ tick: get().tick + 1 }),
   set: (p) => set(p),
   // brush/eraser keep separate settings; the active one depends on the current tool

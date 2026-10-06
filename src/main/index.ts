@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { AvatarLibrary, mergeAvatars, type MergeSource } from './avatars'
+import { AvatarLibrary, mergeAvatars, type AvatarMeta, type MergeSource } from './avatars'
 import { checkVersion, downloadJar, findJar } from './minecraft'
 
 const ROOT = path.join(app.getPath('appData'), 'nkw-skin-figura')
@@ -154,8 +154,11 @@ function registerIpc() {
   })
   ipcMain.handle('avatars:files', (_e, id: string) => avatars.files(id))
   ipcMain.handle('avatars:read', (_e, id: string, rel: string) => avatars.read(id, String(rel)))
-  ipcMain.handle('avatars:update', (_e, id: string, patch: { name?: string; category?: string; thumb3d?: string }) => {
-    const clean: { name?: string; category?: string; thumb3d?: string } = {}
+  ipcMain.handle('avatars:update', (_e, id: string, patch: { name?: string; category?: string; thumb3d?: string; rights?: AvatarMeta['rights'] }) => {
+    const clean: { name?: string; category?: string; thumb3d?: string; rights?: AvatarMeta['rights'] } = {}
+    const r = patch.rights
+    if (r && ['free', 'bought', 'own', 'exclusive'].includes(r.source))
+      clean.rights = { source: r.source, commercial: r.commercial === true, redistribute: r.redistribute === true, modify: r.modify === 'yes' || r.modify === 'no' ? r.modify : 'limited' }
     if (typeof patch.name === 'string' && patch.name.trim()) clean.name = patch.name.trim()
     if (typeof patch.category === 'string') clean.category = patch.category
     if (typeof patch.thumb3d === 'string' && patch.thumb3d.startsWith('data:image/png;base64,') && patch.thumb3d.length < 600_000) clean.thumb3d = patch.thumb3d
@@ -229,6 +232,8 @@ function createWindow() {
   })
   win.once('ready-to-show', () => win.show())
   // Keep the app offline: open external links in the system browser instead of in-app.
+  // no menu bar: Alt is the eyedropper key here, it must not open File/Edit menus
+  win.removeMenu()
   // a file dropped outside a drop zone must not replace the app page
   win.webContents.on('will-navigate', (e) => e.preventDefault())
   win.webContents.setWindowOpenHandler(({ url }) => {

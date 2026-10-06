@@ -3,6 +3,7 @@ import { isNoModify, type SkinDoc } from '../skin/doc'
 import type { Rect } from '../skin/layout'
 import { cloneImg, drawGradient, getPixel, readRect, writeRect, type Img, type Stroke } from '../skin/pixels'
 import { faceAt, faceRect } from '../skin/layout'
+import { fillSelection, intersect } from './selection'
 import type { FaceFrame } from '../skin/figura'
 import { useEditor } from '../store/editor'
 import { confirmBox, toast } from '../ui/common/dialogs'
@@ -57,6 +58,20 @@ export class PaintSession {
       return false
     }
     if (!this.allowed()) return false
+    // a selection limits painting to the selected area
+    const faceClip = clip
+    const sel = ed.selection
+    if (sel) {
+      if (x < sel.x || y < sel.y || x >= sel.x + sel.w || y >= sel.y + sel.h) {
+        if (ed.tool !== 'brush' && ed.tool !== 'eraser') return false
+      }
+      clip = clip ? intersect(clip, sel) : sel
+      if (!clip) return false
+    }
+    if (ed.tool === 'bucket' && sel) {
+      if (fillSelection(doc, ed.color, ed.brush.opacity)) ed.pushRecent(ed.color)
+      return false
+    }
     if (ed.tool === 'gradient') {
       const l = doc.active
       if (!l || l.locked || !l.visible) {
@@ -81,7 +96,7 @@ export class PaintSession {
     }
     doc.stamp(this.stroke, x, y, b, clip, ed.mirror)
     this.last = [x, y]
-    this.lastClip = clip
+    this.lastClip = faceClip
     return true
   }
 
@@ -160,8 +175,12 @@ export class PaintSession {
     } else this.rope = null
     if (this.last[0] === x && this.last[1] === y) return
     const mirror = ed.mirror && !this.hairId // face frames mirror inside doc.stamp
-    if (sameFace) this.doc.strokeLine(this.stroke, this.last, [x, y], b, clip, mirror)
-    else this.doc.stamp(this.stroke, x, y, b, clip, mirror)
+    // skin strokes stay inside the selection
+    const sel = !this.hairId && !this.doc.faceFrame ? ed.selection : null
+    const c = sel ? (clip ? intersect(clip, sel) : sel) : clip
+    if (sel && !c) return
+    if (sameFace) this.doc.strokeLine(this.stroke, this.last, [x, y], b, c, mirror)
+    else this.doc.stamp(this.stroke, x, y, b, c, mirror)
     this.last = [x, y]
     this.lastClip = clip
   }

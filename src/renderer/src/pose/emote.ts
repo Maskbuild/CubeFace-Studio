@@ -6,6 +6,8 @@
  * Format reference: KosmX/minecraftPlayerAnimator AnimationBinary + AnimationJson, KosmX/emotes.
  */
 
+import type { Rights } from '../skin/rights'
+
 export const BONES = ['head', 'torso', 'rightArm', 'leftArm', 'rightLeg', 'leftLeg', 'body'] as const
 export type Bone = (typeof BONES)[number]
 export const AXES = ['x', 'y', 'z', 'pitch', 'yaw', 'roll', 'bend', 'axis'] as const
@@ -37,6 +39,8 @@ export interface Emote {
   builtin?: boolean
   /** PNG data URL shipped with the emote. */
   icon?: string
+  /** Where it came from and what may be done with it (built-ins are ours). */
+  rights?: Rights
 }
 
 /** Default part positions in Emotecraft files (values there are absolute; we keep offsets). */

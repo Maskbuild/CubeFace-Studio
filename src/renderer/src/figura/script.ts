@@ -1,4 +1,4 @@
-import { allFrames, coversEyes, itemView, liveWheel, toEnglish, type FiguraConfig, type WheelIcon, type WheelToggle } from '../skin/figura'
+import { allFrames, coversEyes, itemView, liveWheel, toEnglish, type FiguraConfig, type WheelIcon } from '../skin/figura'
 import { hairOpts, livePhys, strandVariation, type HairInfo } from '../skin/hair'
 import type { ModelInfo } from './bbmodel'
 
@@ -80,8 +80,8 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
   add(
     'local state = { expr = nil, blink = false, talk = false }',
     '-- features the action wheel can switch off',
-    'local toggles = { blink = true, physics = true, smoothHead = true, talk = true, glow = true, eyes = true }',
-    ...(info.eyes ? [`local eyes = { ${Object.values(info.eyes).map((n) => `M.Head.Face.${n}`).join(', ')} }`] : []),
+    'local toggles = { blink = true, physics = true, smoothHead = true, talk = true }',
+    ...(info.glow?.eyes ? ['local glowEyes = M.Head.Face.GlowEyes'] : []),
     `local covers = { ${allFrames(cfg).filter((f) => coversEyes(f, cfg)).map((f) => `${f} = true`).join(', ')} }`,
     'local function refresh()',
     '  for k, p in pairs(face) do',
@@ -92,15 +92,15 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
     '  if face.talk then face.talk:setVisible(state.talk) end',
     '  -- the base frame replaces the skin face and stays under everything',
     '  if face.base then face.base:setVisible(true) end',
-    ...(info.eyes
-      ? ['  -- moving eyes hide while the eyes are closed or an expression draws its own', '  for _, e in pairs(eyes) do e:setVisible(not state.blink and not (state.expr and covers[state.expr])) end']
+    ...(info.glow?.eyes
+      ? ['  -- glowing eyes go dark while the eyes are closed or an expression draws its own', '  glowEyes:setVisible(not state.blink and not (state.expr and covers[state.expr]))']
       : []),
     'end',
     ''
   )
 
   // ---- action wheel (pages of expressions and toggles, synced with pings) ----------------
-  const pages = liveWheel(cfg, { frames: has, physics: chains.length > 0, glow: !!info.glow, eyes: !!info.eyes })
+  const pages = liveWheel(cfg, { frames: has, physics: chains.length > 0, glow: info.glow })
   const live = pages.filter((p, i) => i === 0 || pages.some((q) => q.items.some((it) => it.type === 'page' && it.page === p.id)))
   if (live[0]?.items.length) {
     const pageIx = new Map(live.map((p, i) => [p.id, i + 1]))
@@ -116,13 +116,23 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
         'end'
       )
     if (usedToggles.length) {
-      const apply: Record<WheelToggle, string> = {
+      const glowParts = (t: string): string[] => {
+        const g = info.glow
+        if (!g) return []
+        const eyes = g.eyes ? ['M.Head.Face.GlowEyes'] : []
+        const skin = g.skin ? g.skinParts.map((p) => 'M.' + p) : []
+        const hair = (id: string) => (info.hairGroups?.[id] ? ['M.Head.' + info.hairGroups[id]] : [])
+        if (t === 'glow') return [...eyes, ...skin, ...g.hair.flatMap(hair)]
+        if (t === 'glowEyes') return eyes
+        if (t === 'glowSkin') return skin
+        return hair(t.slice(9))
+      }
+      const apply: Record<string, string> = {
         blink: 'if not on then state.blink = false; refresh() end',
         talk: 'if not on then state.talk = false; refresh() end',
         physics: 'phys.setEnabled(on)',
         smoothHead: 'if not on then M.Head:setRot(0, 0, 0) end',
-        glow: 'M:setSecondaryRenderType(on and "EMISSIVE" or "NONE")',
-        eyes: 'if not on then for _, e in pairs(eyes) do e:setUVPixels(0, 0) end end'
+
       }
       add(
         `local TOGGLE = { ${usedToggles.map((t) => `"${t}"`).join(', ')} }`,
@@ -130,7 +140,9 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
         '  local k = TOGGLE[i]',
         '  if not k then return end',
         '  toggles[k] = on',
-        ...usedToggles.map((t, i) => `  ${i ? 'elseif' : 'if'} k == "${t}" then ${apply[t]}`),
+        ...usedToggles.map(
+          (t, i) => `  ${i ? 'elseif' : 'if'} k == "${t}" then ${t.startsWith('glow') ? `for _, p in ipairs({ ${glowParts(t).join(', ')} }) do p:setSecondaryRenderType(on and "EMISSIVE" or "NONE") end` : apply[t]}`
+        ),
         '  end',
         'end'
       )
@@ -237,30 +249,10 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
       `  local f = 1 - (1 - ${lua(cfg.headSpeed)}) ^ dt`,
       '  sm = sm + vec(wrap(target.x - sm.x), wrap(target.y - sm.y), wrap(target.z - sm.z)) * f',
       ...(cfg.headTilt
-        ? [`  -- tilt a little into the turn while the head is catching up`, `  local tilt = math.max(-1, math.min(1, wrap(target.y - sm.y) / 30)) * ${lua(cfg.headTilt)}`]
+        ? [`  -- tilt a little into the turn while the head is catching up`, `  local tilt = math.max(-1, math.min(1, wrap(target.y - sm.y) / 15)) * ${lua(cfg.headTilt)}`]
         : ['  local tilt = 0']),
       '  M.Head:setRot(vec(wrap(sm.x - target.x), wrap(sm.y - target.y), wrap(sm.z - target.z) + tilt))',
       'end',
-      ''
-    )
-  }
-  // ---- render: eyes look where the player turns ---------------------------------------------
-  if (info.eyes) {
-    add(
-      `local EYE_RANGE = ${lua(cfg.eyeRange)}`,
-      'local eyeX, eyeY = 0, 0',
-      'local function clamp1(v) return math.max(-1, math.min(1, v)) end',
-      'events.RENDER:register(function(delta, ctx)',
-      '  if ctx ~= "RENDER" and ctx ~= "FIRST_PERSON" then return end',
-      '  if not toggles.eyes then return end',
-      '  local rot = player:getRot(delta)',
-      '  local turn = (rot.y - player:getBodyYaw(delta) + 180) % 360 - 180 -- + = looking right',
-      '  eyeX = eyeX + (clamp1(turn / 45) * EYE_RANGE - eyeX) * 0.3',
-      '  eyeY = eyeY + (clamp1(rot.x / 45) * EYE_RANGE - eyeY) * 0.3',
-      '  -- whole texels; sliding the UV right shows the iris further to the left, and so on',
-      '  local dx, dy = math.floor(eyeX + 0.5), math.floor(eyeY + 0.5)',
-      '  for _, e in pairs(eyes) do e:setUVPixels(dx, -dy) end',
-      'end)',
       ''
     )
   }

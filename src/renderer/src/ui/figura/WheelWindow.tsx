@@ -17,6 +17,7 @@ import { usePack } from '../../mc/library'
 import { MC_VERSIONS, type McPack, type McVersion } from '../../mc/pack'
 import { Icon } from '../common/Icon'
 import { IconPicker, PackNotice, WheelIconView } from './WheelIcons'
+import { glowInfo } from '../../figura/avatar'
 
 const FIGURA_SLOTS = 8 // Figura's wheel shows 8 actions at a time (scroll for more)
 
@@ -26,8 +27,7 @@ function wheelContext(doc: SkinDoc): WheelContext {
   return {
     frames: (f) => !!doc.faces[f] && (f !== 'blink' || c.blink) && (f !== 'talk' || c.talk),
     physics: c.hairPhysics && doc.hair.some((h) => h.visible),
-    glow: doc.layers.some((l) => l.glow) || doc.hair.some((h) => h.glow) || (c.glowFrames ?? []).some((f) => !!doc.faces[f]),
-    eyes: c.eyeFollow
+    glow: glowInfo(doc)
   }
 }
 
@@ -40,8 +40,10 @@ function inactive(c: FiguraConfig, ctx: WheelContext, it: WheelItem): string | n
     if (it.toggle === 'physics') return ctx.physics ? null : 'noPhysics'
     if (it.toggle === 'blink') return c.blink && ctx.frames('blink') ? null : 'noBlink'
     if (it.toggle === 'talk') return c.talk && ctx.frames('talk') ? null : 'noTalk'
-    if (it.toggle === 'glow') return ctx.glow ? null : 'noGlow'
-    if (it.toggle === 'eyes') return ctx.eyes ? null : 'noEyes'
+    if (it.toggle === 'glow') return ctx.glow && (ctx.glow.eyes || ctx.glow.skin || ctx.glow.hair.length) ? null : 'noGlow'
+    if (it.toggle === 'glowEyes') return ctx.glow?.eyes ? null : 'noGlow'
+    if (it.toggle === 'glowSkin') return ctx.glow?.skin ? null : 'noGlow'
+    if (it.toggle?.startsWith('glowHair:')) return ctx.glow?.hair.includes(it.toggle.slice(9)) ? null : 'noGlow'
     return c.smoothHead ? null : 'noSmooth'
   }
   return null
@@ -268,6 +270,10 @@ export function WheelWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => voi
   }
   const reachable = (id: string) => id === pages[0].id || pages.some((p) => p.items.some((it) => it.type === 'page' && it.page === id))
   const otherPages = pages.filter((p) => p.id !== page.id)
+  const toggleChoices: [WheelToggle, string][] = [
+    ...WHEEL_TOGGLES.map((tg): [WheelToggle, string] => [tg, t('wheel.toggle_' + tg)]),
+    ...doc.hair.map((h): [WheelToggle, string] => [`glowHair:${h.id}`, t('wheel.toggle_glowHair', { name: h.name })])
+  ]
 
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -359,7 +365,7 @@ export function WheelWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => voi
                 >
                   <option value="">{t('wheel.addButton')}</option>
                   <optgroup label={t('wheel.type_toggle')}>
-                    {WHEEL_TOGGLES.map((tg) => <option key={tg} value={'toggle:' + tg}>{t('wheel.toggle_' + tg)}</option>)}
+                    {toggleChoices.map(([tg, label]) => <option key={tg} value={'toggle:' + tg}>{label}</option>)}
                   </optgroup>
                   {otherPages.length > 0 && (
                     <optgroup label={t('wheel.type_page')}>
@@ -382,7 +388,7 @@ export function WheelWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => voi
                       <span className="wheel-icon"><WheelIconView icon={v.icon} doc={doc} pack={ready} size={26} auria={auria} /></span>
                       <span className="grow wheel-item-name">
                         <b>{v.title}</b>
-                        <span className="muted">{t('wheel.type_' + it.type)}{it.type === 'toggle' ? ' · ' + t('wheel.toggle_' + it.toggle) : ''}{why && why !== 'hidden' ? ' · ' + t('wheel.why_' + why) : ''}</span>
+                        <span className="muted">{t('wheel.type_' + it.type)}{it.type === 'toggle' ? ' · ' + (toggleChoices.find(([tg]) => tg === it.toggle)?.[1] ?? '') : ''}{why && why !== 'hidden' ? ' · ' + t('wheel.why_' + why) : ''}</span>
                       </span>
                       <button className="icon-btn sm" disabled={i === 0} onClick={(e) => (e.stopPropagation(), move(it.id, -1))}><Icon name="up" size={13} /></button>
                       <button className="icon-btn sm" disabled={i === page.items.length - 1} onClick={(e) => (e.stopPropagation(), move(it.id, 1))}><Icon name="down" size={13} /></button>
@@ -411,7 +417,7 @@ export function WheelWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => voi
                           <label className="field">
                             <span className="muted">{t('wheel.switches')}</span>
                             <select className="input" value={it.toggle} onChange={(e) => editItem(it.id, { toggle: e.target.value as WheelToggle })}>
-                              {WHEEL_TOGGLES.map((tg) => <option key={tg} value={tg}>{t('wheel.toggle_' + tg)}</option>)}
+                              {toggleChoices.map(([tg, label]) => <option key={tg} value={tg}>{label}</option>)}
                             </select>
                           </label>
                         )}

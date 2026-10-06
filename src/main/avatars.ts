@@ -18,6 +18,8 @@ export interface AvatarMeta {
   thumb3d?: string
   /** User-made category ("" / missing = none). */
   category?: string
+  /** Where it came from and what may be done with it (set after import). */
+  rights?: { source: 'free' | 'bought' | 'own' | 'exclusive'; commercial: boolean; redistribute: boolean; modify: 'yes' | 'limited' | 'no' }
 }
 
 const THUMB_MAX = 400_000
@@ -139,7 +141,7 @@ export class AvatarLibrary {
     return meta
   }
 
-  async update(id: string, patch: Partial<Pick<AvatarMeta, 'name' | 'category' | 'thumb3d'>>) {
+  async update(id: string, patch: Partial<Pick<AvatarMeta, 'name' | 'category' | 'thumb3d' | 'rights'>>) {
     const file = path.join(this.dir(id), 'meta.json')
     const m = await readJson<AvatarMeta>(file)
     if (m) await fs.writeFile(file, JSON.stringify({ ...m, ...patch }, null, 2))

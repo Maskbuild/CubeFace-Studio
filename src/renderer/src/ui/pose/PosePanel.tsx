@@ -5,6 +5,7 @@ import { mirrorPose } from '../../pose/apply'
 import { emoteLength, emoteToEmotecraft, poseToEmotecraft, sampleEmote, type Axis, type Bone, type BoneState } from '../../pose/emote'
 import { usePoseClock, usePoseLibrary } from '../../pose/library'
 import { storage } from '../../lib/storage'
+import { canRedistribute } from '../../skin/rights'
 import { Icon } from '../common/Icon'
 import { promptBox, toast } from '../common/dialogs'
 
@@ -150,7 +151,10 @@ export function PosePanel() {
       <div className="section">
         <span className="label">{t('pose.saveSection')}</span>
         {!e && <button className="btn" onClick={savePose}><Icon name="save" />{t('pose.savePose')}</button>}
-        <button className="btn" onClick={exportJson}><Icon name="download" />{e ? t('pose.exportEmote') : t('pose.exportPose')}</button>
+        <button className="btn" onClick={exportJson} disabled={!!e && !e.builtin && !canRedistribute(e.rights)} title={e && !e.builtin && !canRedistribute(e.rights) ? t('rights.downloadBlocked') : ''}>
+          <Icon name="download" />
+          {e ? t('pose.exportEmote') : t('pose.exportPose')}
+        </button>
         <div className="row">
           <button className="btn grow" onClick={saveImage} disabled={!s.poseShot}><Icon name="image" />{t('pose.saveImage')}</button>
           <select className="input sm" value={shotSize} onChange={(ev) => setShotSize(Number(ev.target.value))}>

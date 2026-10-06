@@ -20,6 +20,7 @@ import { Toolbar } from './Toolbar'
 import { applyPose, limbAngles } from '../../pose/apply'
 import { emoteLength, sampleEmote, type Bone, type PoseState } from '../../pose/emote'
 import { usePoseClock } from '../../pose/library'
+import { commitFloating, select } from '../../lib/selection'
 
 const MINI = { w: 170, h: 230, margin: 12 }
 const HOME_POS = new THREE.Vector3(0, 22, 58)
@@ -33,7 +34,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
   const boxRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
-  const api = useRef<{ resetView(): void } | null>(null)
+  const api = useRef<{ resetView(): void; flipView(): void } | null>(null)
   const preview = useEditor((s) => s.preview)
 
   useEffect(() => {
@@ -289,6 +290,12 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
         return
       }
       if (ev.button !== 0 || useEditor.getState().tool === 'orbit' || spaceOrbit || gizmo.axis !== null) return
+      if (useEditor.getState().tool === 'select') {
+        const h = hitTexel(ev, 'skin')
+        commitFloating(doc)
+        select(h && !h.hairId && !h.face ? h.clip : null)
+        return
+      }
       let hit = hitTexel(ev)
       // clicking anything but the face while a face frame is selected leaves face painting
       if (doc.faceFrame && !hit?.face) {
@@ -327,7 +334,14 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     window.addEventListener('keyup', onKey)
 
     controls.addEventListener('change', () => (dirty = true))
-    api.current = { resetView: frameView }
+    /** Look at the model from behind (and back again): mirror the camera around the target. */
+    const flipView = () => {
+      const d = camera.position.clone().sub(controls.target)
+      camera.position.copy(controls.target).add(d.set(-d.x, d.y, -d.z))
+      controls.update()
+      dirty = true
+    }
+    api.current = { resetView: frameView, flipView }
     /** Render the current view to a transparent PNG at a chosen size (pose mode "save image"). */
     const shot = (W: number, H: number) => {
       const pr = renderer.getPixelRatio()
@@ -406,11 +420,11 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
           lastPose.y = y
           lastPose.yaw = yaw
         }
-        rig.applyPhysics(poseAcc / 0.05, true)
+        rig.applyPhysics(poseAcc / 0.05, doc.figura.hairPhysics)
         dirty = true
       } else if (driver.mode !== 'off') {
         alpha = driver.update(dt, model, (m) => rig.tick(m))
-        rig.applyPhysics(alpha, true)
+        rig.applyPhysics(alpha, doc.figura.hairPhysics)
         dirty = true
       }
       if (fig.enabled || fig.editFrame) {
@@ -421,13 +435,20 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
           figAcc -= 0.05
           fig.tick(doc)
         }
-        fig.updateEyes(doc, model.parts.head)
         // smooth head: the head lags behind where the animation points it
         const head = model.parts.head
         if (cfg.smoothHead && driver.mode !== 'off' && !posing()) {
           if (!smoothInit) smoothHead.copy(head.quaternion), (smoothInit = true)
+          const targetQ = head.quaternion.clone()
           smoothHead.slerp(head.quaternion, 1 - Math.pow(1 - cfg.headSpeed, dt * 20))
           head.quaternion.copy(smoothHead)
+          // tilt into the turn while the head is still catching up (like the exported script)
+          if (cfg.headTilt) {
+            const lag = new THREE.Quaternion().copy(smoothHead).invert().multiply(targetQ)
+            const yawLag = new THREE.Euler().setFromQuaternion(lag, 'YXZ').y
+            const roll = Math.max(-1, Math.min(1, yawLag / 0.26)) * cfg.headTilt * (Math.PI / 180)
+            head.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -roll))
+          }
         } else smoothInit = false
         dirty = true
       }
@@ -512,7 +533,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
 
   return (
     <div className="viewport">
-      <Toolbar onResetView={() => api.current?.resetView()} />
+      <Toolbar onResetView={() => api.current?.resetView()} onFlipView={() => api.current?.flipView()} />
       <div className="canvas3d" ref={boxRef}>
         {preview && (
           <div className="mini-frame" ref={frameRef}>

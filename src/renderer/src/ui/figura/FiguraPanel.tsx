@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
 import { exprKeys, liveWheel, toEnglish, type FiguraConfig } from '../../skin/figura'
 import { frameLabel } from './frameLabel'
-import { buildAvatar, type AvatarFiles } from '../../figura/avatar'
+import { buildAvatar, glowInfo, type AvatarFiles } from '../../figura/avatar'
 import { storage, type AvatarMeta } from '../../lib/storage'
 import { useEditor } from '../../store/editor'
 import { MOTION_MODES } from '../../three/motion'
@@ -100,8 +100,7 @@ function WheelSummary({ doc }: { doc: SkinDoc }) {
   const pages = liveWheel(c, {
     frames: (f) => !!doc.faces[f],
     physics: c.hairPhysics && doc.hair.some((h) => h.visible),
-    glow: doc.layers.some((l) => l.glow) || doc.hair.some((h) => h.glow) || (c.glowFrames ?? []).some((f) => !!doc.faces[f]),
-    eyes: c.eyeFollow
+    glow: glowInfo(doc)
   })
   const count = pages.reduce((n, p) => n + p.items.length, 0)
   return (
@@ -184,11 +183,7 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
         <span className="label">{t('figura.head')}</span>
         <Toggle label={t('figura.smoothHead')} on={c.smoothHead} onChange={(v) => up({ smoothHead: v })}>
           <Range label={t('figura.headSpeed')} value={c.headSpeed} min={0.05} max={1} step={0.05} fmt={(v) => Math.round(v * 100) + '%'} onChange={(v) => up({ headSpeed: v })} />
-          <Range label={t('figura.headTilt')} value={c.headTilt ?? 0} min={0} max={20} step={1} fmt={(v) => v + '°'} onChange={(v) => up({ headTilt: v })} />
-        </Toggle>
-        <Toggle label={t('figura.eyeFollow')} on={!!c.eyeFollow} onChange={(v) => up({ eyeFollow: v })}>
-          <Range label={t('figura.eyeRange')} value={c.eyeRange ?? doc.res / 64} min={1} max={Math.max(2, doc.res / 32)} step={1} fmt={(v) => String(v)} onChange={(v) => up({ eyeRange: v })} />
-          <span className="muted" style={{ fontSize: 11 }}>{t('figura.eyeFollowHint')}</span>
+          <Range label={t('figura.headTilt')} value={c.headTilt ?? 0} min={0} max={30} step={1} fmt={(v) => v + '°'} onChange={(v) => up({ headTilt: v })} />
         </Toggle>
         <Toggle label={t('figura.hairPhysics')} on={c.hairPhysics} onChange={(v) => up({ hairPhysics: v })}>
           <label className="row muted" style={{ fontSize: 12 }}>

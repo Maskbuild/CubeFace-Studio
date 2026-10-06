@@ -18,6 +18,7 @@ import { pasteLayer } from '../../lib/layerActions'
 import { readDroppedImages } from '../../lib/files'
 import { FacePanel } from '../figura/FacePanel'
 import { FiguraPanel } from '../figura/FiguraPanel'
+import { pasteFloating, pixelsCopiedLast } from '../../lib/selection'
 import { PoseLibraryPanel } from '../pose/PoseLibraryPanel'
 import { PosePanel } from '../pose/PosePanel'
 
@@ -94,6 +95,7 @@ export function Instance({ doc }: { doc: SkinDoc }) {
       if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return
       e.preventDefault()
       const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
+      if (!file && pixelsCopiedLast()) return void pasteFloating(doc)
       if (!file) return pasteLayer(doc)
       const [img] = await readDroppedImages([file])
       pasteLayer(doc, img)

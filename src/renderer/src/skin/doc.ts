@@ -381,10 +381,13 @@ export class SkinDoc {
     this.emit({ type: 'structure' })
   }
 
-  addHair(side: HairSide, length: HairLength, name: string): HairPlane {
-    const d = hairDefaults(side, length)
+  /** Add a hair plane (optionally changed by `extra` and pre-painted by `paint`) as one undo step. */
+  addHair(side: HairSide, length: HairLength, name: string, extra: Partial<HairInfo> = {}, paint?: (img: Img) => Img): HairPlane {
+    const d = { ...hairDefaults(side, length), ...extra }
     const [tw, th] = hairTexSize(d.w, d.h, this.res)
-    const h: HairPlane = { ...d, id: newId(), name, img: createImg(tw, th) }
+    let img = createImg(tw, th)
+    if (paint) img = paint(img)
+    const h: HairPlane = { ...d, id: newId(), name, img }
     this.change(() => this.hair.push(h))
     this.hairId = h.id
     this.emit({ type: 'structure' })

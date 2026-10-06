@@ -44,25 +44,22 @@ export function faceWithFrame(doc: SkinDoc, frame: FaceFrame): Img {
   return out
 }
 
-/**
- * Eye boxes cut from the face (skin face + base frame), tiled 3×3 so the eye planes can shift
- * their UV by up to one box in any direction and still show the eye wrapping around.
- */
-export function eyeTiles(doc: SkinDoc): Record<string, Img> {
-  const face = faceWithFrame(doc, 'base')
-  const out: Record<string, Img> = {}
-  for (const [key, r] of [['eye_R', doc.figura.eyeR], ['eye_L', doc.figura.eyeL]] as const) {
-    if (r.w < 1 || r.h < 1) continue
-    const tile = createImg(r.w * 3, r.h * 3)
-    for (let ty = 0; ty < 3; ty++)
-      for (let tx = 0; tx < 3; tx++)
-        for (let y = 0; y < r.h; y++)
-          for (let x = 0; x < r.w; x++) {
-            const sx = Math.min(face.w - 1, r.x + x), sy = Math.min(face.h - 1, r.y + y)
-            tile.data.set(face.data.subarray((sy * face.w + sx) * 4, (sy * face.w + sx) * 4 + 4), ((ty * r.h + y) * tile.w + tx * r.w + x) * 4)
-          }
-    out[key] = tile
+/** What will glow in the exported avatar (for the wheel editor). */
+export function glowInfo(doc: SkinDoc): { eyes: boolean; skin: boolean; hair: string[] } {
+  return {
+    eyes: !!doc.figura.glowEyes,
+    skin: doc.layers.some((l) => l.glow && l.visible) && shippedCuboids(doc, 'figura').some(Boolean),
+    hair: doc.hair.filter((h) => h.glow && h.visible).map((h) => h.id)
   }
+}
+
+/** The face with only the eye boxes kept (what glows when "glowing eyes" is on). */
+export function eyesOnly(doc: SkinDoc): Img {
+  const face = faceWithFrame(doc, 'base')
+  const out = createImg(face.w, face.h)
+  for (const r of [doc.figura.eyeR, doc.figura.eyeL])
+    for (let y = r.y; y < Math.min(face.h, r.y + r.h); y++)
+      for (let x = r.x; x < Math.min(face.w, r.x + r.w); x++) out.data.set(face.data.subarray((y * face.w + x) * 4, (y * face.w + x) * 4 + 4), (y * face.w + x) * 4)
   return out
 }
 
@@ -110,7 +107,8 @@ export function prepareAtlas(doc: SkinDoc, target: 'figura' | 'bedrock' = 'bedro
   })
   for (const f of frames) extras['face_' + f] = doc.faces[f]!
   for (const [id, img] of Object.entries(icons)) extras['icon_' + id] = img
-  if (target === 'figura' && cfg.eyeFollow) Object.assign(extras, eyeTiles(doc))
+  const eyeGlow = target === 'figura' && cfg.glowEyes ? eyesOnly(doc) : null
+  if (eyeGlow) extras.eyes_glow = eyeGlow
 
   // ship only the texture rows the shipped parts need (a head-only skin keeps the top quarter)
   const used = shippedCuboids(doc, target)
@@ -122,8 +120,7 @@ export function prepareAtlas(doc: SkinDoc, target: 'figura' | 'bedrock' = 'bedro
   let glow: Img | null = null
   const glowLayers = doc.layers.filter((l) => l.glow && l.visible)
   const glowHair = doc.hair.filter((x) => x.visible && x.glow)
-  const glowFrames = frames.filter((f) => cfg.glowFrames?.includes(f))
-  if (target === 'figura' && (glowLayers.length || glowHair.length || glowFrames.length)) {
+  if (target === 'figura' && (glowLayers.length || glowHair.length || eyeGlow)) {
     glow = createImg(atlas.img.w, atlas.img.h)
     if (glowLayers.length && h > 0) {
       const g = createImg(skin.w, skin.h)
@@ -136,7 +133,7 @@ export function prepareAtlas(doc: SkinDoc, target: 'figura' | 'bedrock' = 'bedro
       if (s) writeRect(glow!, { x: s.x, y: s.y, w: img.w, h: img.h }, img.data)
     }
     for (const x of glowHair) put('hair_' + x.id, x.img)
-    for (const f of glowFrames) put('face_' + f, doc.faces[f]!)
+    if (eyeGlow) put('eyes_glow', eyeGlow)
     if (!glow.data.some((v, i) => i % 4 === 3 && v > 0)) glow = null
   }
   return { atlas, frames, used, glow }
@@ -158,6 +155,7 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
     atlasH: atlas.img.h,
     atlasDataUrl: atlasUrl,
     glowDataUrl: glowUrl,
+    glowSkin: doc.layers.some((l) => l.glow && l.visible) && shippedCuboids(doc, 'figura').some(Boolean),
     slots: atlas.slots,
     hair: doc.hair,
     figura: cfg,

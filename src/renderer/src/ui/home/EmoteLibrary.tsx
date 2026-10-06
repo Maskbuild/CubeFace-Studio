@@ -6,8 +6,12 @@ import { BUILTIN_ANIMS } from '../../pose/presets'
 import { storage } from '../../lib/storage'
 import { loadImage } from '../../lib/png'
 import { Icon } from '../common/Icon'
-import { confirmBox, promptBox, toast } from '../common/dialogs'
+import { confirmBox, Modal, promptBox, toast } from '../common/dialogs'
 import { EmotePreview } from '../pose/EmotePreview'
+import type { Emote } from '../../pose/emote'
+import { canRedistribute, defaultRights, type Rights } from '../../skin/rights'
+import { RightsBadges, RightsEditor } from '../common/RightsEditor'
+import { EmoteImportDialog } from '../pose/EmoteImportDialog'
 
 /** A logo fitted into a 128px square (keeps the library small; pixel art stays crisp). */
 async function squareLogo(dataUrl: string): Promise<string> {
@@ -23,6 +27,22 @@ async function squareLogo(dataUrl: string): Promise<string> {
   return c.toDataURL('image/png')
 }
 
+/** Change an emote's name and rights later. */
+function RightsOnlyDialog({ e, onClose, onSave }: { e: Emote; onClose: () => void; onSave: (name: string, r: Rights) => void }) {
+  const { t } = useTranslation()
+  const [name, setName] = useState(e.name)
+  const [rights, setRights] = useState<Rights>(e.rights ?? defaultRights())
+  return (
+    <Modal title={t('rights.edit')} onClose={onClose} footer={<><button className="btn" onClick={onClose}>{t('common.cancel')}</button><button className="btn primary" onClick={() => onSave(name.trim() || e.name, rights)}>{t('common.save')}</button></>}>
+      <label className="field">
+        <span className="label">{t('rights.name')}</span>
+        <input className="input" value={name} onChange={(ev) => setName(ev.target.value)} />
+      </label>
+      <RightsEditor value={rights} onChange={setRights} />
+    </Modal>
+  )
+}
+
 /** Home tab: emotes for every skin (Emotecraft .json / .emotecraft), with a playing preview. */
 export function EmoteLibraryTab() {
   const { t } = useTranslation()
@@ -30,6 +50,8 @@ export function EmoteLibraryTab() {
   const [sel, setSel] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [drag, setDrag] = useState(false)
+  const [queue, setQueue] = useState<Emote[]>([])
+  const [editRights, setEditRights] = useState<Emote | null>(null)
   useEffect(() => void lib.load(), [])
 
   const all = [...BUILTIN_ANIMS, ...lib.emotes]
@@ -39,11 +61,8 @@ export function EmoteLibraryTab() {
 
   const importFiles = async (files: File[]) => {
     const { emotes, failed } = await readEmoteFiles(files)
-    if (emotes.length) {
-      lib.addEmotes(emotes)
-      setSel(emotes[0].id)
-    }
-    toast(t('pose.imported', { n: emotes.length }) + (failed.length ? ' · ' + t('pose.failed', { list: failed.join('; ') }) : ''))
+    if (emotes.length) setQueue((q) => [...q, ...emotes])
+    if (failed.length) toast(t('pose.failed', { list: failed.join('; ') }))
   }
 
   return (
@@ -81,12 +100,13 @@ export function EmoteLibraryTab() {
               {e.icon ? <img src={e.icon} alt="" /> : <span className="emote-ph big"><Icon name="play" size={22} /></span>}
               <b>{e.name}</b>
               <span className="muted">{[e.author, (e.endTick / 20).toFixed(1) + 's', e.loop ? '∞' : ''].filter(Boolean).join(' · ')}</span>
+              <RightsBadges value={e.rights} />
             </button>
           ))}
         </div>
       </div>
       <div className="emote-tab-side">
-        <EmotePreview emote={emote ?? null} />
+        <EmotePreview emote={emote ?? null} spin={false} />
         {emote && (
           <div className="emote-info">
             <b>{title(emote)}</b>
@@ -121,8 +141,13 @@ export function EmoteLibraryTab() {
                   {t('common.rename')}
                 </button>
               )}
+              {!emote.builtin && (
+                <button className="btn sm-btn" onClick={() => setEditRights(emote)}>{t('rights.edit')}</button>
+              )}
               <button
                 className="btn sm-btn"
+                disabled={!emote.builtin && !canRedistribute(emote.rights)}
+                title={!emote.builtin && !canRedistribute(emote.rights) ? t('rights.downloadBlocked') : ''}
                 onClick={async () => {
                   const safe = title(emote).replace(/[^\w\- ]+/g, '').trim() || 'emote'
                   const path = await storage.saveFile(new TextEncoder().encode(emoteToEmotecraft(emote)), safe + '.json', 'json', 'Emotecraft emote')
@@ -147,10 +172,37 @@ export function EmoteLibraryTab() {
                 </button>
               )}
             </div>
+            {!emote.builtin && <RightsBadges value={emote.rights} />}
+            {!emote.builtin && !canRedistribute(emote.rights) && <span className="muted" style={{ fontSize: 11 }}>{t('rights.downloadBlocked')}</span>}
             <span className="muted" style={{ fontSize: 11 }}>{t('pose.useInSkin')}</span>
           </div>
         )}
       </div>
+      {queue[0] && (
+        <EmoteImportDialog
+          key={queue[0].id}
+          queue={queue}
+          onClose={() => setQueue([])}
+          onAdd={(list) => {
+            if (list.length) {
+              lib.addEmotes(list)
+              setSel(list[0].id)
+              toast(t('pose.imported', { n: list.length }))
+            }
+            setQueue((q) => q.slice(Math.max(1, list.length)))
+          }}
+        />
+      )}
+      {editRights && (
+        <RightsOnlyDialog
+          e={editRights}
+          onClose={() => setEditRights(null)}
+          onSave={(name, rights) => {
+            lib.updateEmote(editRights.id, { name, rights })
+            setEditRights(null)
+          }}
+        />
+      )}
     </div>
   )
 }

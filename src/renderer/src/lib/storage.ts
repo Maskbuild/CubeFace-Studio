@@ -1,4 +1,5 @@
 import type { ProjectJson } from '../skin/doc'
+import type { Rights } from '../skin/rights'
 
 export interface AvatarMeta {
   id: string
@@ -11,6 +12,7 @@ export interface AvatarMeta {
   thumb: string | null
   thumb3d?: string
   category?: string
+  rights?: Rights
 }
 
 export interface MergeResult {
@@ -43,7 +45,7 @@ export interface Storage {
   exportFigura(folder: string, files: Record<string, string | Uint8Array>, attachIds?: string[]): Promise<string | null>
   listAvatars(): Promise<AvatarMeta[]>
   importAvatars(paths?: string[]): Promise<{ added: AvatarMeta[]; failed: string[] } | null>
-  updateAvatar(id: string, patch: { name?: string; category?: string; thumb3d?: string }): Promise<void>
+  updateAvatar(id: string, patch: { name?: string; category?: string; thumb3d?: string; rights?: Rights }): Promise<void>
   avatarFiles(id: string): Promise<{ path: string; size: number }[]>
   readAvatarFile(id: string, rel: string): Promise<string | null>
   deleteAvatar(id: string): Promise<boolean>

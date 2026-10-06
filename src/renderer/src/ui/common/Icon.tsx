@@ -5,6 +5,7 @@ const PATHS: Record<string, string> = {
   redo: 'M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3',
   play: 'M7 4l13 8-13 8z',
   gradient: 'M4 4h16v16H4zM8 4v16M12 4v16M16 4v16',
+  select: 'M4 7V4h3M10 4h4M17 4h3v3M20 10v4M20 17v3h-3M14 20h-4M7 20H4v-3M4 14v-4',
   swap: 'M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7',
   pause: 'M7 4h3v16H7zM14 4h3v16h-3z',
   pin: 'M12 17v5M8 3h8l-1 6 3 4H6l3-4z',

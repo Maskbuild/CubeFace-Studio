@@ -6,6 +6,9 @@ import { confirmBox, promptBox, toast } from '../common/dialogs'
 import { ContextMenu, type MenuItem } from '../common/ContextMenu'
 import { Icon } from '../common/Icon'
 import { AvatarViewer } from './AvatarViewer'
+import { RightsBadges, RightsEditor } from '../common/RightsEditor'
+import { defaultRights, type Rights } from '../../skin/rights'
+import { Modal } from '../common/dialogs'
 
 const kb = (n: number) => (n / 1024).toFixed(1) + ' KB'
 const desktopOnly = !window.nkw
@@ -57,6 +60,7 @@ function AvatarCard({ a, selected, onClick, onView, onMenu }: { a: Meta; selecte
       {thumb ? <img src={thumb} alt="" className={'avatar-thumb' + (a.thumb3d ? ' rendered' : '')} draggable={false} /> : <div className="avatar-thumb empty-thumb"><Icon name="sparkle" size={28} /></div>}
       <div className="item-name" title={a.name}>{a.name}</div>
       <div className="item-res">{a.category || t('avatars.noCategory')} · {kb(a.bytes)}</div>
+      <RightsBadges value={a.rights} />
       {selected && <span className="item-check"><Icon name="check" size={12} stroke={3} /></span>}
       <div className="item-actions" onClick={(e) => e.stopPropagation()}>
         <button className="icon-btn sm" title={t('avatars.view')} onClick={onView}><Icon name="eye" size={13} /></button>
@@ -70,6 +74,7 @@ function AvatarCard({ a, selected, onClick, onView, onMenu }: { a: Meta; selecte
             <dt>{t('figura.description')}</dt><dd>{a.description || t('common.none')}</dd>
             <dt>{t('avatars.category')}</dt><dd>{a.category || t('avatars.noCategory')}</dd>
             <dt>{t('avatars.files')}</dt><dd>{a.files} · {kb(a.bytes)}</dd>
+            <dt>{t('rights.title')}</dt><dd>{a.rights ? rightsText(t, a.rights) : t('rights.unset')}</dd>
             <dt>{t('avatars.added')}</dt><dd>{new Date(a.importedAt).toLocaleString(i18n.language === 'th' ? 'th-TH' : 'en-GB')}</dd>
           </dl>
         </div>
@@ -90,12 +95,15 @@ export function AvatarLibrary({ selected, onToggle }: { selected?: Set<string>; 
   const [viewing, setViewing] = useState<AvatarMeta | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null)
 
+  const [rightsQueue, setRightsQueue] = useState<AvatarMeta[]>([])
   const report = async (r: { added: AvatarMeta[]; failed: string[] } | null) => {
     if (!r) return
     if (r.failed.length) toast(t('avatars.notAvatar', { names: r.failed.join(', ') }))
     else if (r.added.length) toast(t('avatars.imported', { n: r.added.length }))
     // new imports land in the category being viewed
     if (cat) await Promise.all(r.added.map((a) => storage.updateAvatar(a.id, { category: cat })))
+    // then ask where each one came from and what may be done with it
+    if (r.added.length) setRightsQueue(r.added)
     reload()
   }
   const askCategory = (initial = '') => promptBox(t('avatars.newCategory'), initial, t('common.ok'), t('common.cancel')).then((s) => s?.trim() || null)
@@ -147,6 +155,7 @@ export function AvatarLibrary({ selected, onToggle }: { selected?: Set<string>; 
       y: e.clientY,
       items: [
         { label: t('avatars.view'), icon: 'eye', onClick: () => setViewing(a) },
+        { label: t('rights.edit'), icon: 'info', onClick: () => setRightsQueue([a]) },
         {
           label: t('common.rename'),
           icon: 'edit',
@@ -223,7 +232,63 @@ export function AvatarLibrary({ selected, onToggle }: { selected?: Set<string>; 
       </div>
       {viewing && <AvatarViewer avatar={viewing} onClose={() => setViewing(null)} />}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+      {rightsQueue[0] && (
+        <AvatarRightsDialog
+          key={rightsQueue[0].id}
+          a={rightsQueue[0]}
+          left={rightsQueue.length - 1}
+          onDone={async (patch, all) => {
+            const targets = all ? rightsQueue : [rightsQueue[0]]
+            await Promise.all(targets.map((x, i) => storage.updateAvatar(x.id, i === 0 ? patch : { rights: patch.rights })))
+            setRightsQueue(all ? [] : rightsQueue.slice(1))
+            reload()
+          }}
+          onSkip={() => setRightsQueue(rightsQueue.slice(1))}
+        />
+      )}
     </div>
+  )
+}
+
+/** One-line summary of rights for tooltips. */
+function rightsText(t: (k: string) => string, r: Rights) {
+  if (r.source === 'own' || r.source === 'exclusive') return t('rights.src_' + r.source)
+  return [t('rights.src_' + r.source), r.commercial ? t('rights.commercialShort') : t('rights.noCommercialShort'), r.redistribute ? t('rights.redistShort') : t('rights.noRedistShort'), t('rights.mod_' + r.modify)].join(' · ')
+}
+
+/** After importing: name and rights for each avatar (one at a time, or the same for all). */
+function AvatarRightsDialog({ a, left, onDone, onSkip }: { a: AvatarMeta; left: number; onDone: (patch: { name: string; rights: Rights }, all: boolean) => void; onSkip: () => void }) {
+  const { t } = useTranslation()
+  const [name, setName] = useState(a.name)
+  const [rights, setRights] = useState<Rights>(a.rights ?? defaultRights())
+  const [all, setAll] = useState(false)
+  return (
+    <Modal
+      title={t('rights.avatarTitle')}
+      onClose={onSkip}
+      footer={
+        <>
+          {left > 0 && (
+            <label className="row" style={{ fontSize: 12, marginRight: 'auto' }}>
+              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
+              {t('rights.applyAll', { n: left + 1 })}
+            </label>
+          )}
+          <button className="btn" onClick={onSkip}>{t('rights.later')}</button>
+          <button className="btn primary" onClick={() => onDone({ name: name.trim() || a.name, rights }, all)}>{t('common.save')}</button>
+        </>
+      }
+    >
+      <div className="row" style={{ gap: 12 }}>
+        {(a.thumb3d ?? a.thumb) && <img src={a.thumb3d ?? a.thumb!} alt="" style={{ width: 72, height: 72, objectFit: 'contain', borderRadius: 8 }} className="checker" />}
+        <label className="field grow">
+          <span className="label">{t('rights.name')}</span>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+          <span className="muted" style={{ fontSize: 11 }}>{a.authors.join(', ')}</span>
+        </label>
+      </div>
+      <RightsEditor value={rights} onChange={setRights} />
+    </Modal>
   )
 }
 

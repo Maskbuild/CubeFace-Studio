@@ -252,3 +252,19 @@ export function hairTips(img: Img, strand: number, length: number, seed = 1): Im
   }
   return out
 }
+
+/** Ready-made hair pieces: placed on the head and set up so one click gives good-looking hair. */
+export interface HairPreset {
+  id: 'bangs' | 'sideL' | 'sideR' | 'backLong' | 'backShort' | 'ponytail'
+  side: HairSide
+  length: HairLength
+  extra: Partial<HairInfo>
+}
+export const HAIR_PRESETS: HairPreset[] = [
+  { id: 'bangs', side: 'front', length: 'short', extra: { pos: [0, 8, 4.6], w: 8, h: 4, strands: 4, curl: 15, flutter: 0.3 } },
+  { id: 'sideL', side: 'front', length: 'medium', extra: { pos: [4.6, 8, 1], rot: [0, 90, 0], w: 6, h: 9, strands: 3, curl: 5, flutter: 0.4 } },
+  { id: 'sideR', side: 'front', length: 'medium', extra: { pos: [-4.6, 8, 1], rot: [0, -90, 0], w: 6, h: 9, strands: 3, curl: 5, flutter: 0.4 } },
+  { id: 'backLong', side: 'back', length: 'long', extra: { w: 8, h: 14, strands: 4, flutter: 0.5 } },
+  { id: 'backShort', side: 'back', length: 'short', extra: { w: 8, h: 5, strands: 3, flutter: 0.3 } },
+  { id: 'ponytail', side: 'back', length: 'long', extra: { pos: [0, 7, -4.8], w: 4, h: 12, strands: 2, curl: -10, flutter: 0.6 } }
+]

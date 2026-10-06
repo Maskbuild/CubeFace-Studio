@@ -5,6 +5,7 @@ import { BUILTIN_ANIMS, BUILTIN_POSES } from '../../pose/presets'
 import { pickEmoteFiles, readEmoteFiles, usePoseLibrary } from '../../pose/library'
 import type { Emote } from '../../pose/emote'
 import { Icon } from '../common/Icon'
+import { EmoteImportDialog } from './EmoteImportDialog'
 import { confirmBox, toast } from '../common/dialogs'
 
 /** Left panel in pose mode: poses to apply, built-in animations and the emote library. */
@@ -14,13 +15,14 @@ export function PoseLibraryPanel() {
   const lib = usePoseLibrary()
   const [tab, setTab] = useState<'poses' | 'anims'>('poses')
   const [q, setQ] = useState('')
+  const [queue, setQueue] = useState<Emote[]>([])
   useEffect(() => void lib.load(), [])
 
   const play = (e: Emote) => s.set({ emote: e, emotePlaying: true, poseBone: null })
   const importFiles = async (files: File[]) => {
     const { emotes, failed } = await readEmoteFiles(files)
-    if (emotes.length) lib.addEmotes(emotes)
-    toast(t('pose.imported', { n: emotes.length }) + (failed.length ? ' · ' + t('pose.failed', { list: failed.join('; ') }) : ''))
+    if (emotes.length) setQueue((q) => [...q, ...emotes])
+    if (failed.length) toast(t('pose.failed', { list: failed.join('; ') }))
   }
   const match = (name: string) => !q.trim() || name.toLowerCase().includes(q.trim().toLowerCase())
 
@@ -92,6 +94,17 @@ export function PoseLibraryPanel() {
           </div>
           <span className="muted" style={{ fontSize: 11 }}>{t('pose.dropHint')}</span>
         </>
+      )}
+      {queue[0] && (
+        <EmoteImportDialog
+          key={queue[0].id}
+          queue={queue}
+          onClose={() => setQueue([])}
+          onAdd={(list) => {
+            if (list.length) lib.addEmotes(list)
+            setQueue((x) => x.slice(Math.max(1, list.length)))
+          }}
+        />
       )}
     </div>
   )

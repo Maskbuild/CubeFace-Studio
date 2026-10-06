@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { cuboids, RESOLUTIONS, scaleRect, type Variant } from '../../skin/layout'
+import { cuboids, faceAt, faceRect, RESOLUTIONS, scaleRect, type Variant } from '../../skin/layout'
+import { commitFloating, floatingPos, liftSelection, moveFloatingTo, select } from '../../lib/selection'
 import { mirrorTexel } from '../../skin/mirror'
 import { faceOrigin, type FaceFrame } from '../../skin/figura'
 import { frameLabel } from '../figura/frameLabel'
@@ -181,8 +182,22 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
         ctx.stroke()
         ctx.setLineDash([])
       }
+      // selection (marching dashes) and the floating piece
+      if (isSkin && ed.selection) {
+        const r = ed.selection
+        const x = Math.round(ox + r.x * s) + 0.5, y = Math.round(oy + r.y * s) + 0.5
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([5, 4])
+        ctx.strokeStyle = '#000'
+        ctx.strokeRect(x, y, Math.round(r.w * s), Math.round(r.h * s))
+        ctx.lineDashOffset = 5
+        ctx.strokeStyle = ed.floatingOn ? css.getPropertyValue('--accent') : '#fff'
+        ctx.strokeRect(x, y, Math.round(r.w * s), Math.round(r.h * s))
+        ctx.setLineDash([])
+        ctx.lineDashOffset = 0
+      }
       // hovered texel
-      if (hover && ed.tool !== 'orbit') {
+      if (hover && ed.tool !== 'orbit' && ed.tool !== 'select') {
         const n = ed.tool === 'brush' ? ed.brush.size : ed.tool === 'eraser' ? ed.eraser.size : 1
         const o = -Math.floor(n / 2)
         ctx.strokeStyle = css.getPropertyValue('--accent')
@@ -225,6 +240,23 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
     }
     const session = new PaintSession(doc)
     let pan: { x: number; y: number } | null = null
+    // selection tool: drawing a box, or dragging the floating piece
+    let drag: { mode: 'rect'; ax: number; ay: number; moved: boolean } | { mode: 'move'; sx: number; sy: number; ox: number; oy: number } | null = null
+    const clampT = (x: number, y: number): [number, number] => [Math.min(src.img.w - 1, Math.max(0, x)), Math.min(src.img.h - 1, Math.max(0, y))]
+    const onSelectDown = (x: number, y: number) => {
+      const ed = useEditor.getState()
+      const inside = (r: { x: number; y: number; w: number; h: number } | null) => !!r && x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h
+      const fp = floatingPos()
+      if (fp && inside(fp)) return void (drag = { mode: 'move', sx: x, sy: y, ox: fp.x, oy: fp.y })
+      if (!fp && inside(ed.selection) && liftSelection(doc)) {
+        const f = floatingPos()!
+        return void (drag = { mode: 'move', sx: x, sy: y, ox: f.x, oy: f.y })
+      }
+      commitFloating(doc)
+      const [cx, cy] = clampT(x, y)
+      drag = { mode: 'rect', ax: cx, ay: cy, moved: false }
+      select({ x: cx, y: cy, w: 1, h: 1 })
+    }
     const onDown = (ev: PointerEvent) => {
       try {
         canvas.setPointerCapture(ev.pointerId)
@@ -237,6 +269,12 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       }
       if (ev.button !== 0) return
       const [x, y] = texel(ev)
+      if (useEditor.getState().tool === 'select') {
+        if (src.hairId || src.face) return // selections are for the skin
+        onSelectDown(x, y)
+        schedule()
+        return
+      }
       if (x < 0 || y < 0 || x >= src.img.w || y >= src.img.h) return
       session.down(x, y, null, src.hairId, !!src.face)
     }
@@ -251,12 +289,24 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       }
       const [x, y] = texel(ev)
       hover = x >= 0 && y >= 0 && x < src.img.w && y < src.img.h ? [x, y] : null
+      if (drag?.mode === 'rect') {
+        const [cx, cy] = clampT(x, y)
+        drag.moved ||= cx !== drag.ax || cy !== drag.ay
+        select({ x: Math.min(drag.ax, cx), y: Math.min(drag.ay, cy), w: Math.abs(cx - drag.ax) + 1, h: Math.abs(cy - drag.ay) + 1 })
+      } else if (drag?.mode === 'move') moveFloatingTo(doc, drag.ox + x - drag.sx, drag.oy + y - drag.sy)
       if (session.active && hover) session.move(x, y, null)
       schedule()
     }
-    const onUp = () => {
+    const onUp = (ev: PointerEvent) => {
       pan = null
       session.up()
+      // a click without dragging selects the whole face under it (or nothing)
+      if (drag?.mode === 'rect' && !drag.moved) {
+        const [x, y] = texel(ev)
+        const ref = x >= 0 && y >= 0 && x < doc.res && y < doc.res ? faceAt(doc.variant, doc.res, x, y) : null
+        select(ref ? faceRect(doc.variant, doc.res, ref) : null)
+      }
+      drag = null
     }
     const onWheel = (ev: WheelEvent) => {
       ev.preventDefault()

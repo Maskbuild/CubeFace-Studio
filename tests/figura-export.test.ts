@@ -263,18 +263,27 @@ describe('flowing hair, tips, eyes and glow switch', () => {
     expect(out.data[(7 * 8 + 0) * 4 + 3]).toBe(0) // corner of a lock is cut away
     expect(out.data[(0 * 8 + 0) * 4 + 3]).toBe(255) // the top stays
   })
-  it('exports eye planes that slide with the look, and a glow switch', () => {
-    const slots = { ...input().slots, face_base: { x: 0, y: 72, w: 8, h: 8 }, eye_R: { x: 24, y: 64, w: 6, h: 3 }, eye_L: { x: 32, y: 64, w: 6, h: 3 } }
-    const { model, info } = buildModel(input({ slots, faceFrames: ['base', 'blink'], glowDataUrl: 'data:image/png;base64,' })) as { model: Any; info: any }
-    expect(info.eyes).toEqual({ R: 'EyeR', L: 'EyeL' })
-    expect(info.glow).toBe(true)
-    const eye = model.elements.find((e: Any) => e.name === 'EyeR')
-    expect(eye.faces.north.uv[0]).toBeCloseTo((24 + 2) * (64 / 64)) // centre tile of the 3×3 eye
-    const s = buildScript('T', figuraDefaults(64), info, [hair])
-    expect(s).toContain('e:setUVPixels(dx, -dy)')
-    expect(s).toContain('player:getBodyYaw(delta)')
-    expect(s).toContain('M:setSecondaryRenderType(on and "EMISSIVE" or "NONE")')
-    expect(s).toContain('title("Glow")')
+  it('exports glowing eyes and a glow switch per part', () => {
+    const slots = { ...input().slots, face_base: { x: 0, y: 72, w: 8, h: 8 }, eyes_glow: { x: 24, y: 64, w: 8, h: 8 } }
+    const h2 = { ...hair, id: 'h2', name: 'Bangs', glow: true }
+    const { model, info } = buildModel(input({ slots: { ...slots, hair_h2: { x: 40, y: 64, w: 8, h: 8 } }, hair: [hair, h2], faceFrames: ['base', 'blink'], glowDataUrl: 'data:image/png;base64,', glowSkin: true })) as { model: Any; info: any }
+    expect(info.glow.eyes).toBe(true)
+    expect(info.glow.hair).toEqual(['h2'])
+    expect(info.glow.skinParts).toContain('Head.Head')
+    expect(model.elements.some((e: Any) => e.name === 'GlowEyes')).toBe(true)
+    const cfg = figuraDefaults(64)
+    cfg.wheelPages = [{ id: 'main', title: 'Main', items: [
+      { id: 'a', type: 'toggle', toggle: 'glow', title: '' },
+      { id: 'b', type: 'toggle', toggle: 'glowEyes', title: '' },
+      { id: 'c', type: 'toggle', toggle: 'glowHair:h2', title: '' },
+      { id: 'd', type: 'toggle', toggle: 'glowHair:h1', title: '' } // h1 doesn't glow: left out
+    ] }]
+    const s = buildScript('T', cfg, info, [hair, h2])
+    expect(s).toContain('glowEyes:setVisible(not state.blink')
+    expect(s).toContain('for _, p in ipairs({ M.Head.Face.GlowEyes }) do p:setSecondaryRenderType(on and "EMISSIVE" or "NONE") end')
+    expect(s).toContain('for _, p in ipairs({ M.Head.Hair2 }) do')
+    expect(s).toContain('M.Head.Head')
+    expect(s).not.toContain('glowHair:h1')
     parse(s)
   })
   it('adds the glow switch once to older wheels', () => {

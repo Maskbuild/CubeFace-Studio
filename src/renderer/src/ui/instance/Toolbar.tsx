@@ -2,12 +2,14 @@ import { useTranslation } from 'react-i18next'
 import { useEditor, type PaintTarget, type Tool } from '../../store/editor'
 import { Icon } from '../common/Icon'
 import { parseHex, toHex } from '../../skin/color'
+import { commitFloating, copySelection, deleteSelection, pasteFloating, pixelsCopiedLast, select, selectAll } from '../../lib/selection'
 
 const TOOLS: [Tool, string][] = [
   ['brush', 'brush'],
   ['eraser', 'eraser'],
   ['bucket', 'bucket'],
   ['gradient', 'gradient'],
+  ['select', 'select'],
   ['picker', 'picker'],
   ['orbit', 'orbit']
 ]
@@ -22,7 +24,7 @@ function Slider({ label, value, min, max, step = 1, fmt, onChange }: { label: st
   )
 }
 
-export function Toolbar({ onResetView }: { onResetView: () => void }) {
+export function Toolbar({ onResetView, onFlipView }: { onResetView: () => void; onFlipView: () => void }) {
   const { t } = useTranslation()
   const s = useEditor()
   const maxSize = Math.max(16, (s.doc?.res ?? 64) / 4)
@@ -36,6 +38,7 @@ export function Toolbar({ onResetView }: { onResetView: () => void }) {
         <span className="muted" style={{ fontSize: 12, padding: '0 6px' }}>{t('pose.toolbarHint')}</span>
         <div className="grow" />
         <button className={'icon-btn' + (s.preview ? ' active' : '')} title={t('tools.preview')} onClick={() => s.set({ preview: !s.preview })}><Icon name="eye" size={17} /></button>
+        <button className="icon-btn" title={t('tools.flipView')} onClick={onFlipView}><Icon name="swap" size={17} /></button>
         <button className="icon-btn" title={t('tools.resetView')} onClick={onResetView}><Icon name="reset" size={17} /></button>
       </div>
     )
@@ -74,6 +77,17 @@ export function Toolbar({ onResetView }: { onResetView: () => void }) {
           <span className="muted" style={{ fontSize: 11 }}>{t('tools.gradHint')}</span>
         </>
       )}
+      {s.tool === 'select' && (
+        <>
+          <button className="btn sm-btn" onClick={() => s.doc && selectAll(s.doc)}>{t('sel.all')}</button>
+          <button className="btn sm-btn" disabled={!s.selection} onClick={() => s.doc && (commitFloating(s.doc), select(null))}>{t('sel.none')}</button>
+          <button className="btn sm-btn" disabled={!s.selection} onClick={() => s.doc && copySelection(s.doc)}>{t('sel.copy')}</button>
+          <button className="btn sm-btn" disabled={!pixelsCopiedLast()} onClick={() => s.doc && pasteFloating(s.doc)}>{t('sel.paste')}</button>
+          <button className="btn sm-btn" disabled={!s.selection} onClick={() => s.doc && deleteSelection(s.doc)}>{t('sel.clear')}</button>
+          {s.floatingOn && <button className="btn sm-btn primary" onClick={() => s.doc && commitFloating(s.doc)}>{t('sel.place')}</button>}
+          <span className="muted" style={{ fontSize: 11 }}>{s.floatingOn ? t('sel.floatHint') : t('sel.hint')}</span>
+        </>
+      )}
       {s.tool === 'bucket' && (
         <>
           <div className="seg">
@@ -96,7 +110,8 @@ export function Toolbar({ onResetView }: { onResetView: () => void }) {
       <button className={'icon-btn' + (s.grid ? ' active' : '')} title={t('tools.grid')} onClick={() => s.set({ grid: !s.grid })}><Icon name="grid" size={17} /></button>
       <button className={'icon-btn' + (s.mirror ? ' active' : '')} title={t('tools.mirror')} onClick={() => s.set({ mirror: !s.mirror })}><Icon name="mirror" size={17} /></button>
       <button className={'icon-btn' + (s.preview ? ' active' : '')} title={t('tools.preview')} onClick={() => s.set({ preview: !s.preview })}><Icon name="user" size={17} /></button>
-      <button className="icon-btn" title={t('tools.resetView')} onClick={onResetView}><Icon name="reset" size={17} /></button>
+      <button className="icon-btn" title={t('tools.flipView')} onClick={onFlipView}><Icon name="swap" size={17} /></button>
+        <button className="icon-btn" title={t('tools.resetView')} onClick={onResetView}><Icon name="reset" size={17} /></button>
     </div>
   )
 }

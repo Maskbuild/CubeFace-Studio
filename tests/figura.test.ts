@@ -115,11 +115,11 @@ describe('glowing parts', () => {
     const doc = make(64)
     doc.generateFaces()
     expect(prepareAtlas(doc, 'figura').glow).toBeNull()
-    doc.updateFigura({ glowFrames: ['blink'] })
+    doc.updateFigura({ glowEyes: true })
     const { atlas, glow, frames } = prepareAtlas(doc, 'figura')
     expect(glow).not.toBeNull()
-    const s = atlas.slots.face_blink
-    // glowing pixels only inside the blink frame's slot
+    const s = atlas.slots.eyes_glow
+    // glowing pixels only inside the glowing-eyes slot
     let inside = 0, outside = 0
     for (let y = 0; y < glow!.h; y++)
       for (let x = 0; x < glow!.w; x++) {

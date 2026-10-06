@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('nkw', {
   exportFigura: (folder: string, files: unknown, attachIds?: string[]) => ipcRenderer.invoke('figura:export', folder, files, attachIds),
   listAvatars: () => ipcRenderer.invoke('avatars:list'),
   importAvatars: (paths?: string[]) => ipcRenderer.invoke('avatars:import', paths),
-  updateAvatar: (id: string, patch: { name?: string; category?: string; thumb3d?: string }) => ipcRenderer.invoke('avatars:update', id, patch),
+  updateAvatar: (id: string, patch: { name?: string; category?: string; thumb3d?: string; rights?: unknown }) => ipcRenderer.invoke('avatars:update', id, patch),
   avatarFiles: (id: string) => ipcRenderer.invoke('avatars:files', id),
   readAvatarFile: (id: string, rel: string) => ipcRenderer.invoke('avatars:read', id, rel),
   deleteAvatar: (id: string) => ipcRenderer.invoke('avatars:delete', id),

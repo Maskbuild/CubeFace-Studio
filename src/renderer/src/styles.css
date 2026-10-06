@@ -509,3 +509,24 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .glow-btn.on { opacity: 1; color: #f2b400; }
 
 .hair-layers { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; border-top: 1px solid var(--border); max-height: 34%; overflow-y: auto; flex: none; }
+
+.hair-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.hair-preset { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1px solid var(--border); background: var(--panel-2); border-radius: 10px; padding: 6px 2px; cursor: pointer; font-size: 11px; color: var(--text); }
+.hair-preset:hover { border-color: var(--accent); }
+.hair-preset-ic .head { fill: var(--sunken); stroke: var(--text-3); stroke-width: .8; }
+.hair-preset-ic .hair { fill: var(--accent); }
+.hair-custom { display: flex; flex-direction: column; gap: 8px; }
+.hair-custom summary { cursor: pointer; font-size: 12px; margin-bottom: 6px; }
+.hair-custom[open] { display: flex; }
+
+.rights { display: flex; flex-direction: column; gap: 8px; }
+.rights-seg { display: flex; flex-wrap: wrap; }
+.rights-seg button { flex: 1; }
+.rights-badges { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.rights-badge { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--sunken); border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 2px; }
+.rights-badge.warn { color: var(--danger, #d9534f); }
+
+.modal:has(.emote-import) { width: min(640px, calc(100vw - 32px)); }
+.emote-import { display: grid; grid-template-columns: 220px 1fr; gap: 14px; }
+.emote-import .emote-preview { aspect-ratio: 3 / 4; }
+.emote-import-side { display: flex; flex-direction: column; gap: 10px; }
