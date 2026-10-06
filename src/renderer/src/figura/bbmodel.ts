@@ -76,6 +76,8 @@ export interface ModelInput {
   hair: HairInfo[]
   figura: FiguraConfig
   faceFrames: FaceFrame[]
+  /** Eyes / mouth are painted on the hat: frames (except the base one) go in front of the hat, at its size. */
+  faceOnHat?: boolean
   /** Which cuboids (layout order) have visible pixels; unused ones are not exported. */
   used?: boolean[]
 }
@@ -177,16 +179,24 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
   const head = parts.head
   const faceGroup = group('Face', [0, 24, 0])
   head.children.push(faceGroup)
+  // the base frame replaces the skin face (under the hat); the others sit on the face, or in front
+  // of the hat (scaled to the hat, 9/8) when the eyes and mouth are painted on the hat
+  const onHat = !!inp.faceOnHat
+  const front = (fr: FaceFrame, i: number) => (onHat && fr !== 'base' ? { a: -4.5, b: 4.5, y0: 23.5, y1: 32.5, z: r4(-4.52 - i * 0.001) } : { a: -4, b: 4, y0: 24, y1: 32, z: r4(-4.02 - i * 0.001) })
   inp.faceFrames.forEach((fr, i) => {
     const s = inp.slots[`face_${fr}`]
     if (!s) return
     const name = 'F_' + fr
-    plane(faceGroup, name, -4, 4, 24, 32, r4(-4.02 - i * 0.001), slotUV(s))
+    const q = front(fr, i)
+    plane(faceGroup, name, q.a, q.b, q.y0, q.y1, q.z, slotUV(s))
     info.faceParts[fr] = name
   })
-  // glowing eyes: the eye boxes on their own plane just in front of the base face
+  // glowing eyes: the eye spots on their own plane just in front of the face (or the hat)
   const eyeSlot = inp.slots.eyes_glow
-  if (eyeSlot) plane(faceGroup, 'GlowEyes', -4, 4, 24, 32, -4.0205, slotUV(eyeSlot))
+  if (eyeSlot) {
+    const q = onHat ? { a: -4.5, b: 4.5, y0: 23.5, y1: 32.5, z: -4.5205 } : { a: -4, b: 4, y0: 24, y1: 32, z: -4.0205 }
+    plane(faceGroup, 'GlowEyes', q.a, q.b, q.y0, q.y1, q.z, slotUV(eyeSlot))
+  }
   const glowLayers = !!inp.glowDataUrl
   info.glow = glowLayers ? { eyes: !!eyeSlot, skin: inp.glowSkin ?? false, hair: [], skinParts: [] } : undefined
   // ---- hair planes: one chain per strand (a plane can be split into strands that swing apart) ----

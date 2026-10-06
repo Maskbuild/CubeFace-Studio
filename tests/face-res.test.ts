@@ -67,3 +67,37 @@ describe('glow spots', () => {
     expect(g.data.filter((_, i) => i % 4 === 3 && _ > 0).length).toBeLessThanOrEqual(1)
   })
 })
+
+describe('face painted on the hat layer', () => {
+  it('detects eyes on the hat and puts blink / expression frames in front of the hat', () => {
+    const doc = new SkinDoc({ name: 'T', res: 64, variant: 'wide' })
+    expect(doc.faceOnHat()).toBe(false)
+    // paint the eye boxes on the hat (outer layer front of the head: x 40..48, y 8..16)
+    for (const r of [doc.figura.eyeR, doc.figura.eyeL])
+      fillRect(doc.composite, { x: 40 + r.x, y: 8 + r.y, w: r.w, h: r.h }, [20, 20, 30, 255], 1)
+    expect(doc.faceOnHat()).toBe(true)
+    // the reference face includes the hat's eyes
+    expect(getPixel(doc.faceImage(), doc.figura.eyeR.x, doc.figura.eyeR.y)).toEqual([20, 20, 30, 255])
+    const base = { name: 'T', variant: 'wide' as const, res: 64, atlasW: 64, atlasH: 96, atlasDataUrl: '', hair: [], figura: figuraDefaults(64), slots: { face_base: { x: 0, y: 64, w: 8, h: 8 }, face_blink: { x: 8, y: 64, w: 8, h: 8 } } }
+    const on = buildModel({ ...base, faceFrames: ['base', 'blink'], faceOnHat: true }).model as any
+    const off = buildModel({ ...base, faceFrames: ['base', 'blink'] }).model as any
+    const el = (m: any, n: string) => m.elements.find((e: any) => e.name === n)
+    expect(el(on, 'F_blink').from).toEqual([-4.5, 23.5, -4.521])
+    expect(el(on, 'F_blink').to).toEqual([4.5, 32.5, -4.521])
+    expect(el(on, 'F_base').from[2]).toBeCloseTo(-4.02) // the base frame stays on the face, under the hat
+    expect(el(off, 'F_blink').from).toEqual([-4, 24, -4.021])
+  })
+})
+
+import { attachedPos, hairAttached, hairDefaults } from '../src/renderer/src/skin/hair'
+describe('hair attached to the head', () => {
+  it('flags planes hanging from the neck or inside the head, and snaps them back', () => {
+    const back = hairDefaults('back', 'long')
+    expect(hairAttached(back)).toBe(true)
+    expect(hairAttached(hairDefaults('front', 'short'))).toBe(true)
+    const neck = { ...back, pos: [0, 0, -3] as [number, number, number] } // the in-game report
+    expect(hairAttached(neck)).toBe(false)
+    expect(attachedPos(neck)).toEqual([0, 8, -4.6])
+    expect(hairAttached({ ...back, pos: [4.6, 7, 0] })).toBe(true) // on the side of the head
+  })
+})

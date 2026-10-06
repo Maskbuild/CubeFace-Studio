@@ -22,6 +22,7 @@ export function buildMcpack(doc: SkinDoc, meta: AvatarMeta): Uint8Array {
     hair: doc.hair,
     figura: doc.figura,
     faceFrames: frames,
+    faceOnHat: doc.faceOnHat(),
     used
   })
   const id = doc.id.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 16) || 'skin'

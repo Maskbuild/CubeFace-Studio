@@ -14,9 +14,11 @@ function tex(img: Img) {
 }
 
 /** Plane on the head front (head space): x -4..4, y 0..8; texture u=0 on the player's right (-X). */
-function facePlane(z: number) {
+/** A face-sized plane in front of the head; half = 4 (face) or 4.5 (hat size). */
+function facePlane(z: number, half = 4) {
   const g = new THREE.BufferGeometry()
-  g.setAttribute('position', new THREE.Float32BufferAttribute([-4, 8, z, 4, 8, z, -4, 0, z, 4, 0, z], 3))
+  const t = 4 + half, b = 4 - half
+  g.setAttribute('position', new THREE.Float32BufferAttribute([-half, t, z, half, t, z, -half, b, z, half, b, z], 3))
   g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 1, 1], 2))
   g.setIndex([0, 2, 1, 1, 2, 3])
   return g
@@ -44,16 +46,18 @@ export class FiguraRig {
 
   /** Rebuild when the set of frames changes; otherwise only update visibility. */
   sync(doc: SkinDoc) {
-    const key = allFrames(doc.figura).map((f) => f + (doc.faces[f]?.w ?? 0)).join()
+    const onHat = doc.faceOnHat()
+    const key = allFrames(doc.figura).map((f) => f + (doc.faces[f]?.w ?? 0)).join() + (onHat ? ':hat' : '')
     if (key !== this.key) {
       this.key = key
       this.clear()
-      // slightly in front of the face, behind the hat layer
-      let z = 4.02
+      // slightly in front of the face (behind the hat), or in front of the hat when the eyes are on it
+      let i = 0
       for (const f of allFrames(doc.figura).filter((x) => doc.faces[x])) {
         const img = doc.faces[f] as Img
         const t = tex(img)
-        const m = new THREE.Mesh(facePlane((z += 0.002)), new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.02, depthWrite: false }))
+        const hat = onHat && f !== 'base'
+        const m = new THREE.Mesh(facePlane((hat ? 4.52 : 4.02) + ++i * 0.002, hat ? 4.5 : 4), new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.02, depthWrite: false }))
         m.renderOrder = 2
         this.disposables.push(t, m.geometry, m.material as THREE.Material)
         this.frames.set(f, m)

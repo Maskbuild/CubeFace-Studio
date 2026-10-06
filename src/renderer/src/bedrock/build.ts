@@ -29,6 +29,8 @@ export interface BedrockInput {
   hair: HairInfo[]
   figura: FiguraConfig
   faceFrames: FaceFrame[]
+  /** Frames go in front of the hat (at its size) when the face is painted on the hat. */
+  faceOnHat?: boolean
   used: boolean[]
 }
 
@@ -103,8 +105,10 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
     const s = inp.slots['face_' + f]
     if (!s) return
     const name = `nkw_f_${f}`
-    const z = 4.02 + i * 0.002
-    bone(name, 'head', [0, 24, 0], { cubes: [{ origin: [-4, 24, -z], size: [8, 8, 0], uv: plane(slotUV(s)) }] })
+    const hat = !!inp.faceOnHat && f !== 'base'
+    const z = (hat ? 4.52 : 4.02) + i * 0.002
+    const half = hat ? 4.5 : 4
+    bone(name, 'head', [0, 24, 0], { cubes: [{ origin: [-half, 28 - half, -z], size: [half * 2, half * 2, 0], uv: plane(slotUV(s)) }] })
     frameBones[f] = name
   })
 

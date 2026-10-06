@@ -146,6 +146,8 @@ export const en = {
     allOverlay: 'All overlays'
   },
   hair: {
+    detached: "This plane doesn't start on the head, so in game it looks like a separate piece.",
+    attach: "Attach to head",
     textureSelectHint: "To move or copy parts of the texture, select the plane and use the Select tool (S) in the UV panel.",
     presetHint: "Click a piece to add it: it is placed, coloured like your hair and given tips. Paint over it afterwards.",
     presetTip: "Add this hair piece",

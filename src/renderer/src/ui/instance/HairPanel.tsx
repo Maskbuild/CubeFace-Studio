@@ -6,6 +6,7 @@ import { MOTION_MODES, type MotionMode } from '../../three/motion'
 import { useEditor } from '../../store/editor'
 import { Icon } from '../common/Icon'
 import { HairTextureTools } from './HairTexture'
+import { attachedPos, hairAttached } from '../../skin/hair'
 
 const SIDES: HairSide[] = ['front', 'back']
 const LENGTHS: HairLength[] = ['short', 'medium', 'long']
@@ -86,6 +87,13 @@ function HairProps({ doc, h }: { doc: SkinDoc; h: HairPlane }) {
       </div>
       <span className="muted">{t('hair.pos')}</span>
       <Vec3 value={h.pos} onChange={(v) => up({ pos: v })} />
+      {!hairAttached(h) && (
+        <div className="hair-detached">
+          <Icon name="warn" size={13} />
+          <span className="grow">{t('hair.detached')}</span>
+          <button className="btn sm-btn" onClick={() => up({ pos: attachedPos(h) })}>{t('hair.attach')}</button>
+        </div>
+      )}
       <span className="muted">{t('hair.rot')}</span>
       <Vec3 value={h.rot} step={5} onChange={(v) => up({ rot: v })} />
       <label className="row" style={{ fontSize: 12 }} title={t('glow.hint')}>

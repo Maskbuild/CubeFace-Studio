@@ -114,6 +114,23 @@ export const FLUTTER = { speed: 2.4, travel: 0.9, out: 0.35, roll: 0.18 }
 
 export const hairTexSize = (w: number, h: number, res: number) => [Math.max(1, Math.round((w * res) / 64)), Math.max(1, Math.round((h * res) / 64))] as const
 
+/**
+ * Whether a plane starts on the head: its top is near the top of the head (y 5..9.5 above the
+ * neck) and it sits on the head's surface (a side or the top), not inside it or away from it.
+ * Planes hanging from the neck or floating inside the head look like a separate piece in game.
+ */
+export function hairAttached(p: Pick<HairPlane, 'pos' | 'side'>): boolean {
+  const [x, y, z] = p.pos
+  // near the head's surface: on a side (front, back, left, right) or on top, not inside or away
+  const out = Math.max(Math.abs(x), Math.abs(z))
+  return y >= 5 && y <= 9.5 && out <= 5.4 && (out >= 3.8 || y >= 7.8)
+}
+
+/** The default spot on the head for this side, keeping the sideways offset. */
+export function attachedPos(p: Pick<HairPlane, 'pos' | 'side'>): [number, number, number] {
+  return [Math.max(-4.5, Math.min(4.5, p.pos[0])), 8, p.side === 'front' ? 4.6 : -4.6]
+}
+
 /** Nearest-neighbour rescale to any size (used when a hair plane is resized). */
 export function rescale(img: Img, w: number, h: number): Img {
   const out = createImg(w, h)

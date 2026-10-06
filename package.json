@@ -1,7 +1,7 @@
 {
   "name": "cubeface-studio",
   "productName": "CubeFace Studio",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Offline Minecraft skin editor with Figura avatar tools, by Nam Kueap Wan (made 100% with AI)",
   "main": "out/main/index.js",
   "scripts": {
