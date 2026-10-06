@@ -74,9 +74,16 @@ CubeFace Studio เป็นโปรแกรมบนเครื่อง (Wi
 4. **ส่งออก… → Figura avatar** แล้ววางโฟลเดอร์หรือไฟล์ `.zip` ไว้ใน
    `.minecraft/figura/avatars/` แล้วเลือกในตู้เสื้อผ้าของ Figura
 
-## ติดตั้งและเปิดใช้งาน (จากซอร์สโค้ด)
+## ดาวน์โหลด
 
-ตอนนี้ยังไม่มีตัวติดตั้งให้ดาวน์โหลด สร้างเองได้ด้วยคำสั่งไม่กี่บรรทัด
+โหลดเวอร์ชันล่าสุดได้ที่ **[Releases](https://github.com/Maskbuild/Nkw-Custom-Skin/releases/latest)** (Windows 10/11, 64-bit)
+
+- **CubeFace-Studio-Setup-1.0.0.exe**: ตัวติดตั้ง (เลือกโฟลเดอร์ได้ สร้างทางลัดใน Start menu และหน้าจอ)
+- **CubeFace-Studio-1.0.0-win-x64-portable.zip**: ไม่ต้องติดตั้ง แตกไฟล์ไว้ที่ไหนก็ได้แล้วเปิด `CubeFace Studio.exe`
+
+โปรแกรมยังไม่ได้เซ็นรับรอง (code signing) ครั้งแรก Windows SmartScreen อาจเตือน ให้กด *More info (ข้อมูลเพิ่มเติม) → Run anyway (เรียกใช้)*
+
+## สร้างจากซอร์สโค้ด
 
 ต้องมี **[Node.js](https://nodejs.org) 22 LTS ขึ้นไป** และ **Git**
 

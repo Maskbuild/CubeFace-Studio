@@ -80,9 +80,16 @@ In short:
 4. **Export… → Figura avatar**, then put the folder or `.zip` into
    `.minecraft/figura/avatars/` and choose it in Figura's wardrobe.
 
-## Install and run (from source)
+## Download
 
-There is no installer download yet; build it yourself in a few commands.
+Get the latest version from **[Releases](https://github.com/Maskbuild/Nkw-Custom-Skin/releases/latest)** (Windows 10/11, 64-bit):
+
+- **CubeFace-Studio-Setup-1.0.0.exe**: installer (choose the folder, adds Start menu and desktop shortcuts).
+- **CubeFace-Studio-1.0.0-win-x64-portable.zip**: no install; unzip anywhere and run `CubeFace Studio.exe`.
+
+The app is not code-signed, so Windows SmartScreen may warn the first time: click *More info → Run anyway*.
+
+## Build from source
 
 You need **[Node.js](https://nodejs.org) 22 LTS or newer** and **Git**.
 

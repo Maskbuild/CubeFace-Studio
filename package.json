@@ -1,7 +1,7 @@
 {
   "name": "cubeface-studio",
   "productName": "CubeFace Studio",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Offline Minecraft skin editor with Figura avatar tools, by Nam Kueap Wan (made 100% with AI)",
   "main": "out/main/index.js",
   "scripts": {
@@ -20,12 +20,37 @@
       "out/**/*"
     ],
     "win": {
-      "target": "nsis",
-      "icon": "build/icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "CubeFace-Studio-${version}-win-x64-portable.${ext}"
     },
     "directories": {
-      "buildResources": "build"
-    }
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CubeFace Studio",
+      "artifactName": "CubeFace-Studio-Setup-${version}.${ext}"
+    },
+    "copyright": "Copyright © 2026 Nam Kueap Wan"
   },
   "dependencies": {
     "i18next": "^26.4.2",
