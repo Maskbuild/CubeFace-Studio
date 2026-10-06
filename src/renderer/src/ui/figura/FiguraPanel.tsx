@@ -57,14 +57,43 @@ function SizeMeter({ doc }: { doc: SkinDoc }) {
       clearTimeout(id)
     }
   }, [doc, tick])
-  const over = !!res && res.size > LIMIT
+  // the Figura added to this skin count too (they ship with it, merged or next to it)
+  const [extra, setExtra] = useState<{ name: string; size: number }[]>([])
+  const attachedKey = doc.figura.attached.filter((a) => a.enabled).map((a) => a.id).join()
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      const ids = attachedKey ? attachedKey.split(',') : []
+      const metas = await storage.listAvatars()
+      const out: { name: string; size: number }[] = []
+      for (const id of ids) {
+        const m = metas.find((x) => x.id === id)
+        if (m) out.push({ name: m.name, size: estimateAvatarSize(await storage.avatarFiles(id)) })
+      }
+      if (live) setExtra(out)
+    })()
+    return () => {
+      live = false
+    }
+  }, [attachedKey])
+  const extraSize = extra.reduce((n, x) => n + x.size, 0)
+  const total = (res?.size ?? 0) + extraSize
+  const over = !!res && total > LIMIT
   return (
     <div className="section">
       <div className="section-head">
         <span className="label">{t('figura.size')}</span>
-        <b className={over ? 'size-over' : ''}>{res ? '≈ ' + kb(res.size) : t('figura.calculating')}</b>
+        <b className={over ? 'size-over' : ''}>{res ? '≈ ' + kb(total) : t('figura.calculating')}</b>
       </div>
-      <div className="size-bar"><div style={{ width: `${Math.min(100, ((res?.size ?? 0) / LIMIT) * 100)}%` }} className={over ? 'over' : ''} /></div>
+      <div className="size-bar">
+        <div style={{ width: `${Math.min(100, ((res?.size ?? 0) / LIMIT) * 100)}%` }} className={over ? 'over' : ''} />
+        {extraSize > 0 && <div className="size-extra" style={{ width: `${Math.min(100, (extraSize / LIMIT) * 100)}%` }} />}
+      </div>
+      {extra.length > 0 && (
+        <span className="muted" style={{ fontSize: 11 }}>
+          {t('figura.sizeThis', { n: kb(res?.size ?? 0) })} · {extra.map((x) => `${x.name} ${kb(x.size)}`).join(' · ')}
+        </span>
+      )}
       {res && <span className="muted" style={{ fontSize: 11 }}>{t('figura.breakdown', { t: kb(res.breakdown.texture), s: kb(res.breakdown.scripts), m: kb(res.breakdown.model) })}</span>}
       <div className="field">
         <span className="muted" style={{ fontSize: 12 }}>{t('figura.skinParts')}</span>
@@ -110,6 +139,20 @@ function WheelSummary({ doc }: { doc: SkinDoc }) {
       {open && <WheelWindow doc={doc} onClose={() => setOpen(false)} />}
     </div>
   )
+}
+
+/**
+ * Rough upload size of a library avatar from its files, the way Figura stores them: PNG as is,
+ * models and scripts compressed (Blockbench JSON shrinks a lot in Figura's format).
+ */
+function estimateAvatarSize(files: { path: string; size: number }[]): number {
+  let n = 0
+  for (const f of files) {
+    const p = f.path.toLowerCase()
+    if (p.endsWith('avatar.json')) continue
+    n += p.endsWith('.bbmodel') ? f.size * 0.45 : p.endsWith('.lua') ? f.size * 0.35 : p.endsWith('.png') ? f.size : f.size * 0.9
+  }
+  return Math.round(n)
 }
 
 /** Library avatars used with this skin: toggled in the preview, exported as separate folders. */

@@ -28,6 +28,7 @@ export function ExportDialog({ doc, onClose }: { doc: SkinDoc; onClose: () => vo
   const [lib, setLib] = useState<AvatarMeta[]>([])
   const [include, setInclude] = useState<string[]>(() => doc.figura.attached.filter((a) => a.enabled).map((a) => a.id))
   const [together, setTogether] = useState<'separate' | 'merge'>('separate')
+  const [asZip, setAsZip] = useState(true)
   const [picking, setPicking] = useState(false)
   useEffect(() => {
     storage.listAvatars().then(setLib)
@@ -44,7 +45,16 @@ export function ExportDialog({ doc, onClose }: { doc: SkinDoc; onClose: () => vo
         if (p) toast(t('export.saved', { path: p }))
       } else if (kind === 'figura') {
         const files = (await buildAvatar(doc, meta)).files
-        if (include.length && together === 'merge') {
+        if (asZip) {
+          // one .zip ready to share (credits for separate avatars go in this avatar.json)
+          if (include.length && together === 'separate') {
+            const info = JSON.parse(files['avatar.json'] as string)
+            const credits = include.map((id) => lib.find((a) => a.id === id)).filter((a): a is AvatarMeta => !!a).map((a) => creditLine(a.authors, a.name))
+            files['avatar.json'] = JSON.stringify({ ...info, authors: [...(info.authors ?? []), ...credits] }, null, 2)
+          }
+          const path = await storage.exportFiguraZip(meta.name, files, include, together === 'merge')
+          if (path) toast(t('export.saved', { path }))
+        } else if (include.length && together === 'merge') {
           // one avatar: this skin plus the chosen Figura, clashing file names renamed
           const r = await storage.mergeAvatars(include, { name: meta.name, files }, meta.name)
           if (r) toast(t('figura.merged', { n: r.count, dir: r.out, r: r.renamed.length ? r.renamed.map((x) => `${x.from} → ${x.to}`).join(', ') : t('figura.none') }))
@@ -115,6 +125,10 @@ export function ExportDialog({ doc, onClose }: { doc: SkinDoc; onClose: () => vo
               <button className={c.hideVanilla === 'all' ? 'on' : ''} onClick={() => doc.updateFigura({ hideVanilla: 'all' })}>{t('figura.hideAll')}</button>
             </div>
           </div>}
+          <label className="row" title={t('export.zipHint')}>
+            <input type="checkbox" checked={asZip} onChange={(e) => setAsZip(e.target.checked)} />
+            {t('export.asZip')}
+          </label>
           <div className="field">
             <div className="section-head">
               <span className="label">{t('export.includeFigura')}</span>

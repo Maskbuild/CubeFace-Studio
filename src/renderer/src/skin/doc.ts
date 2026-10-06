@@ -349,9 +349,12 @@ export class SkinDoc {
     this.change(() => {
       this.layers = this.layers.map((l) => ({ ...l, img: resample(l.img, res) }))
       this.hair = this.hair.map((h) => ({ ...cloneHair(h), img: rescale(h.img, ...hairTexSize(h.w, h.h, res)) }))
-      const n = faceOrigin(res).size
-      this.faces = Object.fromEntries(Object.entries(this.faces).map(([f, img]) => [f, rescale(img!, n, n)]))
-      this.figura = scaleConfig(this.figura, this.res, res)
+      // faces with their own detail keep it; otherwise they follow the skin
+      if (!this.figura.faceRes) {
+        const n = faceOrigin(res).size
+        this.faces = Object.fromEntries(Object.entries(this.faces).map(([f, img]) => [f, rescale(img!, n, n)]))
+        this.figura = scaleConfig(this.figura, this.res, res)
+      }
       this.res = res
       this.composite = createImg(res, res)
     })
@@ -465,12 +468,36 @@ export class SkinDoc {
     this.change(() => (this.figura = { ...this.figura, ...props }), `figura:${Object.keys(props).join(',')}`)
   }
 
-  /** The head's front face cut out of the composite (reference for face frames). */
+  /** Face drawing detail as a skin resolution (see FiguraConfig.faceRes). */
+  faceRes(): number {
+    return this.figura.faceRes ?? this.res
+  }
+
+  /** Width (= height) of a face frame in texels. */
+  faceSize(): number {
+    return this.faceRes() / 8
+  }
+
+  /** Change the face drawing detail: frames and eye / mouth boxes are rescaled (one undo step). */
+  setFaceRes(faceRes: number | undefined) {
+    const from = this.faceRes()
+    const to = faceRes ?? this.res
+    if (faceRes === this.figura.faceRes) return
+    const n = to / 8
+    this.change(() => {
+      if (to !== from) this.faces = Object.fromEntries(Object.entries(this.faces).map(([f, img]) => [f, rescale(img!, n, n)]))
+      this.figura = { ...(to !== from ? scaleConfig(this.figura, from, to) : this.figura), faceRes }
+    }, 'faceRes')
+    this.emit({ type: 'structure' })
+  }
+
+  /** The head's front face cut out of the composite (reference for face frames), at face detail. */
   faceImage(): Img {
     const o = faceOrigin(this.res)
     const out = createImg(o.size, o.size)
     writeRect(out, { x: 0, y: 0, w: o.size, h: o.size }, readRect(this.composite, { x: o.x, y: o.y, w: o.size, h: o.size }))
-    return out
+    const n = this.faceSize()
+    return n === o.size ? out : rescale(out, n, n)
   }
 
   /** (Re)generate default expression/blink/talk frames from the eye and mouth rects. */
@@ -485,8 +512,8 @@ export class SkinDoc {
    * boxes made at another resolution are rescaled to this skin.
    */
   applyFaceSet(res: number, frames: Partial<Record<FaceFrame, Img>>, cfg: FaceSetConfig) {
-    const n = (8 * this.res) / 64
-    const k = this.res / res
+    const n = this.faceSize()
+    const k = this.faceRes() / res
     const r = (x: Rect): Rect => ({ x: Math.round(x.x * k), y: Math.round(x.y * k), w: Math.max(1, Math.round(x.w * k)), h: Math.max(1, Math.round(x.h * k)) })
     this.change(() => {
       this.faces = Object.fromEntries(Object.entries(frames).map(([f, img]) => [f, img!.w === n ? cloneImg(img!) : rescale(img!, n, n)]))
@@ -498,7 +525,7 @@ export class SkinDoc {
 
   generateFaces(only?: FaceFrame[]) {
     const frames = generateFrames(this.faceImage(), this.figura)
-    const n = faceOrigin(this.res).size
+    const n = this.faceSize()
     this.change(() => {
       const next = { ...this.faces }
       for (const f of only ?? (Object.keys(frames) as FaceFrame[])) next[f] = f === 'base' ? this.faceImage() : (frames[f] ?? createImg(n, n))
@@ -509,7 +536,7 @@ export class SkinDoc {
   /** Add a user-made expression (blank frame, ready to paint). */
   addCustomExpr(name: string, coversEyes = false) {
     const c = { id: newId().slice(0, 8).toLowerCase(), name, coversEyes }
-    const n = faceOrigin(this.res).size
+    const n = this.faceSize()
     this.change(() => {
       this.figura = { ...this.figura, customExpr: [...this.figura.customExpr, c] }
       this.faces = { ...this.faces, [`x_${c.id}`]: createImg(n, n) }
@@ -538,7 +565,7 @@ export class SkinDoc {
    * so it replaces the old face completely instead of drawing over it.
    */
   createBlankFace(f: FaceFrame, fromFace = false) {
-    const n = faceOrigin(this.res).size
+    const n = this.faceSize()
     this.change(() => (this.faces = { ...this.faces, [f]: fromFace ? this.faceImage() : createImg(n, n) }))
     this.selectFace(f)
   }

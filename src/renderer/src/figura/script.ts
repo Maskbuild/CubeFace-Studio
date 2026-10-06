@@ -1,4 +1,4 @@
-import { allFrames, coversEyes, itemView, liveWheel, toEnglish, type FiguraConfig, type WheelIcon } from '../skin/figura'
+import { allFrames, coversEyes, itemView, liveWheel, toEnglish, wheelScreens, type FiguraConfig, type WheelIcon } from '../skin/figura'
 import { hairOpts, livePhys, strandVariation, type HairInfo } from '../skin/hair'
 import type { ModelInfo } from './bbmodel'
 
@@ -101,7 +101,7 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
 
   // ---- action wheel (pages of expressions and toggles, synced with pings) ----------------
   const pages = liveWheel(cfg, { frames: has, physics: chains.length > 0, glow: info.glow })
-  const live = pages.filter((p, i) => i === 0 || pages.some((q) => q.items.some((it) => it.type === 'page' && it.page === p.id)))
+  const live = pages.filter((p, i) => i === 0 || pages.some((q) => q.items.some((it) => (it.type === 'page' || it.type === 'home') && it.page === p.id)))
   if (live[0]?.items.length) {
     const pageIx = new Map(live.map((p, i) => [p.id, i + 1]))
     const exprs = live.flatMap((p) => p.items.filter((it) => it.type === 'expr').map((it) => it.expr!))
@@ -173,24 +173,34 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
           const head = `P[${i + 1}]`
           const t = `:setTitle("${str(v.title, 'Action')}")${icon(v.icon, it.id)}`
           if (it.type === 'toggle') add(`${head}:newToggle()${t}:setToggled(true):onToggle(function(on) pings.nkwToggle(${usedToggles.indexOf(it.toggle!) + 1}, on) end)`)
-          else if (it.type === 'page') add(`${head}:newAction()${t}:setPage(P[${pageIx.get(it.page!)}])`)
+          else if (it.type === 'page' || it.type === 'home') add(`${head}:newAction()${t}:setPage(P[${pageIx.get(it.page ?? '') ?? 1}])`)
           else add(`${head}:newAction()${t}:onPress(function() pings.nkwExpr(${it.type === 'clear' ? 0 : exprs.indexOf(it.expr!) + 1}) end)`)
         }
+        // right click goes back too, but a button is easier to find
+        if (i > 0) add(`P[${i + 1}]:newAction():setTitle("Back"):setIconItem("minecraft:arrow"):setPage(P[${parent.get(p.id) ?? 1}])`)
       })
       add('wheel.setPage(P[1])', '')
     } else {
+      // pages of 8 with Back / Next buttons (Figura's wheel has no back of its own)
+      const screens = wheelScreens(live)
       add('if host:isHost() then', '  local P = {}')
-      live.forEach((p, i) => add(`  P[${i + 1}] = action_wheel:newPage("${str(p.title, 'Page')}")`))
-      live.forEach((p, i) => {
-        for (const it of p.items) {
-          const v = itemView(cfg, it)
-          const c = colour(v.color)
-          const t = `  P[${i + 1}]:newAction():title("${str(v.title, 'Action')}")${icon(v.icon, it.id)}${c ? `:setColor(${c})` : ''}`
-          if (it.type === 'toggle') add(`${t}:setToggled(true):onToggle(function(on) pings.nkwToggle(${usedToggles.indexOf(it.toggle!) + 1}, on) end)`)
-          else if (it.type === 'page') add(`${t}:onLeftClick(function() action_wheel:setPage(P[${pageIx.get(it.page!)}]) end)`)
-          else add(`${t}:onLeftClick(function() pings.nkwExpr(${it.type === 'clear' ? 0 : exprs.indexOf(it.expr!) + 1}) end)`)
+      screens.forEach((sc, i) => add(`  P[${i + 1}] = action_wheel:newPage("${str(sc.title, 'Page')}${sc.parts > 1 ? ` ${sc.part + 1}/${sc.parts}` : ''}")`))
+      const go = (to: number) => `:onLeftClick(function() action_wheel:setPage(P[${to + 1}]) end)`
+      screens.forEach((sc, i) => {
+        for (const sl of sc.slots) {
+          const head = `  P[${i + 1}]:newAction()`
+          if (sl.kind === 'back') add(`${head}:title("Back"):item("minecraft:arrow")${go(sl.to)}`)
+          else if (sl.kind === 'next') add(`${head}:title("Next"):item("minecraft:spectral_arrow")${go(sl.to)}`)
+          else {
+            const it = sl.item
+            const v = itemView(cfg, it)
+            const c = colour(v.color)
+            const t = `${head}:title("${str(v.title, 'Action')}")${icon(v.icon, it.id)}${c ? `:setColor(${c})` : ''}`
+            if (it.type === 'toggle') add(`${t}:setToggled(true):onToggle(function(on) pings.nkwToggle(${usedToggles.indexOf(it.toggle!) + 1}, on) end)`)
+            else if (sl.to !== undefined) add(t + go(sl.to))
+            else add(`${t}:onLeftClick(function() pings.nkwExpr(${it.type === 'clear' ? 0 : exprs.indexOf(it.expr!) + 1}) end)`)
+          }
         }
-        if (i > 0) add(`  P[${i + 1}]:newAction():title("Back"):item("minecraft:arrow"):onLeftClick(function() action_wheel:setPage(P[${parent.get(p.id) ?? 1}]) end)`)
       })
       add('  action_wheel:setPage(P[1])', 'end', '')
     }

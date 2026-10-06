@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { allFrames, faceOrigin, type FaceFrame } from '../../skin/figura'
+import { allFrames, type FaceFrame } from '../../skin/figura'
 import { parseHex, toHex } from '../../skin/color'
 import { PaintSession } from '../../lib/paint'
 import { useEditor, type Tool } from '../../store/editor'
@@ -46,7 +46,7 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
     const box = boxRef.current!
     const c = canvasRef.current!
     const ctx = c.getContext('2d')!
-    const n = faceOrigin(doc.res).size
+    const n = doc.faceSize()
     const view = { scale: 0, ox: 0, oy: 0 }
     const frameCanvas = document.createElement('canvas')
     const faceCanvas = document.createElement('canvas')
@@ -153,7 +153,7 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
         const img = doc.faces[state.current.frame]
         if (!img) return
         const snap = cloneImg(img)
-        const r = stampEffect(img, fx, p[0], p[1], Math.max(1, Math.round(doc.res / 64)))
+        const r = stampEffect(img, fx, p[0], p[1], Math.max(1, Math.round(doc.faceSize() / 8)))
         if (r) {
           doc.touched(img, r)
           doc.commitEdit(img, snap, r)
@@ -249,7 +249,7 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
           )}
           <label className="slider">
             <span className="muted">{t('tools.size')}</span>
-            <input type="range" min={1} max={Math.max(8, doc.res / 16)} value={b.size} onChange={(e) => ed.setBrush({ size: Number(e.target.value) })} />
+            <input type="range" min={1} max={Math.max(8, doc.faceSize() / 2)} value={b.size} onChange={(e) => ed.setBrush({ size: Number(e.target.value) })} />
             <span className="val">{b.size}</span>
           </label>
           <label className="slider">

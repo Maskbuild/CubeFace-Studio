@@ -1,5 +1,6 @@
 import type { ProjectJson } from '../skin/doc'
 import type { Rights } from '../skin/rights'
+import { zip } from './zip'
 
 export interface AvatarMeta {
   id: string
@@ -43,6 +44,8 @@ export interface Storage {
   setAsset(kind: string, id: string, dataUrl: string): Promise<boolean>
   deleteAsset(kind: string, id: string): Promise<boolean>
   exportFigura(folder: string, files: Record<string, string | Uint8Array>, attachIds?: string[]): Promise<string | null>
+  /** One .zip with the avatar (and the chosen library avatars, separate or merged). */
+  exportFiguraZip(name: string, files: Record<string, string | Uint8Array>, attachIds?: string[], merge?: boolean): Promise<string | null>
   listAvatars(): Promise<AvatarMeta[]>
   importAvatars(paths?: string[], archives?: boolean): Promise<{ added: AvatarMeta[]; failed: string[] } | null>
   updateAvatar(id: string, patch: { name?: string; category?: string; thumb3d?: string; rights?: Rights }): Promise<void>
@@ -150,6 +153,16 @@ const webStorage: Storage = {
       a.click()
     }
     return folder
+  },
+  // the browser build can only zip this avatar's own files
+  async exportFiguraZip(name, files) {
+    const safe = name.replace(/[^\w\- ]+/g, '').trim() || 'avatar'
+    const data = zip(Object.entries(files).map(([n, d]) => ({ name: safe + '/' + n, data: d })))
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([data as BlobPart]))
+    a.download = safe + '.zip'
+    a.click()
+    return safe + '.zip'
   },
   // avatar folders need the desktop app (no folder access in the browser build)
   async listAvatars() {

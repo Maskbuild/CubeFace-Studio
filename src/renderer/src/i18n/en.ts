@@ -249,6 +249,11 @@ export const en = {
     confirmDelete: 'Delete "{{name}}" from the wardrobe?'
   },
   figura: {
+    faceRes: "Face image size",
+    faceResSkin: "Same as skin ({{r}} · {{n}}×{{n}} px)",
+    faceResOpt: "{{r}} · {{n}}×{{n}} px",
+    faceResHint: "How detailed face frames are, as a skin size: 128 gives 16×16 px faces, 1024 gives 128×128. Changing it rescales the frames already drawn. Bigger faces make the avatar bigger.",
+    sizeThis: "this skin {{n}}",
     more: "More…",
     create: "Create this frame…",
     eyeFollow: "Eyes look where you turn",
@@ -378,6 +383,8 @@ export const en = {
     uiScale: 'Interface size'
   },
   export: {
+    asZip: "Save as one .zip file",
+    zipHint: "Ready to share. To use it in Figura, unzip it into the avatars folder.",
     includeFigura: 'Figura to include',
     includeNone: 'Only this skin. Add Figura from your library to export them too.',
     separate: 'Separate folders',
@@ -418,6 +425,11 @@ export const en = {
     emptyPage: "This page is empty.",
     type_expr: "Expression",
     type_page: "Opens page",
+    type_home: "Home",
+    homeTarget: "Goes to",
+    firstPage: "First page",
+    back: "Back",
+    next: "Next",
     type_toggle: "Switch",
     type_clear: "Normal face",
     toggle_blink: "Eye blinking",

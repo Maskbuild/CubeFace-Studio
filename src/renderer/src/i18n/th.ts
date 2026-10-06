@@ -251,6 +251,11 @@ export const th: Dict = {
     confirmDelete: 'ลบ "{{name}}" ออกจากตู้เสื้อผ้า?'
   },
   figura: {
+    faceRes: "ขนาดภาพหน้า",
+    faceResSkin: "เท่าสกิน ({{r}} · {{n}}×{{n}} px)",
+    faceResOpt: "{{r}} · {{n}}×{{n}} px",
+    faceResHint: "ความละเอียดของภาพหน้า เทียบกับขนาดสกิน: 128 = หน้า 16×16 px, 1024 = 128×128 px เปลี่ยนแล้วภาพที่วาดไว้จะถูกย่อ/ขยายตาม ยิ่งละเอียดไฟล์ Figura ยิ่งใหญ่",
+    sizeThis: "สกินนี้ {{n}}",
     more: "เพิ่มเติม…",
     create: "สร้างเฟรมนี้…",
     eyeFollow: "ตามองตามที่หัน",
@@ -380,6 +385,8 @@ export const th: Dict = {
     uiScale: 'ขนาดหน้าจอ (UI)'
   },
   export: {
+    asZip: "บันทึกเป็นไฟล์ .zip ไฟล์เดียว",
+    zipHint: "พร้อมแชร์ ถ้าจะใช้ใน Figura ให้แตกไฟล์ไว้ในโฟลเดอร์ avatars",
     includeFigura: 'Figura ที่จะส่งออกด้วย',
     includeNone: 'ส่งออกเฉพาะสกินนี้ เพิ่ม Figura จากคลังเพื่อส่งออกไปด้วยได้',
     separate: 'แยกโฟลเดอร์',
@@ -420,6 +427,11 @@ export const th: Dict = {
     emptyPage: "หน้านี้ยังว่าง",
     type_expr: "สีหน้า",
     type_page: "เปิดหน้า",
+    type_home: "กลับหน้าแรก",
+    homeTarget: "ไปที่หน้า",
+    firstPage: "หน้าแรก",
+    back: "ย้อนกลับ",
+    next: "ถัดไป",
     type_toggle: "สวิตช์เปิด/ปิด",
     type_clear: "กลับหน้าปกติ",
     toggle_blink: "ตากระพริบ",

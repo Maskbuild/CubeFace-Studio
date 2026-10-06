@@ -12,7 +12,8 @@ export interface AtlasSlot {
  * whole avatar uses a single texture. Returns the combined image and each image's slot.
  */
 export function buildAtlas(skin: Img, extras: Record<string, Img>): { img: Img; slots: Record<string, AtlasSlot> } {
-  const W = skin.w
+  // the skin keeps its texels; a wider extra (detailed face frames) widens the atlas
+  const W = Math.max(skin.w, ...Object.values(extras).map((e) => e.w))
   const slots: Record<string, AtlasSlot> = {}
   let x = 0
   let y = skin.h
@@ -21,7 +22,6 @@ export function buildAtlas(skin: Img, extras: Record<string, Img>): { img: Img; 
   const keys = Object.keys(extras).sort((a, b) => extras[b].h - extras[a].h || extras[b].w - extras[a].w)
   for (const k of keys) {
     const e = extras[k]
-    if (e.w > W) throw new Error(`atlas item ${k} wider than the skin`)
     if (x + e.w > W) {
       x = 0
       y += rowH
@@ -32,7 +32,7 @@ export function buildAtlas(skin: Img, extras: Record<string, Img>): { img: Img; 
     rowH = Math.max(rowH, e.h)
   }
   const out = createImg(W, Math.max(1, y + rowH))
-  out.data.set(skin.data)
+  for (let y = 0; y < skin.h; y++) out.data.set(skin.data.subarray(y * skin.w * 4, (y + 1) * skin.w * 4), y * W * 4)
   for (const k of keys) writeRect(out, { x: slots[k].x, y: slots[k].y, w: extras[k].w, h: extras[k].h }, extras[k].data)
   return { img: out, slots }
 }

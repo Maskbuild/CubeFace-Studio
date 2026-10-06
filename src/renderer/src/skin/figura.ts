@@ -39,14 +39,14 @@ export const isGlowToggle = (t: string): t is GlowToggle => t === 'glow' || t.st
 
 export interface WheelItem {
   id: string
-  /** expr: show an expression · page: open another page · toggle: switch a feature · clear: normal face */
-  type: 'expr' | 'page' | 'toggle' | 'clear'
+  /** expr: show an expression · page: open another page · home: jump to a chosen page (first by default) · toggle: switch a feature · clear: normal face */
+  type: 'expr' | 'page' | 'home' | 'toggle' | 'clear'
   title: string // '' = default title (English only in game)
   icon?: WheelIcon // undefined = default icon
   color?: string // "#rrggbb" (Figura wheel)
   hidden?: boolean
   expr?: ExprKey
-  page?: string // target page id
+  page?: string // target page id (home: undefined = first page)
   toggle?: WheelToggle
 }
 
@@ -116,6 +116,11 @@ export function defaultWheel(): WheelPage[] {
  * (a k*8 square where k = res/64), origin at its top-left.
  */
 export interface FiguraConfig {
+  /**
+   * Face drawing detail as a skin resolution (128 → 16×16 face frames … 1024 → 128×128);
+   * undefined = same as the skin. Eye and mouth boxes are in face-frame texels.
+   */
+  faceRes?: number
   smoothHead: boolean
   headSpeed: number // 0.05 (lazy) .. 1 (instant)
   hairPhysics: boolean
@@ -200,6 +205,9 @@ export function scaleConfig(c: FiguraConfig, from: number, to: number): FiguraCo
   return { ...c, eyeR: r(c.eyeR), eyeL: r(c.eyeL), mouth: r(c.mouth) }
 }
 
+/** Detail choices for face frames (as skin resolutions). */
+export const FACE_RESOLUTIONS = [128, 256, 512, 1024] as const
+
 /** Head front face in skin texels. */
 export const faceOrigin = (res: number) => ({ x: (8 * res) / 64, y: (8 * res) / 64, size: (8 * res) / 64 })
 
@@ -227,6 +235,9 @@ export function itemView(cfg: FiguraConfig, it: WheelItem): { title: string; ico
   } else if (it.type === 'page') {
     title ||= cfg.wheelPages.find((p) => p.id === it.page)?.title || 'Page'
     icon ??= { kind: 'item', id: 'minecraft:book' }
+  } else if (it.type === 'home') {
+    title ||= 'Home'
+    icon ??= { kind: 'item', id: 'minecraft:compass' }
   } else if (it.type === 'clear') {
     title ||= 'Normal face'
     icon ??= { kind: 'item', id: 'minecraft:barrier' }
@@ -245,7 +256,8 @@ export function syncWheel(cfg: FiguraConfig): WheelPage[] {
   const seen = new Set<string>()
   pages = pages.map((p) => ({
     ...p,
-    items: p.items.filter((it) => {
+    // a home button whose page was deleted goes to the first page
+    items: p.items.map((it) => (it.type === 'home' && it.page && !ids.has(it.page) ? { ...it, page: undefined } : it)).filter((it) => {
       if (it.type === 'page') return !!it.page && ids.has(it.page) && it.page !== p.id
       if (it.type !== 'expr') return true
       if (!it.expr || !exprs.includes(it.expr) || seen.has(it.expr)) return false
@@ -299,6 +311,59 @@ export function liveWheel(cfg: FiguraConfig, ctx: WheelContext): WheelPage[] {
     pages = next
   }
   return pages
+}
+
+/** Figura's wheel shows 8 actions at a time. */
+export const WHEEL_SLOTS = 8
+
+/** One slot of a wheel screen; `to` is the screen it opens (page links, home, back, next). */
+export type WheelSlot = { kind: 'item'; item: WheelItem; to?: number } | { kind: 'back'; to: number } | { kind: 'next'; to: number }
+/** What the Figura wheel shows at once: a page, or one part of a long page. */
+export interface WheelScreen {
+  page: string
+  title: string
+  part: number
+  parts: number
+  slots: WheelSlot[]
+}
+
+/**
+ * Split pages into screens of 8 with navigation: every screen but the very first keeps a slot
+ * for "Back" (previous part, else the page that links here), and a part with more buttons after
+ * it keeps one for "Next". Page and home buttons point at the target page's first screen.
+ */
+export function wheelScreens(pages: WheelPage[], per = WHEEL_SLOTS): WheelScreen[] {
+  const chunks = pages.map((p, pi) => {
+    const out: WheelItem[][] = []
+    let rest = p.items
+    do {
+      const back = pi > 0 || out.length > 0
+      let cap = per - (back ? 1 : 0)
+      if (rest.length > cap) cap -= 1
+      cap = Math.max(1, cap)
+      out.push(rest.slice(0, cap))
+      rest = rest.slice(cap)
+    } while (rest.length)
+    return out
+  })
+  const start = new Map<string, number>()
+  let n = 0
+  pages.forEach((p, i) => (start.set(p.id, n), (n += chunks[i].length)))
+  const parent = new Map<string, string>()
+  pages.forEach((p) => p.items.forEach((it) => it.type === 'page' && it.page && !parent.has(it.page) && parent.set(it.page, p.id)))
+  const screens: WheelScreen[] = []
+  pages.forEach((p, pi) =>
+    chunks[pi].forEach((items, part) => {
+      const at = screens.length
+      const slots: WheelSlot[] = items.map((item): WheelSlot =>
+        item.type === 'page' || item.type === 'home' ? { kind: 'item', item, to: start.get(item.page ?? '') ?? 0 } : { kind: 'item', item }
+      )
+      if (pi > 0 || part > 0) slots.push({ kind: 'back', to: part > 0 ? at - 1 : (start.get(parent.get(p.id) ?? '') ?? 0) })
+      if (part < chunks[pi].length - 1) slots.push({ kind: 'next', to: at + 1 })
+      screens.push({ page: p.id, title: p.title, part, parts: chunks[pi].length, slots })
+    })
+  )
+  return screens
 }
 
 /** Convert a config saved before wheel pages existed. */

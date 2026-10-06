@@ -6,6 +6,7 @@ import {
   liveWheel,
   syncWheel,
   wheelId,
+  wheelScreens,
   WHEEL_TOGGLES,
   type FiguraConfig,
   type WheelContext,
@@ -18,8 +19,6 @@ import { MC_VERSIONS, type McPack, type McVersion } from '../../mc/pack'
 import { Icon } from '../common/Icon'
 import { IconPicker, PackNotice, WheelIconView } from './WheelIcons'
 import { glowInfo } from '../../figura/avatar'
-
-const FIGURA_SLOTS = 8 // Figura's wheel shows 8 actions at a time (scroll for more)
 
 /** What this skin's avatar can do, so the preview matches the exported wheel. */
 function wheelContext(doc: SkinDoc): WheelContext {
@@ -59,22 +58,27 @@ interface PreviewProps {
   onOpenPage: (id: string) => void
 }
 
-/** Figura's built-in wheel: a ring of up to 8 sectors, toggles light up, sub-pages need "Back". */
+/** Figura's built-in wheel: rings of up to 8 sectors with Back / Next, toggles light up. */
 function FiguraPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPage }: PreviewProps) {
   const { t } = useTranslation()
   const c = doc.figura
   const [hover, setHover] = useState<string | null>(null)
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
-  const [group, setGroup] = useState(0)
-  const pi = Math.max(0, pages.findIndex((p) => p.id === pageId))
-  const page = pages[pi]
-  type Slot = { id: string; title: string; it?: WheelItem; back?: string }
-  const parent = pages.find((p) => p.items.some((it) => it.type === 'page' && it.page === page?.id))
-  const all: Slot[] = [...(page?.items ?? []).map((it) => ({ id: it.id, title: itemView(c, it).title, it })), ...(pi > 0 ? [{ id: '__back', title: 'Back', back: parent?.id ?? pages[0].id }] : [])]
-  const groups = Math.max(1, Math.ceil(all.length / FIGURA_SLOTS))
-  const g = Math.min(group, groups - 1)
-  const slots = all.slice(g * FIGURA_SLOTS, g * FIGURA_SLOTS + FIGURA_SLOTS)
-  useEffect(() => setGroup(0), [pageId])
+  const screens = useMemo(() => wheelScreens(pages), [pages])
+  const [at, setAt] = useState(0)
+  // a page picked outside the ring (tabs) opens on its first part
+  useEffect(() => {
+    if (screens[at]?.page !== pageId) setAt(Math.max(0, screens.findIndex((x) => x.page === pageId)))
+  }, [pageId, screens, at])
+  const screen = screens[Math.min(at, screens.length - 1)]
+  type Slot = { id: string; title: string; it?: WheelItem; to?: number; nav?: 'back' | 'next' }
+  const slots: Slot[] = (screen?.slots ?? []).map((sl) =>
+    sl.kind === 'item' ? { id: sl.item.id, title: itemView(c, sl.item).title, it: sl.item, to: sl.to } : { id: '__' + sl.kind, title: t('wheel.' + sl.kind), to: sl.to, nav: sl.kind }
+  )
+  const open = (to: number) => {
+    setAt(to)
+    if (screens[to] && screens[to].page !== pageId) onOpenPage(screens[to].page)
+  }
   const n = Math.max(1, slots.length)
   const R0 = 52, R1 = 128
   const arc = (a0: number, a1: number) => {
@@ -84,7 +88,7 @@ function FiguraPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPag
   }
   const hov = slots.find((s) => s.id === (hover ?? selected))
   return (
-    <div className="wheel-ring figura" onWheel={(e) => groups > 1 && setGroup((x) => (x + (e.deltaY > 0 ? 1 : groups - 1)) % groups)}>
+    <div className="wheel-ring figura">
       <svg viewBox="-150 -150 300 300" width="100%" height="100%">
         {slots.length === 0 && <circle r={(R0 + R1) / 2} className="sector empty" strokeWidth={R1 - R0} fill="none" />}
         {slots.map((s, i) => {
@@ -102,24 +106,24 @@ function FiguraPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPag
               onMouseEnter={() => setHover(s.id)}
               onMouseLeave={() => setHover(null)}
               onClick={() => {
-                if (s.back) return onOpenPage(s.back)
+                if (s.nav) return open(s.to!)
                 if (!s.it) return
                 onSelect(s.id)
-                if (s.it.type === 'page' && s.it.page) onOpenPage(s.it.page)
+                if (s.to !== undefined) open(s.to)
                 if (isToggle) setToggled((m) => ({ ...m, [s.id]: !on }))
               }}
             >
               <path d={arc(a0, a1)} style={fill ? { fill } : undefined} />
               <foreignObject x={x - 16} y={y - 16} width={32} height={32}>
                 <div className="slot-icon">
-                  {s.back ? <WheelIconView icon={{ kind: 'item', id: 'minecraft:arrow' }} doc={doc} pack={pack} size={28} auria={false} /> : <WheelIconView icon={v!.icon} doc={doc} pack={pack} size={28} auria={false} />}
+                  <WheelIconView icon={v ? v.icon : { kind: 'item', id: s.nav === 'next' ? 'minecraft:spectral_arrow' : 'minecraft:arrow' }} doc={doc} pack={pack} size={28} auria={false} />
                 </div>
               </foreignObject>
             </g>
           )
         })}
         <text className="ring-title" y={-2} textAnchor="middle">{hov?.title ?? ''}</text>
-        <text className="ring-sub" y={16} textAnchor="middle">{groups > 1 ? `${g + 1} / ${groups}` : hov?.it?.type === 'toggle' ? t('wheel.toggleHint') : ''}</text>
+        <text className="ring-sub" y={16} textAnchor="middle">{hov?.it?.type === 'toggle' ? t('wheel.toggleHint') : screen && screen.parts > 1 ? `${screen.part + 1} / ${screen.parts}` : ''}</text>
       </svg>
     </div>
   )
@@ -145,10 +149,12 @@ function AuriaPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPage
     return out
   }, [pages, page])
   useEffect(() => setGroup(0), [pageId])
-  const per = page.groupSize ? Math.max(2, page.groupSize) : Math.max(1, page.items.length)
-  const groups = Math.max(1, Math.ceil(page.items.length / per))
+  // sub-pages get a Back button (exported the same way)
+  const all: WheelItem[] = trail.length > 1 ? [...page.items, { id: '__back', type: 'page', page: trail[trail.length - 2].id, title: 'Back', icon: { kind: 'item', id: 'minecraft:arrow' } }] : page.items
+  const per = page.groupSize ? Math.max(2, page.groupSize) : Math.max(1, all.length)
+  const groups = Math.max(1, Math.ceil(all.length / per))
   const gi = Math.min(group, groups - 1)
-  const items = page.items.slice(gi * per, gi * per + per)
+  const items = all.slice(gi * per, gi * per + per)
   const n = Math.max(1, items.length)
   const R = 96
   const hov = items.find((it) => it.id === (hover ?? selected))
@@ -181,6 +187,7 @@ function AuriaPreview({ doc, pages, pageId, pack, selected, onSelect, onOpenPage
               onClick={() => {
                 onSelect(it.id)
                 if (it.type === 'page' && it.page) onOpenPage(it.page)
+                if (it.type === 'home') onOpenPage(pages.some((x) => x.id === it.page) ? it.page! : pages[0].id)
                 if (it.type === 'toggle') setToggled((m) => ({ ...m, [it.id]: !on }))
               }}
             >
@@ -359,6 +366,7 @@ export function WheelWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => voi
                     const v = e.target.value
                     if (!v) return
                     if (v === 'clear') addItem({ id: wheelId(), type: 'clear', title: '' })
+                    else if (v === 'home') addItem({ id: wheelId(), type: 'home', title: '' })
                     else if (v.startsWith('page:')) addItem({ id: wheelId(), type: 'page', page: v.slice(5), title: '' })
                     else addItem({ id: wheelId(), type: 'toggle', toggle: v.slice(7) as WheelToggle, title: '' })
                   }}
@@ -372,6 +380,7 @@ export function WheelWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => voi
                       {otherPages.map((p) => <option key={p.id} value={'page:' + p.id}>{p.title || 'Page'}</option>)}
                     </optgroup>
                   )}
+                  <option value="home">{t('wheel.type_home')}</option>
                   <option value="clear">{t('wheel.type_clear')}</option>
                 </select>
               </div>
@@ -410,6 +419,15 @@ export function WheelWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => voi
                             <span className="muted">{t('wheel.opens')}</span>
                             <select className="input" value={it.page} onChange={(e) => editItem(it.id, { page: e.target.value })}>
                               {otherPages.map((p) => <option key={p.id} value={p.id}>{p.title || 'Page'}</option>)}
+                            </select>
+                          </label>
+                        )}
+                        {it.type === 'home' && (
+                          <label className="field">
+                            <span className="muted">{t('wheel.homeTarget')}</span>
+                            <select className="input" value={it.page ?? ''} onChange={(e) => editItem(it.id, { page: e.target.value || undefined })}>
+                              <option value="">{t('wheel.firstPage')}</option>
+                              {pages.slice(1).map((p) => <option key={p.id} value={p.id}>{p.title || 'Page'}</option>)}
                             </select>
                           </label>
                         )}

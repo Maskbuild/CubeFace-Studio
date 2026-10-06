@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('nkw', {
   setAsset: (kind: string, id: string, dataUrl: string) => ipcRenderer.invoke('asset:set', kind, id, dataUrl),
   deleteAsset: (kind: string, id: string) => ipcRenderer.invoke('asset:delete', kind, id),
   exportFigura: (folder: string, files: unknown, attachIds?: string[]) => ipcRenderer.invoke('figura:export', folder, files, attachIds),
+  exportFiguraZip: (name: string, files: unknown, attachIds?: string[], merge?: boolean) => ipcRenderer.invoke('figura:exportZip', name, files, attachIds, merge),
   listAvatars: () => ipcRenderer.invoke('avatars:list'),
   importAvatars: (paths?: string[], archives?: boolean) => ipcRenderer.invoke('avatars:import', paths, archives),
   updateAvatar: (id: string, patch: { name?: string; category?: string; thumb3d?: string; rights?: unknown }) => ipcRenderer.invoke('avatars:update', id, patch),

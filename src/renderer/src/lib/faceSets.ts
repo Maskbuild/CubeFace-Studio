@@ -39,7 +39,7 @@ function thumbOf(doc: SkinDoc): string {
 export function faceSetFrom(doc: SkinDoc, name: string): FaceSet {
   const frames: FaceSet['frames'] = {}
   for (const [f, img] of Object.entries(doc.faces)) if (img) frames[f as FaceFrame] = imgToDataUrl(img)
-  return { id: 'fs' + Date.now().toString(36), name, createdAt: Date.now(), res: doc.res, thumb: thumbOf(doc), frames, config: structuredClone(doc.faceSetConfig()) }
+  return { id: 'fs' + Date.now().toString(36), name, createdAt: Date.now(), res: doc.faceRes(), thumb: thumbOf(doc), frames, config: structuredClone(doc.faceSetConfig()) }
 }
 
 export async function applyFaceSet(doc: SkinDoc, set: FaceSet) {

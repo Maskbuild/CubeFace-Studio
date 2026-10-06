@@ -3,6 +3,9 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { AvatarLibrary, mergeAvatars, type AvatarMeta, type MergeSource } from './avatars'
 import { checkVersion, downloadJar, findJar } from './minecraft'
+import os from 'node:os'
+import { randomUUID } from 'node:crypto'
+import { zip } from '../renderer/src/lib/zip'
 
 const ROOT = path.join(app.getPath('appData'), 'nkw-skin-figura')
 const SKINS = path.join(ROOT, 'skins')
@@ -131,6 +134,48 @@ function registerIpc() {
     // avatars used with the skin are exported next to it, each in its own folder
     if (attachIds.length) await avatars.copyTo(attachIds, res.filePaths[0])
     return dir
+  })
+
+  /**
+   * The avatar as one .zip (ready to share): this skin's avatar plus the chosen library avatars,
+   * either each in its own folder or merged into one.
+   */
+  ipcMain.handle('figura:exportZip', async (e, name: string, files: Record<string, string | Uint8Array>, attachIds: string[] = [], merge = false) => {
+    const win = BrowserWindow.fromWebContents(e.sender)!
+    const safe = name.replace(/[^\w\- ]+/g, '').trim() || 'avatar'
+    const res = await dialog.showSaveDialog(win, { defaultPath: safe + '.zip', filters: [{ name: 'Zip', extensions: ['zip'] }] })
+    if (res.canceled || !res.filePath) return null
+    const tmp = path.join(os.tmpdir(), 'nkw-export-' + randomUUID())
+    try {
+      for (const n of Object.keys(files)) if (!/^[\w\-. ]+(\/[\w\-. ]+)*$/.test(n) || n.split('/').includes('..')) throw new Error('bad file name')
+      if (merge && attachIds.length) {
+        const metas = await avatars.list()
+        await mergeAvatars(path.join(tmp, safe), [
+          { files, label: safe },
+          ...attachIds.map((id) => ({ dir: avatars.filesDir(id), label: metas.find((m) => m.id === id)?.name ?? id }))
+        ])
+      } else {
+        for (const [n, data] of Object.entries(files)) {
+          const target = path.join(tmp, safe, ...n.split('/'))
+          await fs.mkdir(path.dirname(target), { recursive: true })
+          await fs.writeFile(target, typeof data === 'string' ? data : Buffer.from(data))
+        }
+        if (attachIds.length) await avatars.copyTo(attachIds, tmp)
+      }
+      const entries: { name: string; data: Uint8Array }[] = []
+      const walk = async (dir: string, rel: string) => {
+        for (const ent of await fs.readdir(dir, { withFileTypes: true })) {
+          const r = rel ? rel + '/' + ent.name : ent.name
+          if (ent.isDirectory()) await walk(path.join(dir, ent.name), r)
+          else entries.push({ name: r, data: new Uint8Array(await fs.readFile(path.join(dir, ent.name))) })
+        }
+      }
+      await walk(tmp, '')
+      await fs.writeFile(res.filePath, Buffer.from(zip(entries)))
+      return res.filePath
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true }).catch(() => {})
+    }
   })
 
   // ---- avatar library (for merging) -----------------------------------------------------

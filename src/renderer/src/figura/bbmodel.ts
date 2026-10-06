@@ -65,6 +65,8 @@ export interface ModelInput {
   res: number
   atlasW: number
   atlasH: number
+  /** Width of the skin part of the atlas (the atlas is wider when face frames are more detailed). */
+  skinW?: number
   atlasDataUrl: string
   /** Glow (emissive) texture with the same layout; Figura pairs "skin_e" with "skin". */
   glowDataUrl?: string
@@ -143,8 +145,10 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
     const lo: V3 = c.min
     const hi: V3 = [c.min[0] + c.size[0], c.min[1] + c.size[1], c.min[2] + c.size[2]]
     const f = (n: FaceName) => c.faces.find((x) => x.name === n)!.rect
-    // skin rects are already in the 64-unit UV space; top/bottom are flipped in Blockbench
-    const uv = (r: Rect, flip?: 'up' | 'down'): number[] => {
+    // skin rects are in the 64-unit UV space of the skin; top/bottom are flipped in Blockbench
+    const sk = (inp.skinW ?? inp.atlasW) / inp.atlasW
+    const uv = (r0: Rect, flip?: 'up' | 'down'): number[] => {
+      const r = sk === 1 ? r0 : { x: r4(r0.x * sk), y: r4(r0.y * sk), w: r4(r0.w * sk), h: r4(r0.h * sk) }
       if (flip === 'up') return [r.x + r.w, r.y + r.h, r.x, r.y]
       if (flip === 'down') return [r.x + r.w, r.y, r.x, r.y + r.h]
       return [r.x, r.y, r.x + r.w, r.y + r.h]

@@ -172,7 +172,7 @@ describe('action wheel pages', () => {
     expect(s).toContain('P[1]:newAction():setTitle("Expressions"):setIconItem("minecraft:painting"):setPage(P[2])')
     expect(s).toContain('P[1]:newToggle():setTitle("Blinking")')
     expect(s).toContain('setIconEmoji(":cry:")')
-    expect(s).not.toContain('"Back"') // auria goes back with right click
+    expect(s).toContain(':newAction():setTitle("Back"):setIconItem("minecraft:arrow"):setPage(P[1])') // a Back button besides right click
     parse(s)
     const conf = auriaConf({ ...cfg, auriaStyle: { ...DEFAULT_AURIA, overlay: '#ff0000', overlayAlpha: 0.3, blur: false, mode: 'TOGGLE', animations: false } })
     expect(conf).toContain('overlayColor = vec(1, 0, 0, 0.3)')

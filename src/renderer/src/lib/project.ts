@@ -1,5 +1,5 @@
 import { faceId, SkinDoc, type Layer } from '../skin/doc'
-import { faceOrigin, type FaceFrame } from '../skin/figura'
+import type { FaceFrame } from '../skin/figura'
 import { RESOLUTIONS, type Variant } from '../skin/layout'
 import { createImg, type Img } from '../skin/pixels'
 import { hairTexSize, rescale, type HairPlane } from '../skin/hair'
@@ -51,7 +51,7 @@ export async function loadDoc(id: string): Promise<SkinDoc | null> {
   }
   doc.initHair(hair)
   const faces: Partial<Record<FaceFrame, Img>> = {}
-  const n = faceOrigin(p.res).size
+  const n = ((p.figura as { faceRes?: number } | undefined)?.faceRes ?? p.res) / 8
   for (const f of p.faceFrames ?? []) {
     const url = data.layers[faceId(f)]
     if (!url) continue

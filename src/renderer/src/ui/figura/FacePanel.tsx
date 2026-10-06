@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { allFrames, type FaceFrame } from '../../skin/figura'
+import { allFrames, FACE_RESOLUTIONS, type FaceFrame } from '../../skin/figura'
 import type { Rect } from '../../skin/layout'
 import { useEditor } from '../../store/editor'
 import { confirmBox, Modal, promptBox } from '../common/dialogs'
@@ -24,7 +24,7 @@ function FaceBoxes({ doc, big }: { doc: SkinDoc; big?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const view = useRef({ scale: 0, ox: 0, oy: 0 })
   const [, redraw] = useState(0)
-  const n = doc.res / 8
+  const n = doc.faceSize()
 
   useEffect(() => {
     const c = ref.current!
@@ -233,6 +233,13 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
           <button className="btn sm-btn" onClick={() => setBig(true)}><Icon name="zoom" size={13} />{t('figura.enlarge')}</button>
         </div>
         <span className="muted" style={{ fontSize: 12 }}>{t('figura.faceHelp')}</span>
+        <label className="row" style={{ fontSize: 12, gap: 6 }} title={t('figura.faceResHint')}>
+          <span className="muted">{t('figura.faceRes')}</span>
+          <select className="input sm" value={doc.figura.faceRes ?? ''} onChange={(e) => doc.setFaceRes(e.target.value ? Number(e.target.value) : undefined)}>
+            <option value="">{t('figura.faceResSkin', { r: doc.res, n: doc.res / 8 })}</option>
+            {FACE_RESOLUTIONS.map((r) => <option key={r} value={r}>{t('figura.faceResOpt', { r, n: r / 8 })}</option>)}
+          </select>
+        </label>
         {!big && <FaceBoxes doc={doc} />}
         <Legend />
         <div className="row" style={{ gap: 6 }}>

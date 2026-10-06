@@ -200,10 +200,38 @@ export const creditLine = (authors: string[], name: string) => `${authors.filter
 
 export type MergeSource = { dir: string; label: string } | { files: Record<string, string | Uint8Array>; label: string }
 
+/** Figura's name for a file: path without the extension, folders joined with dots. */
+const figuraId = (rel: string, ext: string) => rel.slice(0, rel.length - ext.length).split(/[\\/]/).join('.')
+const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 /**
- * Merge avatars into `out`. Every file keeps its relative path; a clash gets "_2", "_3"…
+ * Point a script at renamed files: models.<model>, models["<model>"], textures["<model>.<tex>"]
+ * and require("<script>") follow the new names, so a merged avatar keeps working.
+ */
+export function rewriteRefs(lua: string, models: Map<string, string>, scripts: Map<string, string>): string {
+  let out = lua
+  // longest first, so "model" doesn't eat "model_extra"
+  for (const [from, to] of [...models].sort((x, y) => y[0].length - x[0].length)) {
+    const f = escapeRe(from)
+    out = out
+      .replace(new RegExp(`\\bmodels\\.${f}(?![\\w])`, 'g'), `models.${to}`)
+      .replace(new RegExp(`\\bmodels\\[(["'])${f}\\1\\]`, 'g'), `models[$1${to}$1]`)
+      .replace(new RegExp(`\\btextures\\[(["'])${f}\\.`, 'g'), `textures[$1${to}.`)
+  }
+  for (const [from, to] of [...scripts].sort((x, y) => y[0].length - x[0].length)) {
+    const forms = [from, from.split('.').join('/')]
+    for (const form of forms)
+      out = out.replace(new RegExp(`\\brequire\\s*\\(?\\s*(["'])(\\.?/?)${escapeRe(form)}\\1`, 'g'), `require($1${to}$1`)
+  }
+  return out
+}
+
+/**
+ * Merge avatars into `out` so they run together. Every file keeps its relative path; a clash
+ * gets "_2", "_3"… and that avatar's scripts are rewritten to the new model / script names.
  * avatar.json files are combined: the first source's name and authors are kept (the owner),
- * then every other avatar is credited as "<authors> - <avatar name>".
+ * then every other avatar is credited as "<authors> - <avatar name>"; autoScripts lists are
+ * joined (an avatar without one contributes all of its scripts).
  */
 export async function mergeAvatars(out: string, sources: MergeSource[]) {
   await fs.mkdir(out, { recursive: true })
@@ -212,15 +240,8 @@ export async function mergeAvatars(out: string, sources: MergeSource[]) {
   const renamed: { from: string; to: string }[] = []
   let first: Record<string, unknown> | null = null
   const authors = new Set<string>()
-  const place = async (label: string, rel: string, write: (target: string) => Promise<void>) => {
-    let target = rel
-    const ext = path.extname(rel)
-    for (let n = 2; taken.has(target.toLowerCase()); n++) target = rel.slice(0, rel.length - ext.length) + '_' + n + ext
-    if (target !== rel) renamed.push({ from: `${label}/${rel}`, to: target })
-    taken.add(target.toLowerCase())
-    await fs.mkdir(path.dirname(path.join(out, target)), { recursive: true })
-    await write(path.join(out, target))
-  }
+  const autoScripts = new Set<string>()
+  let anyAuto = false
   const takeInfo = (j: Record<string, unknown> | null, label: string) => {
     const a = j?.authors ?? j?.author
     const list = (Array.isArray(a) ? a : a ? [a] : []).map(String).filter(Boolean)
@@ -229,23 +250,59 @@ export async function mergeAvatars(out: string, sources: MergeSource[]) {
       for (const x of list) authors.add(x)
     } else authors.add(creditLine(list, typeof j?.name === 'string' && j.name ? j.name : label))
   }
+  const reserve = (rel: string) => {
+    let target = rel
+    const ext = path.extname(rel)
+    for (let n = 2; taken.has(target.toLowerCase()); n++) target = rel.slice(0, rel.length - ext.length) + '_' + n + ext
+    taken.add(target.toLowerCase())
+    return target
+  }
   for (const s of sources) {
-    let info = false
-    if ('dir' in s) {
-      for (const rel of await listFiles(s.dir)) {
-        if (rel.toLowerCase() === 'avatar.json') (takeInfo(await readJson(path.join(s.dir, rel)), s.label), (info = true))
-        else await place(s.label, rel, (t) => fs.copyFile(path.join(s.dir, rel), t))
-      }
-    } else {
-      for (const [rel, data] of Object.entries(s.files)) {
-        if (rel.toLowerCase() === 'avatar.json') (takeInfo(JSON.parse(typeof data === 'string' ? data : Buffer.from(data).toString('utf8')), s.label), (info = true))
-        else await place(s.label, rel, (t) => fs.writeFile(t, typeof data === 'string' ? data : Buffer.from(data)))
-      }
+    // read the source's files
+    const files: { rel: string; data: Buffer }[] = []
+    if ('dir' in s) for (const rel of await listFiles(s.dir)) files.push({ rel, data: await fs.readFile(path.join(s.dir, rel)) })
+    else for (const [rel, data] of Object.entries(s.files)) files.push({ rel, data: typeof data === 'string' ? Buffer.from(data, 'utf8') : Buffer.from(data) })
+    const infoFile = files.find((f) => f.rel.toLowerCase() === 'avatar.json')
+    let info: Record<string, unknown> | null = null
+    try {
+      info = infoFile ? JSON.parse(infoFile.data.toString('utf8')) : null
+    } catch {
+      info = null
     }
-    if (!info) takeInfo(null, s.label) // still credit avatars without an avatar.json
+    takeInfo(info, s.label)
+    // decide every new name first, then write (scripts need the full rename map)
+    const models = new Map<string, string>()
+    const scripts = new Map<string, string>()
+    const targets = new Map<string, string>()
+    for (const f of files) {
+      if (f === infoFile) continue
+      const target = reserve(f.rel)
+      targets.set(f.rel, target)
+      if (target !== f.rel) renamed.push({ from: `${s.label}/${f.rel}`, to: target })
+      const ext = path.extname(f.rel).toLowerCase()
+      if (ext === '.bbmodel' && target !== f.rel) models.set(figuraId(f.rel, '.bbmodel'), figuraId(target, '.bbmodel'))
+      if (ext === '.lua') scripts.set(figuraId(f.rel, '.lua'), figuraId(target, '.lua'))
+    }
+    for (const f of files) {
+      if (f === infoFile) continue
+      const target = targets.get(f.rel)!
+      let data: Buffer | string = f.data
+      if (path.extname(f.rel).toLowerCase() === '.lua') {
+        const changed = new Map([...scripts].filter(([x, y]) => x !== y))
+        if (models.size || changed.size) data = rewriteRefs(f.data.toString('utf8'), models, changed)
+      }
+      await fs.mkdir(path.dirname(path.join(out, target)), { recursive: true })
+      await fs.writeFile(path.join(out, target), data)
+    }
+    // scripts that run on load
+    const own = Array.isArray(info?.autoScripts) ? (info!.autoScripts as unknown[]).map(String) : null
+    if (own) anyAuto = true
+    for (const name of own ?? [...scripts.keys()]) autoScripts.add(scripts.get(name.replace(/\.lua$/i, '').split('/').join('.')) ?? name)
   }
   const merged: Record<string, unknown> = { ...(first ?? { name: 'Merged avatar' }), authors: [...authors] }
   delete merged.author
+  if (anyAuto) merged.autoScripts = [...autoScripts]
+  else delete merged.autoScripts
   await fs.writeFile(path.join(out, 'avatar.json'), JSON.stringify(merged, null, 2))
   return { out, count: sources.length, renamed }
 }

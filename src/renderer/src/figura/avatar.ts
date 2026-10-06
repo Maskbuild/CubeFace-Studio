@@ -6,6 +6,7 @@ import { cloneImg, composite, createImg, writeRect, type Img } from '../skin/pix
 import { dataUrlToImg, imgToDataUrl } from '../lib/png'
 import { buildAtlas } from './atlas'
 import { usedCuboids, usedHeight } from '../skin/usage'
+import { rescale } from '../skin/hair'
 import { buildModel } from './bbmodel'
 import { auriaConf, buildScript } from './script'
 import { AURIA_FILES } from './auria'
@@ -96,6 +97,8 @@ const hasPhysics = (doc: SkinDoc) => doc.figura.hairPhysics && doc.hair.some((h)
 export function prepareAtlas(doc: SkinDoc, target: 'figura' | 'bedrock' = 'bedrock', icons: Record<string, Img> = {}) {
   const cfg = doc.figura
   const skin = cloneImg(doc.composite)
+  // Bedrock's box UVs need the skin to fill the texture width: detailed faces are shrunk to fit
+  const fit = (img: Img) => (target === 'bedrock' && img.w > skin.w ? rescale(img, skin.w, Math.max(1, Math.round((img.h * skin.w) / img.w))) : img)
   const extras: Record<string, Img> = {}
   for (const h of doc.hair) if (h.visible) extras['hair_' + h.id] = h.img
   const frames = allFrames(cfg).filter((f) => {
@@ -105,8 +108,8 @@ export function prepareAtlas(doc: SkinDoc, target: 'figura' | 'bedrock' = 'bedro
     if (f === 'talk') return cfg.talk
     return cfg.expressions
   })
-  for (const f of frames) extras['face_' + f] = doc.faces[f]!
-  for (const [id, img] of Object.entries(icons)) extras['icon_' + id] = img
+  for (const f of frames) extras['face_' + f] = fit(doc.faces[f]!)
+  for (const [id, img] of Object.entries(icons)) extras['icon_' + id] = fit(img)
   const eyeGlow = target === 'figura' && cfg.glowEyes ? eyesOnly(doc) : null
   if (eyeGlow) extras.eyes_glow = eyeGlow
 
@@ -126,7 +129,7 @@ export function prepareAtlas(doc: SkinDoc, target: 'figura' | 'bedrock' = 'bedro
       const g = createImg(skin.w, skin.h)
       composite(glowLayers.map((l) => ({ img: l.img, visible: true, opacity: l.opacity })), g)
       // only texels of shipped parts end up in the avatar
-      glow.data.set(g.data.subarray(0, skin.w * h * 4))
+      for (let y = 0; y < h; y++) glow.data.set(g.data.subarray(y * skin.w * 4, (y + 1) * skin.w * 4), y * glow.w * 4)
     }
     const put = (key: string, img: Img) => {
       const s = atlas.slots[key]
@@ -151,6 +154,7 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
     name: meta.name,
     variant: doc.variant,
     res: doc.res,
+    skinW: doc.res,
     atlasW: atlas.img.w,
     atlasH: atlas.img.h,
     atlasDataUrl: atlasUrl,
