@@ -491,47 +491,13 @@ export class SkinDoc {
     this.emit({ type: 'structure' })
   }
 
-  /** The head's front face on the base layer (under the hat), at face detail. */
-  faceBaseImage(): Img {
-    const o = faceOrigin(this.res)
-    return this.cutFace(o.x, o.y, o.size)
-  }
-
-  /** The hat (outer layer) in front of the face, at face detail. */
-  faceHatImage(): Img {
-    const o = faceOrigin(this.res)
-    return this.cutFace(o.x + 4 * o.size, o.y, o.size)
-  }
-
-  private cutFace(x: number, y: number, size: number): Img {
-    const out = createImg(size, size)
-    writeRect(out, { x: 0, y: 0, w: size, h: size }, readRect(this.composite, { x, y, w: size, h: size }))
-    const n = this.faceSize()
-    return n === size ? out : rescale(out, n, n)
-  }
-
-  /** The face as it looks on the player: base face with the hat on top (reference for frames). */
+  /** The head's front face cut out of the composite (reference for face frames), at face detail. */
   faceImage(): Img {
-    const out = this.faceBaseImage()
-    composite([{ img: out, visible: true, opacity: 1 }, { img: this.faceHatImage(), visible: true, opacity: 1 }], out)
-    return out
-  }
-
-  /**
-   * Eyes / mouth painted on the hat (outer) layer: then blinking and expressions must be drawn
-   * in front of the hat, or the hat's eyes would stay visible over them.
-   */
-  faceOnHat(): boolean {
-    const hat = this.faceHatImage()
-    const c = this.figura
-    let on = 0, all = 0
-    for (const r of [c.eyeR, c.eyeL, c.mouth])
-      for (let y = Math.max(0, r.y); y < Math.min(hat.h, r.y + r.h); y++)
-        for (let x = Math.max(0, r.x); x < Math.min(hat.w, r.x + r.w); x++) {
-          all++
-          if (hat.data[(y * hat.w + x) * 4 + 3] > 0) on++
-        }
-    return all > 0 && on / all >= 0.3
+    const o = faceOrigin(this.res)
+    const out = createImg(o.size, o.size)
+    writeRect(out, { x: 0, y: 0, w: o.size, h: o.size }, readRect(this.composite, { x: o.x, y: o.y, w: o.size, h: o.size }))
+    const n = this.faceSize()
+    return n === o.size ? out : rescale(out, n, n)
   }
 
   /** (Re)generate default expression/blink/talk frames from the eye and mouth rects. */

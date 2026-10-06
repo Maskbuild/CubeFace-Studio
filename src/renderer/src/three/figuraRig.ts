@@ -46,18 +46,16 @@ export class FiguraRig {
 
   /** Rebuild when the set of frames changes; otherwise only update visibility. */
   sync(doc: SkinDoc) {
-    const onHat = doc.faceOnHat()
-    const key = allFrames(doc.figura).map((f) => f + (doc.faces[f]?.w ?? 0)).join() + (onHat ? ':hat' : '')
+    const key = allFrames(doc.figura).map((f) => f + (doc.faces[f]?.w ?? 0)).join()
     if (key !== this.key) {
       this.key = key
       this.clear()
-      // slightly in front of the face (behind the hat), or in front of the hat when the eyes are on it
+      // slightly in front of the face, behind the hat layer
       let i = 0
       for (const f of allFrames(doc.figura).filter((x) => doc.faces[x])) {
         const img = doc.faces[f] as Img
         const t = tex(img)
-        const hat = onHat && f !== 'base'
-        const m = new THREE.Mesh(facePlane((hat ? 4.52 : 4.02) + i++ * 0.01, hat ? 4.5 : 4), new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.02, depthWrite: false }))
+        const m = new THREE.Mesh(facePlane(4.02 + i++ * 0.01), new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.02, depthWrite: false }))
         m.renderOrder = 2
         this.disposables.push(t, m.geometry, m.material as THREE.Material)
         this.frames.set(f, m)

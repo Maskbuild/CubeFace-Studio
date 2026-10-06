@@ -31,16 +31,10 @@ export interface AvatarFiles {
 
 const pngBytes = (dataUrl: string) => Uint8Array.from(atob(dataUrl.slice(dataUrl.indexOf(',') + 1)), (c) => c.charCodeAt(0))
 
-/**
- * The whole face as it looks with a frame on: base face, base frame, hat and the frame (in front
- * of the hat when the eyes are painted on it, otherwise under it), like in game.
- */
+/** The whole face as it looks with a frame on: skin face, base frame, then the frame. */
 export function faceWithFrame(doc: SkinDoc, frame: FaceFrame): Img {
-  const face = doc.faceBaseImage()
-  const hat = doc.faceHatImage()
-  const f = frame === 'base' ? undefined : doc.faces[frame]
-  const order = doc.faceOnHat() ? [face, doc.faces.base, hat, f] : [face, doc.faces.base, f, hat]
-  const layers = order.filter((x): x is Img => !!x && x.w === face.w)
+  const face = doc.faceImage()
+  const layers = [face, doc.faces.base, frame === 'base' ? undefined : doc.faces[frame]].filter((x): x is Img => !!x && x.w === face.w)
   const out = createImg(face.w, face.h)
   composite(layers.map((img) => ({ img, visible: true, opacity: 1 })), out)
   return out
@@ -170,7 +164,6 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
     hair: doc.hair,
     figura: cfg,
     faceFrames: frames,
-    faceOnHat: doc.faceOnHat(),
     used
   })
   const script = buildScript(meta.name, cfg, info, doc.hair)
