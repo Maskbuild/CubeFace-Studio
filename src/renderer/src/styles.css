@@ -371,3 +371,10 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .export-kind.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .export-note { font-size: 12px; color: var(--text-2); background: var(--sunken); border-radius: 10px; padding: 10px 12px; line-height: 1.55; }
 .modal:has(.export-kinds) { width: min(560px, calc(100vw - 32px)); }
+
+/* ---------- action wheel editor / avatar thumbs ---------- */
+.wheel-edit { display: flex; flex-direction: column; gap: 6px; }
+.wheel-row { display: grid; grid-template-columns: 70px 1fr 1fr; gap: 4px; align-items: center; }
+.wheel-row .input { height: 26px; padding: 0 6px; font-size: 12px; min-width: 0; }
+.wheel-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.avatar-thumb.rendered { image-rendering: auto; }

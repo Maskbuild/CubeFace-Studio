@@ -27,13 +27,6 @@ export function Instance({ doc }: { doc: SkinDoc }) {
     if (m === 'skin') doc.selectFace(null)
     set({ mode: m })
   }
-  // panels follow the mode, but both stay reachable through their tabs
-  const [leftTab, setLeftTab] = useState<'layers' | 'face'>('layers')
-  const [rightTab, setRightTab] = useState<'paint' | 'figura'>('paint')
-  useEffect(() => {
-    setLeftTab(mode === 'figura' ? 'face' : 'layers')
-    setRightTab(mode === 'figura' ? 'figura' : 'paint')
-  }, [mode])
   // draggable split between the UV panel and the panel below it (remembered per machine)
   const [uvHeight, setUvHeight] = useState(() => {
     try {
@@ -140,20 +133,11 @@ export function Instance({ doc }: { doc: SkinDoc }) {
             <UVPanel doc={doc} />
           </div>
           <div className="splitter" onPointerDown={startSplit} title={t('ui.dragResize')} />
-          <div className="panel-tabs">
-            <button className={leftTab === 'layers' ? 'on' : ''} onClick={() => setLeftTab('layers')}>{t('layers.title')}</button>
-            <button className={leftTab === 'face' ? 'on' : ''} onClick={() => setLeftTab('face')}>{t('figura.face')}</button>
-          </div>
-          {leftTab === 'layers' ? <LayerPanel doc={doc} /> : <FacePanel doc={doc} />}
+          {/* Skin and Figura are separate pages, switched with the top-right buttons */}
+          {mode === 'skin' ? <LayerPanel doc={doc} /> : <FacePanel doc={doc} />}
         </aside>
         <Viewport doc={doc} />
-        <aside className="side right">
-          <div className="panel-tabs">
-            <button className={rightTab === 'paint' ? 'on' : ''} onClick={() => setRightTab('paint')}>{t('ui.paintTab')}</button>
-            <button className={rightTab === 'figura' ? 'on' : ''} onClick={() => setRightTab('figura')}>Figura</button>
-          </div>
-          {rightTab === 'paint' ? <RightPanel doc={doc} /> : <FiguraPanel doc={doc} />}
-        </aside>
+        <aside className="side right">{mode === 'skin' ? <RightPanel doc={doc} /> : <FiguraPanel doc={doc} />}</aside>
       </div>
       {help && <ShortcutsDialog onClose={() => setHelp(false)} />}
       {exporting && <ExportDialog doc={doc} onClose={() => setExporting(false)} />}

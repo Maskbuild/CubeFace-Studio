@@ -3,25 +3,12 @@ import { useTranslation } from 'react-i18next'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { storage, type AvatarMeta } from '../../lib/storage'
-import { loadBBModel, type LoadedModel } from '../../three/bbLoader'
+import type { LoadedModel } from '../../three/bbLoader'
+import { loadAvatarModels } from '../../lib/avatarModels'
 import { Icon } from '../common/Icon'
 
 type FileInfo = { path: string; size: number }
 const kb = (n: number) => (n / 1024).toFixed(1) + ' KB'
-const dirOf = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '')
-const base = (p: string) => p.slice(p.lastIndexOf('/') + 1).toLowerCase()
-
-/** Resolve a .bbmodel path like "../textures/skin.png" against the model's folder. */
-function join(dir: string, rel: string) {
-  const parts = (dir + rel.replace(/\\/g, '/')).split('/')
-  const out: string[] = []
-  for (const p of parts) {
-    if (p === '..') out.pop()
-    else if (p && p !== '.') out.push(p)
-  }
-  return out.join('/')
-}
-
 /** 3D preview of every .bbmodel in the avatar, with textures from the model or the folder. */
 function ModelView({ avatar, files }: { avatar: AvatarMeta; files: FileInfo[] }) {
   const { t } = useTranslation()
@@ -48,28 +35,12 @@ function ModelView({ avatar, files }: { avatar: AvatarMeta; files: FileInfo[] })
     let alive = true
 
     ;(async () => {
-      const models = files.filter((f) => f.path.toLowerCase().endsWith('.bbmodel'))
-      if (!models.length) return setStatus(t('avatars.noModel'))
-      const pngs = files.filter((f) => /\.png$/i.test(f.path))
+      if (!files.some((f) => f.path.toLowerCase().endsWith('.bbmodel'))) return setStatus(t('avatars.noModel'))
+      const models = await loadAvatarModels(avatar, files)
+      if (!alive) return models.forEach((m) => m.dispose())
       for (const m of models) {
-        const text = await storage.readAvatarFile(avatar.id, m.path)
-        if (!text || !alive) continue
-        let json
-        try {
-          json = JSON.parse(text)
-        } catch {
-          continue
-        }
-        const dir = dirOf(m.path)
-        const model = await loadBBModel(json, async (tex) => {
-          if (typeof tex.source === 'string' && tex.source.startsWith('data:')) return tex.source
-          const tries = [tex.relative_path && join(dir, tex.relative_path), tex.name && join(dir, tex.name)].filter(Boolean) as string[]
-          const hit = tries.find((p) => pngs.some((f) => f.path === p)) ?? pngs.find((f) => base(f.path) === String(tex.name ?? '').toLowerCase())?.path
-          return hit ? storage.readAvatarFile(avatar.id, hit) : null
-        })
-        if (!alive) return model.dispose()
-        loaded.push(model)
-        scene.add(model.root)
+        loaded.push(m)
+        scene.add(m.root)
       }
       // frame everything that loaded
       const bounds = new THREE.Box3()

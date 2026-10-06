@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import { cuboids, type FaceName, type PartId, type Rect, type Variant } from '../skin/layout'
 import type { HairInfo } from '../skin/hair'
 import type { FaceFrame, FiguraConfig } from '../skin/figura'
-import type { ExtraPart } from '../skin/extras'
 import type { AtlasSlot } from './atlas'
 
 /*
@@ -49,9 +48,7 @@ const NO_FACE: BBFace = { uv: [0, 0, 0, 0], texture: null }
 /** Lua paths and settings the script generator needs. */
 export interface ModelInfo {
   hairChains: { path: string[]; id: string }[]
-  tailChain: string[] | null
   faceParts: Partial<Record<FaceFrame, string>>
-  irisParts: string[]
   /** Vanilla parts this avatar replaces (Figura vanilla_model names). */
   replaces: string[]
 }
@@ -67,8 +64,6 @@ export interface ModelInput {
   hair: HairInfo[]
   figura: FiguraConfig
   faceFrames: FaceFrame[]
-  iris: boolean
-  extras: ExtraPart[]
   /** Which cuboids (layout order) have visible pixels; unused ones are not exported. */
   used?: boolean[]
 }
@@ -99,7 +94,7 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
   const k = 64 / inp.atlasW // atlas pixels -> UV units (UV space is 64 wide)
   const elements: BBCube[] = []
   const groups: BBGroup[] = []
-  const info: ModelInfo = { hairChains: [], tailChain: null, faceParts: {}, irisParts: [], replaces: [] }
+  const info: ModelInfo = { hairChains: [], faceParts: {}, replaces: [] }
 
   const group = (name: string, origin: V3, rotation: V3 = [0, 0, 0]): BBGroup => {
     const g = { name, uuid: uid(), origin, rotation, visibility: true, export: true, children: [] }
@@ -163,7 +158,6 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
 
   // ---- face planes (in front of the face, behind the hat layer) --------------------------
   const head = parts.head
-  const n = inp.res / 8 // head front face size in texels
   const faceGroup = group('Face', [0, 24, 0])
   head.children.push(faceGroup)
   inp.faceFrames.forEach((fr, i) => {
@@ -173,20 +167,6 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
     plane(faceGroup, name, -4, 4, 24, 32, r4(-4.02 - i * 0.001), slotUV(s))
     info.faceParts[fr] = name
   })
-  if (inp.iris) {
-    const eyes = group('Eyes', [0, 24, 0])
-    head.children.push(eyes)
-    const px = 8 / n // face texel -> model units
-    for (const [key, r] of [['R', inp.figura.eyeR], ['L', inp.figura.eyeL]] as const) {
-      const s = inp.slots['iris_' + key]
-      if (!s) continue
-      const pad = inp.figura.eyeShift
-      // face texel x=0 is the viewer's left = player's right = +X in Blockbench
-      plane(eyes, 'Iris' + key, 4 - (r.x + r.w) * px, 4 - r.x * px, 32 - (r.y + r.h) * px, 32 - r.y * px, -4.015, slotUV(s, { x: pad, y: pad, w: r.w, h: r.h }))
-      info.irisParts.push('Iris' + key)
-    }
-  }
-
   // ---- hair planes -----------------------------------------------------------------------
   inp.hair.forEach((h, hi) => {
     const s = inp.slots['hair_' + h.id]
@@ -208,37 +188,6 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
     }
     info.hairChains.push({ path: [name, ...path], id: h.id })
   })
-
-  // ---- ears / tail -----------------------------------------------------------------------
-  for (const ex of inp.extras) {
-    const attach = ex.attach === 'head' ? parts.head : parts.body
-    const base = PIVOT[ex.attach]
-    const pivot: V3 = [ex.pivot[0] + base[0], ex.pivot[1] + base[1], ex.pivot[2] + base[2]]
-    let parent = attach
-    let cursor = pivot
-    const chain: string[] = []
-    ex.segments.forEach((sg, i) => {
-      const g = group(i === 0 ? ex.id : 's' + (i + 1), bb(cursor), i === 0 ? toBBRotation(ex.rest) : [0, 0, 0])
-      parent.children.push(g)
-      for (const b of sg.boxes) {
-        const lo: V3 = [cursor[0] + b.min[0], cursor[1] + b.min[1], cursor[2] + b.min[2]]
-        const hi: V3 = [lo[0] + b.size[0], lo[1] + b.size[1], lo[2] + b.size[2]]
-        const uv = slotUV(inp.slots[b.color])
-        const face = { uv, texture: 0 }
-        cube(g, {
-          name: `${ex.id}_${b.color}${i + 1}`,
-          from: [r4(-hi[0]), r4(lo[1]), r4(-hi[2])],
-          to: [r4(-lo[0]), r4(hi[1]), r4(-lo[2])],
-          origin: bb(cursor),
-          faces: { north: face, east: face, south: face, west: face, up: face, down: face }
-        })
-      }
-      chain.push(i === 0 ? ex.id : 's' + (i + 1))
-      parent = g
-      cursor = [cursor[0] + sg.next[0], cursor[1] + sg.next[1], cursor[2] + sg.next[2]]
-    })
-    if (ex.id === 'Tail' && ex.physics) info.tailChain = chain
-  }
 
   const outline = (g: BBGroup): object => ({ uuid: g.uuid, isOpen: false, children: g.children.map((c) => (typeof c === 'string' ? c : outline(c))) })
   const model = {

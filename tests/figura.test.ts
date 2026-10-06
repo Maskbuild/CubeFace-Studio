@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { SkinDoc } from '../src/renderer/src/skin/doc'
-import { FACE_FRAMES, figuraDefaults, irisImage } from '../src/renderer/src/skin/figura'
-import { createImg, getPixel } from '../src/renderer/src/skin/pixels'
+import { FACE_FRAMES, figuraDefaults } from '../src/renderer/src/skin/figura'
+import { getPixel } from '../src/renderer/src/skin/pixels'
 import { mannequin } from '../src/renderer/src/skin/templates'
-import { extraParts } from '../src/renderer/src/skin/extras'
 
 const make = (res = 64) => {
   const doc = new SkinDoc({ name: 't', res, variant: 'wide' })
@@ -44,27 +43,15 @@ describe('figura face frames', () => {
 
   it('updates config with undo and serialises it', () => {
     const doc = make()
-    doc.updateFigura({ ears: 'cat' })
-    expect(doc.toJson().figura?.ears).toBe('cat')
+    doc.updateFigura({ wheel: 'auria' })
+    expect(doc.toJson().figura?.wheel).toBe('auria')
     doc.undo()
-    expect(doc.figura.ears).toBe('none')
+    expect(doc.figura.wheel).toBe('figura')
   })
 })
 
 describe('figura helpers', () => {
-  it('extracts the iris (non-sclera pixels) with padding', () => {
-    const face = createImg(8, 8)
-    face.data.set([255, 255, 255, 255], (4 * 8 + 1) * 4)
-    face.data.set([20, 20, 60, 255], (4 * 8 + 2) * 4)
-    const iris = irisImage(face, { x: 1, y: 4, w: 2, h: 1 }, [255, 255, 255, 255], 1)
-    expect([iris.w, iris.h]).toEqual([4, 3])
-    expect(getPixel(iris, 1, 1)[3]).toBe(0) // sclera dropped
-    expect(getPixel(iris, 2, 1)).toEqual([20, 20, 60, 255])
-  })
-
-  it('builds ears and tails', () => {
-    expect(extraParts('cat', 'fox').map((p) => p.id)).toEqual(['EarR', 'EarL', 'Tail'])
-    expect(extraParts('none', 'none')).toEqual([])
+  it('has classic default boxes', () => {
     expect(figuraDefaults(64).mouth).toEqual({ x: 3, y: 6, w: 2, h: 1 })
   })
 })
@@ -79,7 +66,7 @@ describe('custom expressions', () => {
     const key = `x_${c.id}` as const
     expect(doc.faces[key]?.w).toBe(8)
     expect(doc.faceFrame).toBe(key)
-    const info = { hairChains: [], tailChain: null, faceParts: { [key]: 'F_' + key }, irisParts: [], replaces: [] }
+    const info = { hairChains: [], faceParts: { [key]: 'F_' + key }, replaces: [] }
     const s = buildScript('T', doc.figura, info, [])
     expect(s).toContain('title("Smirk")')
     expect(s).toContain(`${key} = true`) // covers eyes

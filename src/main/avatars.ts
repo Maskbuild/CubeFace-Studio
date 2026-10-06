@@ -12,6 +12,10 @@ export interface AvatarMeta {
   bytes: number
   importedAt: number
   thumb: string | null
+  /** 3D render of the model (made by the app after import). */
+  thumb3d?: string
+  /** User-made category ("" / missing = none). */
+  category?: string
 }
 
 const THUMB_MAX = 400_000
@@ -94,10 +98,26 @@ export class AvatarLibrary {
     return meta
   }
 
-  async update(id: string, patch: Partial<Pick<AvatarMeta, 'name'>>) {
+  async update(id: string, patch: Partial<Pick<AvatarMeta, 'name' | 'category' | 'thumb3d'>>) {
     const file = path.join(this.dir(id), 'meta.json')
     const m = await readJson<AvatarMeta>(file)
     if (m) await fs.writeFile(file, JSON.stringify({ ...m, ...patch }, null, 2))
+  }
+
+  /** Copy avatars into `parent`, each in its own folder named after the avatar (made unique). */
+  async copyTo(ids: string[], parent: string): Promise<string[]> {
+    const metas = await this.list()
+    const out: string[] = []
+    for (const id of ids) {
+      const m = metas.find((x) => x.id === id)
+      if (!m) continue
+      const safe = m.name.replace(/[^\w\- ]+/g, '').trim() || 'avatar'
+      let dest = path.join(parent, safe)
+      for (let n = 2; await fs.stat(dest).then(() => true, () => false); n++) dest = path.join(parent, `${safe} ${n}`)
+      await fs.cp(this.filesDir(id), dest, { recursive: true })
+      out.push(dest)
+    }
+    return out
   }
 
   /** Every file of an avatar (relative paths, forward slashes) with its size. */
@@ -129,7 +149,7 @@ export class AvatarLibrary {
   }
 }
 
-export type MergeSource = { dir: string; label: string } | { files: Record<string, string>; label: string }
+export type MergeSource = { dir: string; label: string } | { files: Record<string, string | Uint8Array>; label: string }
 
 /**
  * Merge avatars into `out`. Every file keeps its relative path; a clash gets "_2", "_3"…
@@ -164,9 +184,9 @@ export async function mergeAvatars(out: string, sources: MergeSource[]) {
         else await place(s.label, rel, (t) => fs.copyFile(path.join(s.dir, rel), t))
       }
     } else {
-      for (const [rel, text] of Object.entries(s.files)) {
-        if (rel.toLowerCase() === 'avatar.json') takeInfo(JSON.parse(text))
-        else await place(s.label, rel, (t) => fs.writeFile(t, text, 'utf8'))
+      for (const [rel, data] of Object.entries(s.files)) {
+        if (rel.toLowerCase() === 'avatar.json') takeInfo(JSON.parse(typeof data === 'string' ? data : Buffer.from(data).toString('utf8')))
+        else await place(s.label, rel, (t) => fs.writeFile(t, typeof data === 'string' ? data : Buffer.from(data)))
       }
     }
   }

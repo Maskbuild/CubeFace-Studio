@@ -63,7 +63,6 @@ export function Home() {
     copy.initLayers(src.layers.map((l) => ({ ...l })), src.activeId)
     copy.initHair(src.hair)
     copy.initFigura(src.figura, src.faces)
-    copy.initMasks(src.masks)
     await saveDoc(copy)
     refresh()
   }

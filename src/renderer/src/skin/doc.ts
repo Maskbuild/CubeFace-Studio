@@ -1,5 +1,5 @@
 import { faceAt, faceRect, type Rect, type Variant } from './layout'
-import { autoMask, faceOrigin, figuraDefaults, generateFrames, scaleConfig, type FaceFrame, type FiguraConfig, type MaskKey, type Masks } from './figura'
+import { faceOrigin, figuraDefaults, generateFrames, scaleConfig, type FaceFrame, type FiguraConfig } from './figura'
 import { hairDefaults, hairTexSize, rescale, type HairInfo, type HairLength, type HairPlane, type HairSide } from './hair'
 import { mirrorTexel } from './mirror'
 import {
@@ -54,7 +54,6 @@ export interface ProjectJson {
   hair?: HairInfo[]
   figura?: FiguraConfig
   faceFrames?: FaceFrame[]
-  masks?: MaskKey[]
 }
 
 interface DocState {
@@ -65,18 +64,16 @@ interface DocState {
   hair: HairPlane[]
   figura: FiguraConfig
   faces: Partial<Record<FaceFrame, Img>>
-  masks: Masks
 }
 
 type Entry =
   | { kind: 'pixels'; targetId: string; rect: Rect; before: Uint8ClampedArray; after: Uint8ClampedArray }
   | { kind: 'state'; before: DocState; after: DocState; tag?: string; time: number }
 
-export type DocEvent = { type: 'pixels'; rect: Rect } | { type: 'hair'; id: string } | { type: 'face'; frame: FaceFrame } | { type: 'mask'; key: MaskKey } | { type: 'structure' }
+export type DocEvent = { type: 'pixels'; rect: Rect } | { type: 'hair'; id: string } | { type: 'face'; frame: FaceFrame } | { type: 'structure' }
 
 /** History/storage id for a face frame texture. */
 export const faceId = (f: FaceFrame) => 'face_' + f
-export const maskId = (k: MaskKey) => 'mask_' + k
 
 const cloneHair = (h: HairPlane): HairPlane => ({ ...h, pos: [...h.pos], rot: [...h.rot], phys: { ...h.phys } })
 
@@ -105,8 +102,6 @@ export class SkinDoc {
   faces: Partial<Record<FaceFrame, Img>> = {}
   /** Face frame shown/painted in the UV panel; not part of history. */
   faceFrame: FaceFrame | null = null
-  /** Pixel selections for iris / eyebrows (face-sized, white = selected). */
-  masks: Masks = {}
   composite: Img
   version = 0
   savedVersion = 0
@@ -165,7 +160,7 @@ export class SkinDoc {
   }
 
   private state(): DocState {
-    return { res: this.res, variant: this.variant, activeId: this.activeId, layers: this.layers.map((l) => ({ ...l, meta: { ...l.meta } })), hair: this.hair.map(cloneHair), figura: { ...this.figura }, faces: { ...this.faces }, masks: { ...this.masks } }
+    return { res: this.res, variant: this.variant, activeId: this.activeId, layers: this.layers.map((l) => ({ ...l, meta: { ...l.meta } })), hair: this.hair.map(cloneHair), figura: { ...this.figura }, faces: { ...this.faces } }
   }
 
   private restore(s: DocState) {
@@ -176,7 +171,6 @@ export class SkinDoc {
     this.hair = s.hair.map(cloneHair)
     this.figura = { ...s.figura }
     this.faces = { ...s.faces }
-    this.masks = { ...s.masks }
     if (this.hairId && !this.hair.some((h) => h.id === this.hairId)) this.hairId = null
     if (this.composite.w !== this.res) this.composite = createImg(this.res, this.res)
     this.recomposite()
@@ -219,11 +213,6 @@ export class SkinDoc {
     if (face) {
       writeRect(face.img, e.rect, e[side])
       return this.emit({ type: 'face', frame: face.frame })
-    }
-    const mk = (Object.keys(this.masks) as MaskKey[]).find((k) => maskId(k) === e.targetId)
-    if (mk) {
-      writeRect(this.masks[mk]!, e.rect, e[side])
-      return this.emit({ type: 'mask', key: mk })
     }
     const h = this.hairPlane(e.targetId)
     if (h) {
@@ -357,7 +346,6 @@ export class SkinDoc {
       this.hair = this.hair.map((h) => ({ ...cloneHair(h), img: rescale(h.img, ...hairTexSize(h.w, h.h, res)) }))
       const n = faceOrigin(res).size
       this.faces = Object.fromEntries(Object.entries(this.faces).map(([f, img]) => [f, rescale(img!, n, n)]))
-      this.masks = Object.fromEntries(Object.entries(this.masks).map(([k, img]) => [k, rescale(img!, n, n)]))
       this.figura = scaleConfig(this.figura, this.res, res)
       this.res = res
       this.composite = createImg(res, res)
@@ -466,38 +454,6 @@ export class SkinDoc {
     return (Object.keys(this.faces) as FaceFrame[]).find((f) => this.faces[f] === img)
   }
 
-  private maskByImg(img: Img): MaskKey | undefined {
-    return (Object.keys(this.masks) as MaskKey[]).find((k) => this.masks[k] === img)
-  }
-
-  initMasks(masks: Masks) {
-    this.masks = masks
-  }
-
-  /** Replace a mask with an automatic guess from the face pixels in its box. */
-  autoMask(key: MaskKey) {
-    const m = autoMask(this.faceImage(), this.figura, key)
-    this.change(() => (this.masks = { ...this.masks, [key]: m }))
-  }
-
-  clearMask(key: MaskKey) {
-    this.change(() => {
-      const next = { ...this.masks }
-      delete next[key]
-      this.masks = next
-    })
-  }
-
-  /** Brush on a mask (paint = select, erase = deselect); the mask is created if missing. */
-  beginMaskStroke(key: MaskKey, mode: 'paint' | 'erase'): Stroke {
-    if (!this.masks[key]) {
-      const n = faceOrigin(this.res).size
-      this.masks = { ...this.masks, [key]: createImg(n, n) }
-    }
-    const img = this.masks[key]!
-    return new Stroke(img, cloneImg(img), [255, 255, 255, 255], 1, mode)
-  }
-
   private faceById(id: string) {
     const frame = (Object.keys(this.faces) as FaceFrame[]).find((f) => faceId(f) === id)
     return frame ? { frame, img: this.faces[frame]! } : undefined
@@ -524,7 +480,7 @@ export class SkinDoc {
 
   /** (Re)generate default expression/blink/talk frames from the eye and mouth rects. */
   generateFaces(only?: FaceFrame[]) {
-    const frames = generateFrames(this.faceImage(), this.figura, this.masks)
+    const frames = generateFrames(this.faceImage(), this.figura)
     const n = faceOrigin(this.res).size
     this.change(() => {
       const next = { ...this.faces }
@@ -638,11 +594,6 @@ export class SkinDoc {
       if (a) stroke.apply(a)
       return this.emit({ type: 'face', frame: face })
     }
-    const mk = this.maskByImg(stroke.target)
-    if (mk) {
-      if (a) stroke.apply(a)
-      return this.emit({ type: 'mask', key: mk })
-    }
     for (const r of [a, b]) {
       if (!r) continue
       stroke.apply(r)
@@ -666,7 +617,7 @@ export class SkinDoc {
     const r = stroke.dirty
     if (!r) return
     const f = this.faceByImg(stroke.target)
-    const id = this.layers.find((l) => l.img === stroke.target)?.id ?? this.hair.find((h) => h.img === stroke.target)?.id ?? (f && faceId(f)) ?? (this.maskByImg(stroke.target) && maskId(this.maskByImg(stroke.target)!))
+    const id = this.layers.find((l) => l.img === stroke.target)?.id ?? this.hair.find((h) => h.img === stroke.target)?.id ?? (f && faceId(f))
     if (!id) return
     this.push({ kind: 'pixels', targetId: id, rect: r, before: readRect(stroke.snapshot, r), after: readRect(stroke.target, r) })
     this.emit({ type: 'structure' })
@@ -721,8 +672,7 @@ export class SkinDoc {
       layers: this.layers.map(({ img: _img, ...info }) => info),
       hair: this.hair.map(({ img: _img, ...info }) => info),
       figura: this.figura,
-      faceFrames: Object.keys(this.faces) as FaceFrame[],
-      masks: Object.keys(this.masks) as MaskKey[]
+      faceFrames: Object.keys(this.faces) as FaceFrame[]
     }
   }
 

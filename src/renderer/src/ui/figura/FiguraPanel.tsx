@@ -1,20 +1,20 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { exprKeys, toEnglish, type EarType, type FiguraConfig, type TailType } from '../../skin/figura'
+import { DEFAULT_BUTTONS, exprKeys, toEnglish, wheelButton, type ExprKey, type Expression, type FiguraConfig } from '../../skin/figura'
 import { frameLabel } from './frameLabel'
 import { buildAvatar, type AvatarFiles } from '../../figura/avatar'
-import { storage } from '../../lib/storage'
+import { storage, type AvatarMeta } from '../../lib/storage'
 import { useEditor } from '../../store/editor'
-import { toast } from '../common/dialogs'
 import { MOTION_MODES } from '../../three/motion'
-import { MergeWindow } from './AvatarLibrary'
 import { Icon } from '../common/Icon'
+import { AttachWindow } from './AvatarLibrary'
 
 const LIMIT = 100 * 1024
 const CLOUD = 'https://figura-sirufree.shirounetwork.com'
 const kb = (n: number) => (n / 1024).toFixed(1) + ' KB'
-const TYPES: EarType[] = ['none', 'cat', 'fox', 'bunny', 'wolf']
+/** Quick picks for action-wheel icons (items work everywhere, emoji only on the auria wheel). */
+const ICON_SUGGESTIONS = ['minecraft:sunflower', 'minecraft:poppy', 'minecraft:blaze_powder', 'minecraft:spyglass', 'minecraft:water_bucket', 'minecraft:cake', 'minecraft:heart_of_the_sea', 'minecraft:name_tag', ':smile:', ':heart:', ':star:', ':fox:']
 
 function Toggle({ label, on, onChange, children }: { label: string; on: boolean; onChange: (v: boolean) => void; children?: ReactNode }) {
   return (
@@ -82,20 +82,92 @@ function SizeMeter({ doc }: { doc: SkinDoc }) {
   )
 }
 
+/** Title + icon of each expression's action-wheel button. */
+function WheelEditor({ doc }: { doc: SkinDoc }) {
+  const { t } = useTranslation()
+  const c = doc.figura
+  const keys = exprKeys(c).filter((e) => !!doc.faces[e])
+  const set = (e: ExprKey, patch: Partial<{ title: string; icon: string }>) => {
+    const cur = c.buttons[e] ?? { title: '', icon: '' }
+    doc.updateFigura({ buttons: { ...c.buttons, [e]: { ...cur, ...patch } } })
+  }
+  return (
+    <div className="wheel-edit">
+      <div className="seg">
+        <button className={c.wheel === 'figura' ? 'on' : ''} onClick={() => doc.updateFigura({ wheel: 'figura' })}>{t('figura.wheelFigura')}</button>
+        <button className={c.wheel === 'auria' ? 'on' : ''} onClick={() => doc.updateFigura({ wheel: 'auria' })}>{t('figura.wheelAuria')}</button>
+      </div>
+      <span className="muted" style={{ fontSize: 11 }}>{c.wheel === 'auria' ? t('figura.wheelAuriaHint') : t('figura.wheelFiguraHint')}</span>
+      <datalist id="nkw-icons">
+        {ICON_SUGGESTIONS.map((i) => <option key={i} value={i} />)}
+      </datalist>
+      {keys.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t('figura.noExprFrames')}</span>}
+      {keys.map((e) => {
+        const b = wheelButton(c, e)
+        const def = e.startsWith('x_') ? undefined : DEFAULT_BUTTONS[e as Expression]
+        return (
+          <div key={e} className="wheel-row">
+            <span className="wheel-name">{frameLabel(t, c, e)}</span>
+            <input className="input" placeholder={def?.title ?? b.title} value={c.buttons[e]?.title ?? ''} onChange={(ev) => set(e, { title: ev.target.value })} title={t('figura.buttonTitle')} />
+            <input className="input" list="nkw-icons" placeholder={def?.icon ?? b.icon} value={c.buttons[e]?.icon ?? ''} onChange={(ev) => set(e, { icon: ev.target.value })} title={t('figura.buttonIcon')} />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Library avatars used with this skin: toggled in the preview, exported as separate folders. */
+function AttachedAvatars({ doc }: { doc: SkinDoc }) {
+  const { t } = useTranslation()
+  const [lib, setLib] = useState<AvatarMeta[]>([])
+  const [picking, setPicking] = useState(false)
+  const attached = doc.figura.attached
+  useEffect(() => {
+    storage.listAvatars().then(setLib)
+  }, [picking])
+  const meta = (id: string) => lib.find((a) => a.id === id)
+  return (
+    <div className="section">
+      <div className="section-head">
+        <span className="label">{t('figura.attached')}</span>
+        <button className="btn sm-btn" onClick={() => setPicking(true)}><Icon name="plus" size={13} />{t('figura.addFigura')}</button>
+      </div>
+      {attached.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t('figura.attachedEmpty')}</span>}
+      {attached.map((a) => {
+        const m = meta(a.id)
+        const thumb = m?.thumb3d ?? m?.thumb
+        return (
+          <div key={a.id} className={'layer' + (a.enabled ? '' : ' hidden-layer')}>
+            <button className="icon-btn sm" onClick={() => doc.updateFigura({ attached: attached.map((x) => (x.id === a.id ? { ...x, enabled: !x.enabled } : x)) })}>
+              <Icon name={a.enabled ? 'eye' : 'eyeOff'} size={14} />
+            </button>
+            {thumb ? <img className="lthumb" src={thumb} alt="" /> : <span className="lthumb" />}
+            <span className="lname">{m?.name ?? t('figura.missingAvatar')}</span>
+            <button className="icon-btn sm" title={t('common.delete')} onClick={() => doc.updateFigura({ attached: attached.filter((x) => x.id !== a.id) })}><Icon name="x" size={13} /></button>
+          </div>
+        )
+      })}
+      {picking && (
+        <AttachWindow
+          initial={attached.map((a) => a.id)}
+          onClose={() => setPicking(false)}
+          onApply={(ids) => {
+            doc.updateFigura({ attached: ids.map((id) => attached.find((a) => a.id === id) ?? { id, enabled: true }) })
+            setPicking(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
 export function FiguraPanel({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
   useEditor((s) => s.tick)
   const { figura: preview, figExpr, figTalk, motion, set } = useEditor()
   const c = doc.figura
   const up = (p: Partial<FiguraConfig>) => doc.updateFigura(p)
-
-  const exportAvatar = async () => {
-    const meta = avatarMeta(doc)
-    const { files } = await buildAvatar(doc, meta)
-    const dir = await storage.exportFigura(meta.name, files)
-    if (dir) toast(t('figura.exported', { dir }))
-  }
-  const [merging, setMerging] = useState(false)
 
   return (
     <div className="panel-scroll">
@@ -110,6 +182,8 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
         </div>
       </div>
 
+      <AttachedAvatars doc={doc} />
+
       <div className="section">
         <span className="label">{t('figura.head')}</span>
         <Toggle label={t('figura.smoothHead')} on={c.smoothHead} onChange={(v) => up({ smoothHead: v })}>
@@ -121,15 +195,9 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
             {t('figura.swingFlip')}
           </label>
         </Toggle>
-      </div>
-
-      <div className="section">
-        <span className="label">{t('figura.eyes')}</span>
         <Toggle label={t('figura.blink')} on={c.blink} onChange={(v) => up({ blink: v })}>
           <Range label={t('figura.blinkEvery')} value={c.blinkMax} min={1} max={12} step={0.5} fmt={(v) => `${c.blinkMin}–${v}`} onChange={(v) => up({ blinkMax: v, blinkMin: Math.min(c.blinkMin, v) })} />
-        </Toggle>
-        <Toggle label={t('figura.smoothEyes')} on={c.smoothEyes} onChange={(v) => up({ smoothEyes: v })}>
-          <Range label={t('figura.eyeShift')} value={c.eyeShift} min={1} max={Math.max(2, doc.res / 32)} step={1} onChange={(v) => up({ eyeShift: v })} />
+          <span className="muted" style={{ fontSize: 11 }}>{t('figura.blinkDrawHint')}</span>
         </Toggle>
       </div>
 
@@ -144,6 +212,8 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
               </button>
             ))}
           </div>
+          <span className="label" style={{ marginTop: 6 }}>{t('figura.actionWheel')}</span>
+          <WheelEditor doc={doc} />
         </Toggle>
         <Toggle label={t('figura.talk')} on={c.talk} onChange={(v) => up({ talk: v })}>
           <span className="muted" style={{ fontSize: 11 }}>{t('figura.talkHelp')}</span>
@@ -153,51 +223,6 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
           </button>
         </Toggle>
       </div>
-
-      <div className="section">
-        <div className="prop-grid">
-          <span className="muted">{t('figura.ears')}</span>
-          <select className="select" value={c.ears} onChange={(e) => up({ ears: e.target.value as EarType })}>
-            {TYPES.map((x) => <option key={x} value={x}>{t(`figura.types.${x}`)}</option>)}
-          </select>
-          <span className="muted">{t('figura.tail')}</span>
-          <select className="select" value={c.tail} onChange={(e) => up({ tail: e.target.value as TailType })}>
-            {TYPES.map((x) => <option key={x} value={x}>{t(`figura.types.${x}`)}</option>)}
-          </select>
-          {(c.ears !== 'none' || c.tail !== 'none') && (
-            <>
-              <span className="muted">{t('figura.fur')}</span>
-              <div className="row">
-                <input type="color" value={c.furColor} onChange={(e) => up({ furColor: e.target.value })} />
-                <span className="muted">{t('figura.inner')}</span>
-                <input type="color" value={c.furInner} onChange={(e) => up({ furInner: e.target.value })} />
-              </div>
-            </>
-          )}
-        </div>
-        {c.tail !== 'none' && c.tail !== 'bunny' && (
-          <label className="row muted" style={{ fontSize: 12 }}>
-            <input type="checkbox" checked={c.extrasPhysics} onChange={(e) => up({ extrasPhysics: e.target.checked })} />
-            {t('figura.extrasPhysics')}
-          </label>
-        )}
-      </div>
-
-      <div className="section">
-        <span className="label">{t('figura.hideVanilla')}</span>
-        <div className="seg" style={{ flexWrap: 'wrap' }}>
-          <button className={c.hideVanilla === 'used' ? 'on' : ''} onClick={() => up({ hideVanilla: 'used' })}>{t('figura.hideUsed')}</button>
-          <button className={c.hideVanilla === 'all' ? 'on' : ''} onClick={() => up({ hideVanilla: 'all' })}>{t('figura.hideAll')}</button>
-        </div>
-        <span className="label" style={{ marginTop: 6 }}>{t('figura.info')}</span>
-        <input className="input" placeholder={toEnglish(doc.name) || 'My Avatar'} value={c.avatarName} onChange={(e) => up({ avatarName: e.target.value })} />
-        <input className="input" placeholder={t('figura.author')} value={c.author} onChange={(e) => up({ author: e.target.value })} />
-        <input className="input" placeholder={t('figura.description')} value={c.description} onChange={(e) => up({ description: e.target.value })} />
-        <span className="muted" style={{ fontSize: 11 }}>{t('figura.englishOnly')}</span>
-        <button className="btn primary" onClick={exportAvatar}><Icon name="download" />{t('figura.export')}</button>
-        <button className="btn" onClick={() => setMerging(true)}><Icon name="merge" />{t('figura.merge')}</button>
-      </div>
-      {merging && <MergeWindow doc={doc} onClose={() => setMerging(false)} />}
     </div>
   )
 }

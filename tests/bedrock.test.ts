@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { buildBedrockPack, uuidFrom, type BedrockInput } from '../src/renderer/src/bedrock/build'
 import { figuraDefaults } from '../src/renderer/src/skin/figura'
 import { hairDefaults } from '../src/renderer/src/skin/hair'
-import { extraParts } from '../src/renderer/src/skin/extras'
 
 const all = new Array(12).fill(true)
 const input = (over: Partial<BedrockInput> = {}): BedrockInput => ({
@@ -17,7 +16,6 @@ const input = (over: Partial<BedrockInput> = {}): BedrockInput => ({
   hair: [{ ...hairDefaults('back', 'medium'), id: 'h1', name: 'B' }],
   figura: figuraDefaults(64),
   faceFrames: ['blink', 'shy'],
-  extras: extraParts('cat', 'fox'),
   used: all,
   ...over
 })
@@ -40,13 +38,11 @@ describe('bedrock pack', () => {
     expect(desc).toMatchObject({ identifier: 'geometry.nkw.abc123', texture_width: 64, texture_height: 96 })
   })
 
-  it('adds hair chains, face planes in front (-Z) and ears/tail', () => {
+  it('adds hair chains and face planes in front (-Z)', () => {
     const f = buildBedrockPack(input())
     expect(bone(f, 'nkw_hair1_3').parent).toBe('nkw_hair1_2')
     expect(bone(f, 'nkw_hair1').pivot[2]).toBeCloseTo(4.6) // back hair: app -4.6 -> +4.6
     expect(bone(f, 'nkw_f_blink').cubes[0].origin[2]).toBeLessThan(-4)
-    expect(bone(f, 'nkw_tail_4').parent).toBe('nkw_tail_3')
-    expect(bone(f, 'nkw_earr').parent).toBe('head')
   })
 
   it('patches the vanilla player and animates with valid-looking Molang', () => {

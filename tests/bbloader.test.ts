@@ -21,7 +21,7 @@ function vertices(root: THREE.Object3D) {
 describe('bbmodel loader', () => {
   it('round-trips our exported head: front face corners sample the face texture', async () => {
     const { model } = buildModel({
-      name: 'T', variant: 'wide', res: 64, atlasW: 64, atlasH: 64, atlasDataUrl: '', slots: {}, hair: [], figura: figuraDefaults(64), faceFrames: [], iris: false, extras: []
+      name: 'T', variant: 'wide', res: 64, atlasW: 64, atlasH: 64, atlasDataUrl: '', slots: {}, hair: [], figura: figuraDefaults(64), faceFrames: []
     })
     const m = await loadBBModel(model, async () => null)
     const v = vertices(m.root)

@@ -4,7 +4,6 @@ import vanillaRc from '../../../bedrock/player.render_controllers.json'
 import { cuboids, type PartId, type Variant } from '../skin/layout'
 import type { HairInfo } from '../skin/hair'
 import { coversEyes, type FaceFrame, type FiguraConfig } from '../skin/figura'
-import type { ExtraPart } from '../skin/extras'
 import type { AtlasSlot } from '../figura/atlas'
 
 /*
@@ -30,7 +29,6 @@ export interface BedrockInput {
   hair: HairInfo[]
   figura: FiguraConfig
   faceFrames: FaceFrame[]
-  extras: ExtraPart[]
   used: boolean[]
 }
 
@@ -134,29 +132,6 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
     chains.push({ bones: names, hair: h })
   })
 
-  // ears / tail
-  let tail: string[] | null = null
-  for (const ex of inp.extras) {
-    const base = PIVOT[ex.attach]
-    let cursor: V3 = [ex.pivot[0] + base[0], ex.pivot[1] + base[1], ex.pivot[2] + base[2]]
-    let parent = BONE[ex.attach]
-    const names: string[] = []
-    ex.segments.forEach((sg, i) => {
-      const name = `nkw_${ex.id.toLowerCase()}${i ? '_' + (i + 1) : ''}`
-      const cubes = sg.boxes.map((b) => {
-        const lo: V3 = [cursor[0] + b.min[0], cursor[1] + b.min[1], cursor[2] + b.min[2] + b.size[2]] // mirrored Z: max becomes min
-        const s = inp.slots[b.color]
-        const f = { uv: [r4(s.x * k), r4(s.y * k)], uv_size: [r4(s.w * k), r4(s.h * k)] }
-        return { origin: bz(lo), size: b.size, uv: { north: f, south: f, east: f, west: f, up: f, down: f } }
-      })
-      bone(name, parent, cursor, { cubes, ...(i === 0 ? { rotation: toBedrockRot(ex.rest) } : {}) })
-      names.push(name)
-      parent = name
-      cursor = [cursor[0] + sg.next[0], cursor[1] + sg.next[1], cursor[2] + sg.next[2]]
-    })
-    if (ex.id === 'Tail' && ex.physics) tail = names
-  }
-
   const geo = {
     format_version: '1.12.0',
     'minecraft:geometry': [
@@ -210,7 +185,6 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
     })
   }
   if (cfg.hairPhysics) chains.forEach((c, i) => spring(`nkw_c${i}`, c.bones, c.hair.side, c.hair.phys))
-  if (tail && cfg.extrasPhysics) spring('nkw_t', tail, 'back', { stiffness: 0.18, damping: 0.22, gravity: 0.5, drag: 2.5, sway: 1, limitIn: 30, limitOut: 70 })
 
   // ---- face frame visibility (Bedrock has no action wheel: expressions follow game states) --
   const vis: Json[] = []

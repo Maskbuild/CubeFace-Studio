@@ -7,9 +7,9 @@ import { buildBedrockPack } from './build'
 
 const bytes = (dataUrl: string) => Uint8Array.from(atob(dataUrl.slice(dataUrl.indexOf(',') + 1)), (c) => c.charCodeAt(0))
 
-/** Build the .mcpack (zip) for a skin. Smooth eyes are skipped: Bedrock can't shift UVs per part. */
+/** Build the .mcpack (zip) for a skin. */
 export function buildMcpack(doc: SkinDoc, meta: AvatarMeta): Uint8Array {
-  const { atlas, frames, parts, used } = prepareAtlas(doc, { smoothEyes: false })
+  const { atlas, frames, used } = prepareAtlas(doc)
   const files = buildBedrockPack({
     name: meta.name,
     author: meta.author,
@@ -22,7 +22,6 @@ export function buildMcpack(doc: SkinDoc, meta: AvatarMeta): Uint8Array {
     hair: doc.hair,
     figura: doc.figura,
     faceFrames: frames,
-    extras: parts,
     used
   })
   const id = doc.id.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 16) || 'skin'

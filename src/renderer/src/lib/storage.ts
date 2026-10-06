@@ -9,6 +9,8 @@ export interface AvatarMeta {
   bytes: number
   importedAt: number
   thumb: string | null
+  thumb3d?: string
+  category?: string
 }
 
 export interface MergeResult {
@@ -38,14 +40,14 @@ export interface Storage {
   getAsset(kind: string, id: string): Promise<string | null>
   setAsset(kind: string, id: string, dataUrl: string): Promise<boolean>
   deleteAsset(kind: string, id: string): Promise<boolean>
-  exportFigura(folder: string, files: Record<string, string>): Promise<string | null>
+  exportFigura(folder: string, files: Record<string, string | Uint8Array>, attachIds?: string[]): Promise<string | null>
   listAvatars(): Promise<AvatarMeta[]>
   importAvatars(paths?: string[]): Promise<{ added: AvatarMeta[]; failed: string[] } | null>
-  updateAvatar(id: string, patch: { name?: string }): Promise<void>
+  updateAvatar(id: string, patch: { name?: string; category?: string; thumb3d?: string }): Promise<void>
   avatarFiles(id: string): Promise<{ path: string; size: number }[]>
   readAvatarFile(id: string, rel: string): Promise<string | null>
   deleteAvatar(id: string): Promise<boolean>
-  mergeAvatars(ids: string[], current: { name: string; files: Record<string, string> } | null, outName: string): Promise<MergeResult | null>
+  mergeAvatars(ids: string[], current: { name: string; files: Record<string, string | Uint8Array> } | null, outName: string): Promise<MergeResult | null>
   pathForFile?(file: File): string
   setZoom?(factor: number): void
   openImage(): Promise<{ name: string; dataUrl: string } | null>
@@ -135,9 +137,9 @@ const webStorage: Storage = {
   },
   // the browser build has no folder access: offer each file as a download instead
   async exportFigura(folder, files) {
-    for (const [name, text] of Object.entries(files)) {
+    for (const [name, data] of Object.entries(files)) {
       const a = document.createElement('a')
-      a.href = URL.createObjectURL(new Blob([text]))
+      a.href = URL.createObjectURL(new Blob([data as BlobPart]))
       a.download = folder + '_' + name
       a.click()
     }

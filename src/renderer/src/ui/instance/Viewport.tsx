@@ -10,7 +10,9 @@ import { SkinModel, type MeshInfo } from '../../three/model'
 import { HairRig, type HairMeshInfo } from '../../three/hairRig'
 import { MotionDriver } from '../../three/motion'
 import { FiguraRig } from '../../three/figuraRig'
-import type { Motion } from '../../skin/hair'
+import type { LoadedModel } from '../../three/bbLoader'
+import { loadAvatarModels } from '../../lib/avatarModels'
+import { storage } from '../../lib/storage'
 import { PaintSession } from '../../lib/paint'
 import { useEditor } from '../../store/editor'
 import { Toolbar } from './Toolbar'
@@ -81,8 +83,34 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
 
     // ---- hair planes + physics preview --------------------------------------------------
     const rig = new HairRig(model.parts.head)
-    const fig = new FiguraRig(model.parts.head, model.parts.body)
-    let lastMotion: Motion | null = null
+    const fig = new FiguraRig(model.parts.head)
+
+    // library avatars used with this skin, shown as they are (static models)
+    const attachedRoot = new THREE.Group()
+    model.group.add(attachedRoot)
+    let attachedKey = ''
+    let attachedModels: LoadedModel[] = []
+    const syncAttached = (show: boolean) => {
+      attachedRoot.visible = show
+      const ids = doc.figura.attached.filter((a) => a.enabled).map((a) => a.id)
+      const key = ids.join()
+      if (key === attachedKey) return
+      attachedKey = key
+      ;(async () => {
+        const metas = await storage.listAvatars()
+        const loaded: LoadedModel[] = []
+        for (const id of ids) {
+          const m = metas.find((x) => x.id === id)
+          if (m) loaded.push(...(await loadAvatarModels(m).catch(() => [])))
+        }
+        // a newer selection may have started while loading
+        if (key !== attachedKey) return loaded.forEach((x) => x.dispose())
+        attachedModels.forEach((x) => (x.root.removeFromParent(), x.dispose()))
+        attachedModels = loaded
+        for (const x of loaded) attachedRoot.add(x.root)
+        dirty = true
+      })()
+    }
     const smoothHead = new THREE.Quaternion()
     let smoothInit = false
     const driver = new MotionDriver()
@@ -115,6 +143,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       fig.editFrame = doc.faceFrame
       fig.talk = s.figTalk
       fig.sync(doc)
+      syncAttached(s.figura)
       driver.mode = s.figura ? s.motion : 'off'
       if (driver.mode !== 'off') model.mirrorLines.visible = false // the guide doesn't follow the animated head
       if (driver.mode === 'off') {
@@ -259,20 +288,17 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       }
       let alpha = 1
       if (driver.mode !== 'off') {
-        alpha = driver.update(dt, model, (m) => {
-          rig.tick(m)
-          lastMotion = m
-        })
+        alpha = driver.update(dt, model, (m) => rig.tick(m))
         rig.applyPhysics(alpha, true)
         dirty = true
-      } else lastMotion = null
+      }
       if (fig.enabled || fig.editFrame) {
         const cfg = doc.figura
-        // the Figura preview runs its own 20 Hz clock for blinking / talking / tail physics
+        // the Figura preview runs its own 20 Hz clock for blinking / talking
         figAcc += dt
         while (figAcc >= 0.05) {
           figAcc -= 0.05
-          fig.tick(doc, lastMotion, cfg.blinkMin, cfg.blinkMax)
+          fig.tick(doc)
         }
         // smooth head: the head lags behind where the animation points it
         const head = model.parts.head
@@ -281,7 +307,6 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
           smoothHead.slerp(head.quaternion, 1 - Math.pow(1 - cfg.headSpeed, dt * 20))
           head.quaternion.copy(smoothHead)
         } else smoothInit = false
-        fig.frame(driver.mode !== 'off' ? alpha : figAcc / 0.05, [head.rotation.y, head.rotation.x], cfg.eyeShift, dt)
         dirty = true
       }
       last = now
@@ -345,6 +370,8 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       controls.dispose()
       rig.disposeAll()
       fig.dispose()
+      attachedKey = '\u0000disposed'
+      attachedModels.forEach((x) => x.dispose())
       model.dispose()
       floor.geometry.dispose()
       renderer.dispose()
