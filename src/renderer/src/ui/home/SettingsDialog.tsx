@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next'
 import { ACCENTS, useSettings, type ThemeMode } from '../../store/settings'
 import { Modal } from '../common/dialogs'
 import { Icon } from '../common/Icon'
+import logo from '../../assets/logo.png'
+import { MANUAL_EN, MANUAL_TH, REPO_URL } from '../../lib/links'
 
 const SWATCH: Record<string, string> = { mono: 'linear-gradient(135deg,#fff 50%,#111 50%)', aqua: '#14b8c6', rose: '#e8558a', violet: '#8a6cf0', mint: '#2fbf83', amber: '#e89a1c' }
 
@@ -45,6 +47,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <div className="seg">
           <button className={s.lang === 'th' ? 'on' : ''} onClick={() => s.set({ lang: 'th' })}>ไทย</button>
           <button className={s.lang === 'en' ? 'on' : ''} onClick={() => s.set({ lang: 'en' })}>English</button>
+        </div>
+      </div>
+      <div className="about">
+        <img src={logo} alt="" />
+        <div>
+          <b>{t('app.title')}</b> <span className="muted">v{__APP_VERSION__}</span>
+          <div className="muted">{t('app.by')}</div>
+          <div className="muted" style={{ fontSize: 11 }}>{t('app.aiNote')}</div>
+          <div className="row" style={{ gap: 10, marginTop: 4 }}>
+            <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>
+            <a href={s.lang === 'th' ? MANUAL_TH : MANUAL_EN} target="_blank" rel="noreferrer">{t('app.manual')}</a>
+          </div>
         </div>
       </div>
     </Modal>

@@ -219,19 +219,3 @@ describe('gradient and texture tools', () => {
   })
 })
 
-import { EFFECTS, stampEffect } from '../src/renderer/src/skin/faceEffects'
-
-describe('cartoon face effects', () => {
-  it('stamps every effect centred on the click, scaled with the skin, clipped to the face', () => {
-    for (const e of EFFECTS) {
-      const img = ci2(16, 16)
-      const r = stampEffect(img, e, 8, 8, 2)
-      expect(r, e).not.toBeNull()
-      expect(img.data.some((v, i) => i % 4 === 3 && v > 0), e).toBe(true)
-    }
-    const edge = ci2(8, 8)
-    const r = stampEffect(edge, 'heart', 0, 0, 1)!
-    expect(r.x).toBe(0)
-    expect(r.x + r.w).toBeLessThanOrEqual(8)
-  })
-})

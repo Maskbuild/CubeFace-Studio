@@ -1,0 +1,43 @@
+CubeFace Studio License
+Copyright (c) 2026 Nam Kueap Wan
+
+This software, CubeFace Studio, was made 100% with AI (Anthropic's Claude), directed by
+Nam Kueap Wan.
+
+1. You may use it, copy it, share it, change it, sell it, put it in your own projects, and
+   do anything else you like with it, for free, with or without changes.
+
+2. Please don't claim that you made this software yourself. When you share it unchanged
+   (or almost unchanged), keep this license and say where it came from:
+   https://github.com/Maskbuild/Nkw-Custom-Skin
+
+3. If you change it, your changes are yours: credit or don't, as you think is fair.
+
+4. Please don't sue me. The software is provided "AS IS", WITHOUT ANY WARRANTY of any kind,
+   express or implied, including but not limited to fitness for a particular purpose. In no
+   event shall the authors be liable for any claim, damages or other liability arising from
+   the software or its use. You use it at your own risk. Since it was written by AI, it may
+   contain mistakes.
+
+5. This license covers this project's own files only. Bundled third-party parts keep their own
+   licenses (see "Third-party" in README.md), for example the Auria action wheel
+   (src/figura/auria_wheel, MIT License, by AuriaFoxGirl). Minecraft is a trademark of Mojang
+   AB / Microsoft; Figura belongs to the FiguraMC team; this project is not affiliated with
+   either.
+
+---------------------------------------------------------------------------------------------
+
+สัญญาอนุญาต CubeFace Studio (ภาษาไทย, เพื่อความเข้าใจ; ฉบับภาษาอังกฤษด้านบนเป็นหลัก)
+
+โปรแกรมนี้สร้างด้วย AI (Claude ของ Anthropic) 100% โดย Nam Kueap Wan เป็นผู้กำหนดทิศทาง
+
+1. ใช้งาน คัดลอก แชร์ แก้ไข ขาย หรือนำไปใส่ในงานของตัวเองได้ทั้งหมด ฟรี จะแก้หรือไม่แก้ก็ได้
+2. ขออย่าอ้างว่าเป็นคนทำโปรแกรมนี้ขึ้นมาเอง ถ้าแชร์ต่อแบบไม่ได้แก้ (หรือแก้นิดหน่อย)
+   ให้แนบสัญญานี้และบอกที่มา: https://github.com/Maskbuild/Nkw-Custom-Skin
+3. ถ้าแก้ไขแล้ว ส่วนที่แก้เป็นของคุณ จะให้เครดิตหรือไม่ก็แล้วแต่เห็นสมควร
+4. ขอความกรุณาอย่ามาฟ้องผม โปรแกรมให้มา "ตามสภาพ" ไม่มีการรับประกันใดๆ ผู้สร้างไม่รับผิดชอบ
+   ความเสียหายใดๆ จากการใช้งาน ใช้งานโดยยอมรับความเสี่ยงเอง และเพราะเขียนโดย AI จึงอาจมีข้อผิดพลาดได้
+5. สัญญานี้ครอบคลุมเฉพาะไฟล์ของโปรเจกต์นี้ ส่วนของบุคคลที่สามที่รวมมาด้วยใช้สัญญาของตัวเอง
+   (ดูหัวข้อ Third-party ใน README.md) เช่น Auria action wheel (MIT, โดย AuriaFoxGirl)
+   Minecraft เป็นเครื่องหมายการค้าของ Mojang / Microsoft และ Figura เป็นของทีม FiguraMC
+   โปรเจกต์นี้ไม่ได้เกี่ยวข้องกับทั้งสองฝ่าย

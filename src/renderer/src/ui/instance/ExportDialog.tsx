@@ -125,6 +125,17 @@ export function ExportDialog({ doc, onClose }: { doc: SkinDoc; onClose: () => vo
               <button className={c.hideVanilla === 'all' ? 'on' : ''} onClick={() => doc.updateFigura({ hideVanilla: 'all' })}>{t('figura.hideAll')}</button>
             </div>
           </div>}
+          <div className="field">
+            <span className="label">{t('export.scriptOptions')}</span>
+            <div className="script-opts">
+              {(['hideArmor', 'hideCape', 'hideElytra', 'dummyEvents'] as const).map((k) => (
+                <label key={k} className="row switch-row" title={t('export.' + k + 'Hint')}>
+                  <span className="grow">{t('export.' + k)}</span>
+                  <input type="checkbox" className="switch" checked={!!c[k]} onChange={(e) => doc.updateFigura({ [k]: e.target.checked })} />
+                </label>
+              ))}
+            </div>
+          </div>
           <label className="row" title={t('export.zipHint')}>
             <input type="checkbox" checked={asZip} onChange={(e) => setAsZip(e.target.checked)} />
             {t('export.asZip')}

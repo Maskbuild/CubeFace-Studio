@@ -258,7 +258,7 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
     format_version: 2,
     header: {
       name: inp.name,
-      description: inp.description || 'Player model made with NKW Skin & Figura Custom',
+      description: inp.description || 'Player model made with CubeFace Studio',
       uuid: uuidFrom(inp.packId + ':header'),
       version: [1, 0, Math.floor(Date.now() / 60000) % 65535],
       min_engine_version: [1, 21, 0]

@@ -6,7 +6,11 @@ import { checkVersion, downloadJar, findJar } from './minecraft'
 import os from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { zip } from '../renderer/src/lib/zip'
+import appIcon from '../../build/icon.png?asset'
 
+// Electron's own data (window state, local storage) stays in the folder the app used before it
+// was renamed, so nothing is lost after updating
+app.setPath('userData', path.join(app.getPath('appData'), 'NKW Skin & Figura Custom'))
 const ROOT = path.join(app.getPath('appData'), 'nkw-skin-figura')
 const SKINS = path.join(ROOT, 'skins')
 const GLOBAL = path.join(ROOT, 'global')
@@ -271,7 +275,8 @@ function createWindow() {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#111214',
-    title: 'NKW Skin & Figura Custom',
+    title: 'CubeFace Studio',
+    icon: appIcon,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,

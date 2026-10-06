@@ -1,5 +1,72 @@
+# =============================================================================================
+#  NKW Custom Skin: files that must NOT go to git
+#  (build output, downloaded packages, personal data, secrets, editor/OS junk)
+# =============================================================================================
+
+# ---- dependencies (reinstall with `npm install`) ---------------------------------------------
 node_modules/
+.pnpm-store/
+.yarn/
+.npm/
+
+# ---- build output (rebuild with `npm run build` / `npm run dist`) ----------------------------
 out/
 dist/
+release/
+*.tsbuildinfo
+.vite/
+.cache/
+
+# ---- test output -----------------------------------------------------------------------------
+coverage/
+.vitest/
+*.lcov
+
+# ---- logs ------------------------------------------------------------------------------------
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- secrets and local settings (never commit keys or tokens) --------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+# code-signing certificates for electron-builder
+*.cer
+*.spc
+
+# ---- personal data the app makes while you use it --------------------------------------------
+# (the app keeps your skins in %APPDATA%; these catch copies dropped into the project)
+*.nkwskin
+/skins/
+/avatars/
+/userdata/
+# Minecraft client jars (Mojang's files: not ours to share)
+*.jar
+# exported avatars / packs made while testing
+/exports/
+*.mcpack
+*.mcaddon
+
+# ---- editors and tools -----------------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+# Claude Code local settings and session files
+.claude/
+
+# ---- operating system junk -------------------------------------------------------------------
 .DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/

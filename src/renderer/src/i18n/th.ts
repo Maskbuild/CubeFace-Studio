@@ -1,7 +1,7 @@
 import type { Dict } from './en'
 
 export const th: Dict = {
-  app: { title: 'NKW Skin & Figura', subtitle: 'Custom' },
+  app: { title: "CubeFace Studio", subtitle: "Skin & Figura", by: "โดย Nam Kueap Wan", aiNote: "สร้างด้วย AI (Claude) 100% ใช้ฟรี แต่ขออย่าอ้างว่าทำเอง", manual: "คู่มือ", manualHint: "วิธีใช้งานแบบทีละขั้น พร้อมภาพประกอบ" },
   common: {
     ok: 'ตกลง',
     cancel: 'ยกเลิก',
@@ -284,8 +284,8 @@ export const th: Dict = {
     restartFromFace: 'เริ่มใหม่จากหน้าปัจจุบัน',
     attached: 'Figura ที่ใช้กับสกินนี้',
     addFigura: 'เพิ่ม Figura',
-    attachedEmpty: 'ยังไม่มี เพิ่ม avatar จากคลัง Figura เพื่อดูตัวอย่างที่นี่ ตอน export จะแยกออกเป็นโฟลเดอร์ของตัวเอง',
-    attachHint: 'เลือกแล้ว {{n}} อัน · แสดงในหน้า 3D และ export แยกโฟลเดอร์',
+    attachedEmpty: 'ยังไม่มี เพิ่ม avatar จากคลัง Figura เพื่อดูตัวอย่างที่นี่ ตอน export จะรวมเข้ากับ avatar นี้ (หรือเลือกแยกโฟลเดอร์ก็ได้)',
+    attachHint: 'เลือกแล้ว {{n}} อัน · แสดงในหน้า 3D และ export ไปพร้อมกับ avatar นี้',
     missingAvatar: '(ถูกลบออกจากคลังแล้ว)',
     actionWheel: 'Action wheel (วงล้อ)',
     wheelFigura: 'วงล้อ Figura',
@@ -392,8 +392,17 @@ export const th: Dict = {
     uiScale: 'ขนาดหน้าจอ (UI)'
   },
   export: {
+    scriptOptions: "สคริปต์",
+    hideArmor: "ซ่อนเกราะปกติ (Hide Vanilla Armor)",
+    hideArmorHint: "ซ่อนเกราะของเกม (ของบนหัวอย่างฟักทองยังแสดงอยู่)",
+    hideCape: "ซ่อนผ้าคลุม (Hide Vanilla Cape)",
+    hideCapeHint: "ซ่อนผ้าคลุมของเกม",
+    hideElytra: "ซ่อนปีก Elytra (Hide Vanilla Elytra)",
+    hideElytraHint: "ซ่อนปีก Elytra ของเกม",
+    dummyEvents: "ใส่ event ว่างไว้ (Include dummy events)",
+    dummyEventsHint: "เพิ่ม event entity_init / tick / render ว่างๆ ท้าย script.lua ไว้เขียนโค้ดเอง",
     asZip: "บันทึกเป็นไฟล์ .zip ไฟล์เดียว",
-    zipHint: "พร้อมแชร์ ถ้าจะใช้ใน Figura ให้แตกไฟล์ไว้ในโฟลเดอร์ avatars",
+    zipHint: "พร้อมแชร์ วางไฟล์ .zip ไว้ในโฟลเดอร์ avatars ของ Figura ได้เลย Figura เปิดไฟล์ .zip ได้โดยไม่ต้องแตกไฟล์",
     includeFigura: 'Figura ที่จะส่งออกด้วย',
     includeNone: 'ส่งออกเฉพาะสกินนี้ เพิ่ม Figura จากคลังเพื่อส่งออกไปด้วยได้',
     separate: 'แยกโฟลเดอร์',
@@ -467,7 +476,7 @@ export const th: Dict = {
     noColor: "ค่าเริ่มต้น",
     colorFiguraOnly: "สีแสดงในวงล้อ Figura",
     toggleHint: "คลิกเพื่อสลับ",
-    previewFigura: "วงล้อ Figura: แสดงทีละ 8 ปุ่ม (เลื่อนลูกกลิ้งดูที่เหลือ) สวิตช์ที่เปิดเป็นสีเขียว หน้าย่อยมีปุ่ม Back คลิกปุ่มเปิดหน้าเพื่อเข้าไปดูได้",
+    previewFigura: "วงล้อ Figura: หน้าละไม่เกิน 8 ช่อง มีปุ่มย้อนกลับ/ถัดไปให้เองเมื่อจำเป็น สวิตช์ที่เปิดเป็นสีเขียว คลิกปุ่มเปิดหน้าเพื่อเข้าไปดูได้",
     previewAuria: "วงล้อ Auria: ในเกมมีแอนิเมชัน คลิกขวาเพื่อย้อนกลับ สวิตช์แสดงใต้ปุ่ม",
     auriaStyle: "หน้าตาวงล้อ Auria",
     overlay: "สีพื้นหลัง",
@@ -646,18 +655,6 @@ export const th: Dict = {
     empty: "ยังไม่มีชุดหน้าตา วาดหน้าแล้วกด \"บันทึกหน้าตานี้\"",
     frames: "{{n}} เฟรม",
     delete: "ลบชุดหน้าตา \"{{name}}\" ไหม?",
-  },
-  effects: {
-    title: "เอฟเฟกต์",
-    hint: "เลือกเอฟเฟกต์แล้วคลิกบนหน้าเพื่อแปะ (Ctrl+Z ย้อน) กดเอฟเฟกต์ซ้ำเพื่อกลับไปใช้แปรง",
-    blush: "แก้มแดง",
-    sweat: "หยดเหงื่อ",
-    anger: "เส้นโกรธ",
-    sparkle: "ประกาย",
-    tears: "น้ำตา",
-    gloom: "เส้นหดหู่",
-    heart: "หัวใจ",
-    shine: "ประกายในตา",
   },
   icons: {
     title: "เลือกไอคอน",

@@ -1,8 +1,8 @@
 {
-  "name": "nkw-skin-figura-custom",
-  "productName": "NKW Skin & Figura Custom",
+  "name": "cubeface-studio",
+  "productName": "CubeFace Studio",
   "version": "0.1.0",
-  "description": "Offline Minecraft skin editor with Figura avatar tooling",
+  "description": "Offline Minecraft skin editor with Figura avatar tools, by Nam Kueap Wan (made 100% with AI)",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -10,16 +10,21 @@
     "build": "electron-vite build",
     "dist": "electron-vite build && electron-builder --win",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "logo": "node scripts/make-logo.cjs"
   },
   "build": {
     "appId": "com.nkw.skinfigura",
-    "productName": "NKW Skin & Figura Custom",
+    "productName": "CubeFace Studio",
     "files": [
       "out/**/*"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "directories": {
+      "buildResources": "build"
     }
   },
   "dependencies": {
@@ -41,6 +46,7 @@
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "fengari": "^0.1.4",
     "luaparse": "^0.3.1",
     "typescript": "^7.0.2",
     "vite": "^7.3.6",
@@ -50,5 +56,12 @@
     "esbuild@0.25.12": true,
     "esbuild@0.28.2": true,
     "electron-winstaller@5.4.0": true
+  },
+  "author": "Nam Kueap Wan",
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://github.com/Maskbuild/Nkw-Custom-Skin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Maskbuild/Nkw-Custom-Skin.git"
   }
 }

@@ -13,6 +13,8 @@ import { readDroppedImages } from '../../lib/files'
 import { useLibrary, WardrobeLibrary, WardrobeWindow } from '../wardrobe/Wardrobe'
 import { AvatarLibraryTab } from '../figura/AvatarLibrary'
 import { EmoteLibraryTab } from './EmoteLibrary'
+import logo from '../../assets/logo.png'
+import { MANUAL_EN, MANUAL_TH } from '../../lib/links'
 
 type Tab = 'skins' | 'palettes' | 'emotes' | 'wardrobe' | 'avatars'
 
@@ -79,8 +81,14 @@ export function Home() {
     <div className="home">
       <div className="home-head">
         <div className="brand">
-          <b>{t('app.title')}</b>
-          <span>{t('app.subtitle')}</span>
+          <img className="brand-logo" src={logo} alt="" />
+          <div className="brand-text">
+            <div className="brand-name">
+              <b>{t('app.title')}</b>
+              <span>{t('app.subtitle')}</span>
+            </div>
+            <small>{t('app.by')}</small>
+          </div>
         </div>
         <div className="grow" />
         {tab === 'skins' && (
@@ -94,6 +102,7 @@ export function Home() {
             <button className="btn primary" onClick={() => setDialog('new')}><Icon name="plus" />{t('home.newSkin')}</button>
           </>
         )}
+        <a className="btn" href={i18n.language === 'th' ? MANUAL_TH : MANUAL_EN} target="_blank" rel="noreferrer" title={t('app.manualHint')}><Icon name="info" />{t('app.manual')}</a>
         <button className="icon-btn" title={t('settings.title')} onClick={() => setDialog('settings')}><Icon name="settings" size={18} /></button>
       </div>
 

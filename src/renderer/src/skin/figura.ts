@@ -126,6 +126,11 @@ export interface FiguraConfig {
   faceRes?: number
   /** Avatar icon shown in Figura's wardrobe list (avatar.png), as a PNG data URL. */
   icon?: string
+  /** Script options like Figura's avatar wizard: hide vanilla armor / cape / elytra, add empty events to fill in. */
+  hideArmor?: boolean
+  hideCape?: boolean
+  hideElytra?: boolean
+  dummyEvents?: boolean
   /** Wheel switches that start switched off (glow, blink…). */
   startOff?: string[]
   smoothHead: boolean

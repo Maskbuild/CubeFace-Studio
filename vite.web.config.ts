@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs'
 import os from 'node:os'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import pkg from './package.json'
 
 /** Dev only: serve the Prism Launcher client jar (item icons) like the desktop app reads it. */
 const mcJars = (): Plugin => ({
@@ -30,5 +31,6 @@ const mcJars = (): Plugin => ({
 export default defineConfig({
   root: 'src/renderer',
   plugins: [react(), mcJars()],
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   server: { port: 5199 }
 })

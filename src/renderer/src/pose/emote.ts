@@ -333,7 +333,7 @@ export function poseToEmotecraft(pose: PoseState, name: string, author: string, 
       version: 3,
       name,
       author,
-      description: description || 'Made with NKW Skin & Figura Custom',
+      description: description || 'Made with CubeFace Studio',
       emote: { beginTick: 0, endTick: 2, stopTick: 5, isLoop: 'true', returnTick: 1, nsfw: false, degrees: false, moves: [move] }
     },
     null,
