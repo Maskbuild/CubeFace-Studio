@@ -14,7 +14,8 @@ describe('figura face frames', () => {
   it('generates every frame at face size, and undo removes them', () => {
     const doc = make(128)
     doc.generateFaces()
-    for (const f of FACE_FRAMES) expect(doc.faces[f]?.w).toBe(16)
+    for (const f of FACE_FRAMES.filter((x) => x !== 'base')) expect(doc.faces[f]?.w).toBe(16)
+    expect(doc.faces.base).toBeUndefined() // the base face is only made on request
     // blink paints over the eye rect
     const e = doc.figura.eyeR
     expect(getPixel(doc.faces.blink!, e.x, e.y)[3]).toBe(255)
@@ -74,5 +75,17 @@ describe('custom expressions', () => {
     doc.undo()
     expect(doc.figura.customExpr).toHaveLength(0)
     expect(doc.faces[key]).toBeUndefined()
+  })
+})
+
+describe('base face frame', () => {
+  it('starts as an opaque copy of the face, so it fully replaces it', () => {
+    const doc = make(64)
+    doc.createBlankFace('base', true)
+    const face = doc.faceImage()
+    expect(doc.faces.base!.data).toEqual(face.data)
+    expect(doc.faceFrame).toBe('base')
+    doc.createBlankFace('happy')
+    expect(doc.faces.happy!.data.every((v, i) => i % 4 !== 3 || v === 0)).toBe(true)
   })
 })

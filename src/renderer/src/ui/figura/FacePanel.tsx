@@ -7,6 +7,7 @@ import { useEditor } from '../../store/editor'
 import { confirmBox, Modal, promptBox } from '../common/dialogs'
 import { Icon } from '../common/Icon'
 import { frameLabel } from './frameLabel'
+import { FacePainter } from './FacePainter'
 
 type Key = 'eyeR' | 'eyeL' | 'mouth'
 const KEYS: Key[] = ['eyeR', 'eyeL', 'mouth']
@@ -168,6 +169,7 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
   useEditor((s) => s.tick)
   const [big, setBig] = useState(false)
+  const [painting, setPainting] = useState<FaceFrame | null>(null)
   const has = (f: FaceFrame) => !!doc.faces[f]
   const frames = allFrames(doc.figura)
   const any = frames.some(has)
@@ -199,7 +201,7 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
         <div className="hair-list">
           {frames.map((f) =>
             has(f) ? (
-              <div key={f} className={'layer' + (doc.faceFrame === f ? ' on' : '')} onClick={() => doc.selectFace(doc.faceFrame === f ? null : f)}>
+              <div key={f} className={'layer' + (doc.faceFrame === f ? ' on' : '')} onClick={() => doc.selectFace(doc.faceFrame === f ? null : f)} onDoubleClick={() => setPainting(f)}>
                 <Icon name="brush" size={13} />
                 <span className="lname">{frameLabel(t, doc.figura, f)}</span>
                 {custom(f) && (
@@ -221,22 +223,28 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
                     <Icon name="edit" size={13} />
                   </button>
                 ) : (
-                  <button className="icon-btn sm" title={t('figura.regenerate')} onClick={(e) => (e.stopPropagation(), doc.generateFaces([f]))}><Icon name="sparkle" size={13} /></button>
+                  <button className="icon-btn sm" title={f === 'base' ? t('figura.restartFromFace') : t('figura.regenerate')} onClick={(e) => (e.stopPropagation(), doc.generateFaces([f]))}><Icon name="sparkle" size={13} /></button>
                 )}
+                {f !== 'base' && (
+                  <button className="icon-btn sm" title={t('figura.restartFromFace')} onClick={(e) => (e.stopPropagation(), doc.createBlankFace(f, true))}><Icon name="copy" size={13} /></button>
+                )}
+                <button className="icon-btn sm" title={t('figura.paintWindow')} onClick={(e) => (e.stopPropagation(), setPainting(f))}><Icon name="edit" size={13} /></button>
                 <button className="icon-btn sm" title={t('figura.clearFrame')} onClick={(e) => (e.stopPropagation(), doc.clearFace(f))}><Icon name="eraser" size={13} /></button>
                 <button className="icon-btn sm" title={t('common.delete')} onClick={(e) => (e.stopPropagation(), custom(f) ? doc.removeCustomExpr(custom(f)!.id) : doc.removeFace(f))}><Icon name="trash" size={13} /></button>
               </div>
             ) : (
               <div key={f} className="layer missing-frame">
                 <span className="lname muted">{frameLabel(t, doc.figura, f)}</span>
-                <button className="btn sm-btn" title={t('figura.drawOwnHint')} onClick={() => doc.createBlankFace(f)}><Icon name="brush" size={12} />{t('figura.drawOwn')}</button>
-                {!custom(f) && <button className="btn sm-btn" onClick={() => doc.generateFaces([f])}><Icon name="sparkle" size={12} />{t('figura.auto')}</button>}
+                {f !== 'base' && <button className="btn sm-btn" title={t('figura.drawOwnHint')} onClick={() => doc.createBlankFace(f)}><Icon name="brush" size={12} />{t('figura.drawOwn')}</button>}
+                <button className="btn sm-btn" title={t('figura.fromFaceHint')} onClick={() => doc.createBlankFace(f, true)}><Icon name="copy" size={12} />{t('figura.fromFace')}</button>
+                {!custom(f) && f !== 'base' && <button className="btn sm-btn" onClick={() => doc.generateFaces([f])}><Icon name="sparkle" size={12} />{t('figura.auto')}</button>}
               </div>
             )
           )}
         </div>
         <button className="btn" onClick={addCustom}><Icon name="plus" />{t('figura.addCustom')}</button>
       </div>
+      {painting && <FacePainter doc={doc} frame={painting} onClose={() => setPainting(null)} />}
       {big && (
         <Modal title={t('figura.face')} onClose={() => setBig(false)} footer={<button className="btn primary" onClick={() => setBig(false)}>{t('common.close')}</button>}>
           <span className="muted" style={{ fontSize: 12 }}>{t('figura.faceHelp')} {t('figura.zoomHelp')}</span>

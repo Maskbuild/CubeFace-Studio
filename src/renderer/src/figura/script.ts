@@ -52,11 +52,13 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
     `local covers = { ${allFrames(cfg).filter((f) => coversEyes(f, cfg)).map((f) => `${f} = true`).join(', ')} }`,
     'local function refresh()',
     '  for k, p in pairs(face) do',
-    '    if k ~= "blink" and k ~= "talk" then p:setVisible(state.expr == k) end',
+    '    if k ~= "blink" and k ~= "talk" and k ~= "base" then p:setVisible(state.expr == k) end',
     '  end',
     '  -- no blinking over an expression that draws its own (closed) eyes',
     '  if face.blink then face.blink:setVisible(state.blink and not (state.expr and covers[state.expr])) end',
     '  if face.talk then face.talk:setVisible(state.talk) end',
+    '  -- the base frame replaces the skin face and stays under everything',
+    '  if face.base then face.base:setVisible(true) end',
     'end',
     ''
   )

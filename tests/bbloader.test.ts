@@ -49,3 +49,27 @@ describe('bbmodel loader', () => {
     expect(vertices(m.root)).toHaveLength(4)
   })
 })
+
+describe('attached avatars follow the skin', () => {
+  it('finds outermost keyword groups and mirrors part rotations correctly', async () => {
+    const { model } = buildModel({
+      name: 'T', variant: 'wide', res: 64, atlasW: 64, atlasH: 64, atlasDataUrl: '', slots: {}, hair: [], figura: figuraDefaults(64), faceFrames: []
+    })
+    const m = await loadBBModel(model, async () => null)
+    expect(m.keywords.Head).toHaveLength(1)
+    expect(m.keywords.RightArm).toHaveLength(1)
+    // skin head turned left (+X) and looking down, as the editor sets it
+    const skinHead = new THREE.Object3D()
+    skinHead.position.set(0, 24, 0)
+    skinHead.rotation.set(0.4, 0.6, 0, 'YXZ')
+    skinHead.updateMatrixWorld(true)
+    const expected = new THREE.Vector3(0, 4, 4).applyMatrix4(skinHead.matrixWorld) // centre of the face
+    const q = skinHead.quaternion
+    const g = m.keywords.Head[0]
+    g.quaternion.copy(g.userData.rest).multiply(new THREE.Quaternion(-q.x, q.y, -q.z, q.w))
+    m.root.updateMatrixWorld(true)
+    // centre of the attached head's front face (Blockbench north = -Z, local to the head group)
+    const got = new THREE.Vector3(0, 4, -4).applyMatrix4(g.matrixWorld)
+    expect(got.distanceTo(expected)).toBeLessThan(1e-6)
+  })
+})

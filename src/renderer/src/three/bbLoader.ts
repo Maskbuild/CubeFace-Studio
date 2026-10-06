@@ -27,10 +27,16 @@ function faceCorners(d: Dir, lo: V3, hi: V3): V3[] {
   }
 }
 
+/** Figura parent-type keywords that mimic the player's parts (group name prefixes). */
+export const KEYWORDS = ['Head', 'Body', 'RightArm', 'LeftArm', 'RightLeg', 'LeftLeg'] as const
+export type Keyword = (typeof KEYWORDS)[number]
+
 export interface LoadedModel {
   root: THREE.Group
   dispose(): void
   textureNames: string[]
+  /** Outermost groups per keyword; their rest rotation is kept in userData.rest. */
+  keywords: Record<Keyword, THREE.Object3D[]>
 }
 
 /**
@@ -131,8 +137,9 @@ export async function loadBBModel(json: Any, textureFor: (t: Any) => Promise<str
     return holder
   }
 
+  const keywords = Object.fromEntries(KEYWORDS.map((k) => [k, []])) as unknown as Record<Keyword, THREE.Object3D[]>
   /** Outliner node: an element uuid, or a group (v5: {uuid, children}; v4: full group). */
-  const buildNode = (node: string | Any, pivot: V3): THREE.Object3D | null => {
+  const buildNode = (node: string | Any, pivot: V3, inKeyword = false): THREE.Object3D | null => {
     if (typeof node === 'string') {
       const e = elements.get(node)
       return e ? buildElement(e, pivot) : null
@@ -145,8 +152,14 @@ export async function loadBBModel(json: Any, textureFor: (t: Any) => Promise<str
     obj.position.set(origin[0] - pivot[0], origin[1] - pivot[1], origin[2] - pivot[2])
     const rot: V3 = g.rotation ?? [0, 0, 0]
     obj.rotation.set(rot[0] * D2R, rot[1] * D2R, rot[2] * D2R, 'ZYX')
+    // Figura applies a keyword once per branch (children follow their parent)
+    const kw = inKeyword ? undefined : KEYWORDS.find((k) => obj.name.startsWith(k))
+    if (kw) {
+      obj.userData.rest = obj.quaternion.clone()
+      keywords[kw].push(obj)
+    }
     for (const c of g.children ?? []) {
-      const child = buildNode(c, origin)
+      const child = buildNode(c, origin, inKeyword || !!kw)
       if (child) obj.add(child)
     }
     return obj
@@ -163,6 +176,7 @@ export async function loadBBModel(json: Any, textureFor: (t: Any) => Promise<str
   return {
     root,
     textureNames: (json.textures ?? []).map((t: Any) => t.name ?? ''),
+    keywords,
     dispose: () => disposables.forEach((d) => d.dispose())
   }
 }

@@ -10,7 +10,8 @@ import { SkinModel, type MeshInfo } from '../../three/model'
 import { HairRig, type HairMeshInfo } from '../../three/hairRig'
 import { MotionDriver } from '../../three/motion'
 import { FiguraRig } from '../../three/figuraRig'
-import type { LoadedModel } from '../../three/bbLoader'
+import type { Keyword, LoadedModel } from '../../three/bbLoader'
+import type { PartId } from '../../skin/layout'
 import { loadAvatarModels } from '../../lib/avatarModels'
 import { storage } from '../../lib/storage'
 import { PaintSession } from '../../lib/paint'
@@ -85,11 +86,22 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     const rig = new HairRig(model.parts.head)
     const fig = new FiguraRig(model.parts.head)
 
-    // library avatars used with this skin, shown as they are (static models)
+    // library avatars used with this skin; their Figura keyword groups follow the skin's parts
     const attachedRoot = new THREE.Group()
     model.group.add(attachedRoot)
     let attachedKey = ''
     let attachedModels: LoadedModel[] = []
+    const PART_OF: Record<Keyword, PartId> = { Head: 'head', Body: 'body', RightArm: 'rightArm', LeftArm: 'leftArm', RightLeg: 'rightLeg', LeftLeg: 'leftLeg' }
+    const tmpQ = new THREE.Quaternion()
+    /** Models are built in Blockbench space (turned 180° about Y): mirror the rotation's x/z. */
+    const poseAttached = () => {
+      for (const m of attachedModels)
+        for (const k of Object.keys(m.keywords) as Keyword[]) {
+          const q = model.parts[PART_OF[k]].quaternion
+          tmpQ.set(-q.x, q.y, -q.z, q.w)
+          for (const g of m.keywords[k]) g.quaternion.copy(g.userData.rest as THREE.Quaternion).multiply(tmpQ)
+        }
+    }
     const syncAttached = (show: boolean) => {
       attachedRoot.visible = show
       const ids = doc.figura.attached.filter((a) => a.enabled).map((a) => a.id)
@@ -307,6 +319,10 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
           smoothHead.slerp(head.quaternion, 1 - Math.pow(1 - cfg.headSpeed, dt * 20))
           head.quaternion.copy(smoothHead)
         } else smoothInit = false
+        dirty = true
+      }
+      if (attachedModels.length && attachedRoot.visible) {
+        poseAttached()
         dirty = true
       }
       last = now

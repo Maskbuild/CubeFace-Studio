@@ -484,7 +484,7 @@ export class SkinDoc {
     const n = faceOrigin(this.res).size
     this.change(() => {
       const next = { ...this.faces }
-      for (const f of only ?? (Object.keys(frames) as FaceFrame[])) next[f] = frames[f] ?? createImg(n, n)
+      for (const f of only ?? (Object.keys(frames) as FaceFrame[])) next[f] = f === 'base' ? this.faceImage() : (frames[f] ?? createImg(n, n))
       this.faces = next
     })
   }
@@ -516,10 +516,13 @@ export class SkinDoc {
     if (this.faceFrame === key) this.selectFace(null)
   }
 
-  /** Start an empty frame to draw by hand. */
-  createBlankFace(f: FaceFrame) {
+  /**
+   * Start a frame to draw by hand: blank, or a copy of the current face — a copy is fully opaque,
+   * so it replaces the old face completely instead of drawing over it.
+   */
+  createBlankFace(f: FaceFrame, fromFace = false) {
     const n = faceOrigin(this.res).size
-    this.change(() => (this.faces = { ...this.faces, [f]: createImg(n, n) }))
+    this.change(() => (this.faces = { ...this.faces, [f]: fromFace ? this.faceImage() : createImg(n, n) }))
     this.selectFace(f)
   }
 

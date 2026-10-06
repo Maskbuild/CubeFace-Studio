@@ -200,6 +200,7 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
   const exprOn = states.filter(([f]) => cfg.expressions && has(f))
   for (const f of inp.faceFrames) if (frameBones[f]) vis.push({ [frameBones[f]!]: false })
   for (const [f, cond] of exprOn) vis.push({ [frameBones[f]!]: `(${cond})` + exprOn.slice(0, exprOn.findIndex((e) => e[0] === f)).map(([, c]) => ` && !(${c})`).join('') })
+  if (has('base')) vis.push({ [frameBones.base!]: true })
   if (has('blink')) {
     const covering = exprOn.filter(([f]) => coversEyes(f, cfg)).map(([, c]) => ` && !(${c})`).join('')
     vis.push({ [frameBones.blink!]: blink + covering })

@@ -10,11 +10,14 @@ export interface CustomExpr {
   coversEyes: boolean
 }
 export type CustomFrame = `x_${string}`
-/** Face overlay frames: expressions plus the blink and talking frames. */
-export type FaceFrame = Expression | 'blink' | 'talk' | CustomFrame
+/**
+ * Face overlay frames: "base" replaces the skin's own face in Figura (always shown, under
+ * everything else), then blink / talk / expressions drawn on top of it.
+ */
+export type FaceFrame = Expression | 'base' | 'blink' | 'talk' | CustomFrame
 /** Any expression shown on the action wheel (built-in or custom). */
 export type ExprKey = Expression | CustomFrame
-export const FACE_FRAMES: FaceFrame[] = ['blink', 'talk', ...EXPRESSIONS]
+export const FACE_FRAMES: FaceFrame[] = ['base', 'blink', 'talk', ...EXPRESSIONS]
 
 /** How an expression's action-wheel button looks: an item id or an emoji (auria wheel). */
 export interface WheelButton {
@@ -107,7 +110,7 @@ export const faceOrigin = (res: number) => ({ x: (8 * res) / 64, y: (8 * res) / 
 export const customKey = (c: CustomExpr): CustomFrame => `x_${c.id}`
 /** Built-in expressions followed by custom ones, in action-wheel order. */
 export const exprKeys = (cfg: FiguraConfig): ExprKey[] => [...EXPRESSIONS, ...cfg.customExpr.map(customKey)]
-/** All face frames for a config (blink, talk, built-ins, custom). */
+/** All face frames for a config, back to front (base, blink, talk, built-ins, custom). */
 export const allFrames = (cfg: FiguraConfig): FaceFrame[] => [...FACE_FRAMES, ...cfg.customExpr.map(customKey)]
 
 /** The button for an expression: user override, built-in default, or the custom name. */

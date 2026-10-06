@@ -196,7 +196,14 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
           </label>
         </Toggle>
         <Toggle label={t('figura.blink')} on={c.blink} onChange={(v) => up({ blink: v })}>
-          <Range label={t('figura.blinkEvery')} value={c.blinkMax} min={1} max={12} step={0.5} fmt={(v) => `${c.blinkMin}–${v}`} onChange={(v) => up({ blinkMax: v, blinkMin: Math.min(c.blinkMin, v) })} />
+          {/* blink at a random moment between the two times, in seconds */}
+          <div className="row blink-secs">
+            <span className="muted">{t('figura.blinkEvery')}</span>
+            <input className="input num" type="number" min={0.5} max={30} step={0.5} value={c.blinkMin} onChange={(e) => e.target.value && up({ blinkMin: Math.max(0.5, Number(e.target.value)), blinkMax: Math.max(c.blinkMax, Number(e.target.value)) })} />
+            <span className="muted">–</span>
+            <input className="input num" type="number" min={0.5} max={30} step={0.5} value={c.blinkMax} onChange={(e) => e.target.value && up({ blinkMax: Math.max(0.5, Number(e.target.value)), blinkMin: Math.min(c.blinkMin, Number(e.target.value)) })} />
+            <span className="muted">{t('figura.seconds')}</span>
+          </div>
           <span className="muted" style={{ fontSize: 11 }}>{t('figura.blinkDrawHint')}</span>
         </Toggle>
       </div>

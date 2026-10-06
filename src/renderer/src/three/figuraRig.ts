@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { SkinDoc } from '../skin/doc'
-import { coversEyes, type ExprKey, type FaceFrame } from '../skin/figura'
+import { allFrames, coversEyes, type ExprKey, type FaceFrame } from '../skin/figura'
 import type { Img } from '../skin/pixels'
 
 function tex(img: Img) {
@@ -44,13 +44,14 @@ export class FiguraRig {
 
   /** Rebuild when the set of frames changes; otherwise only update visibility. */
   sync(doc: SkinDoc) {
-    const key = Object.entries(doc.faces).map(([f, i]) => f + (i?.w ?? 0)).join()
+    const key = allFrames(doc.figura).map((f) => f + (doc.faces[f]?.w ?? 0)).join()
     if (key !== this.key) {
       this.key = key
       this.clear()
       // slightly in front of the face, behind the hat layer
       let z = 4.02
-      for (const [f, img] of Object.entries(doc.faces) as [FaceFrame, Img][]) {
+      for (const f of allFrames(doc.figura).filter((x) => doc.faces[x])) {
+        const img = doc.faces[f] as Img
         const t = tex(img)
         const m = new THREE.Mesh(facePlane((z += 0.002)), new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.02, depthWrite: false }))
         m.renderOrder = 2
@@ -73,7 +74,8 @@ export class FiguraRig {
     const cfg = doc.figura
     this.root.visible = this.enabled || !!this.editFrame
     for (const [f, m] of this.frames) {
-      if (this.editFrame) m.visible = f === this.editFrame
+      if (this.editFrame) m.visible = f === this.editFrame || (f === 'base' && this.editFrame !== 'base')
+      else if (f === 'base') m.visible = true
       else if (f === 'blink') m.visible = cfg.blink && this.blink && !(this.expr && coversEyes(this.expr, cfg))
       else if (f === 'talk') m.visible = cfg.talk && this.talk && this.flap < 2
       else m.visible = cfg.expressions && this.expr === f

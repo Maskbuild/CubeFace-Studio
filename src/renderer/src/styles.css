@@ -378,3 +378,8 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .wheel-row .input { height: 26px; padding: 0 6px; font-size: 12px; min-width: 0; }
 .wheel-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .avatar-thumb.rendered { image-rendering: auto; }
+.blink-secs { gap: 6px; font-size: 12px; }
+.blink-secs .input.num { width: 56px; }
+.wardrobe.painter { grid-template-rows: auto auto 1fr auto; }
+.painter-canvas { position: relative; min-height: 0; background: var(--viewport); }
+.painter-canvas canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }

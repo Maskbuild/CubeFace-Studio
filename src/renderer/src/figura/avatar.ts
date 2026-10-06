@@ -1,6 +1,6 @@
 import physicsLua from '../../../figura/nkw_physics.lua?raw'
 import type { SkinDoc } from '../skin/doc'
-import type { FaceFrame } from '../skin/figura'
+import { allFrames } from '../skin/figura'
 import { cloneImg, type Img } from '../skin/pixels'
 import { imgToDataUrl } from '../lib/png'
 import { buildAtlas } from './atlas'
@@ -40,7 +40,9 @@ export function prepareAtlas(doc: SkinDoc) {
   const skin = cloneImg(doc.composite)
   const extras: Record<string, Img> = {}
   for (const h of doc.hair) if (h.visible) extras['hair_' + h.id] = h.img
-  const frames = (Object.keys(doc.faces) as FaceFrame[]).filter((f) => {
+  const frames = allFrames(cfg).filter((f) => {
+    if (!doc.faces[f]) return false
+    if (f === 'base') return true
     if (f === 'blink') return cfg.blink
     if (f === 'talk') return cfg.talk
     return cfg.expressions
