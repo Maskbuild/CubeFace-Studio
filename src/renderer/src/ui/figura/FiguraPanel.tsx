@@ -12,6 +12,7 @@ import { MOTION_MODES } from '../../three/motion'
 import { Icon } from '../common/Icon'
 import { AttachWindow } from './AvatarLibrary'
 import { WheelWindow } from './WheelWindow'
+import { ValueField } from '../common/ValueField'
 
 const LIMIT = 100 * 1024
 const CLOUD = 'https://figura-sirufree.shirounetwork.com'
@@ -34,7 +35,7 @@ function Range({ label, value, min, max, step, fmt, onChange }: { label: string;
     <label className="phys-row">
       <span className="muted">{label}</span>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-      <span className="val">{fmt ? fmt(value) : value}</span>
+      <ValueField value={value} display={fmt ? fmt(value) : String(value)} min={min} max={max} step={step} onChange={onChange} />
     </label>
   )
 }

@@ -56,7 +56,7 @@ export const en = {
   model: { wide: 'Wide (Steve)', slim: 'Slim (Alex)' },
   mode: { skin: 'Skin', figura: 'Figura', pose: 'Pose' },
   top: { home: 'Home', undo: 'Undo (Ctrl+Z)', redo: 'Redo (Ctrl+Y)', save: 'Save (Ctrl+S)', exportPng: 'Export PNG', unsaved: 'Unsaved changes', leaveUnsaved: 'You have unsaved changes. Save before leaving?' },
-  uv: { title: 'UV', backToSkin: 'Back to skin', downscale: 'Lowering the resolution from {{from}} to {{to}} merges pixels. Continue?' },
+  uv: { title: 'UV', enlargeHint: 'Open the UV view large (Esc to close)', backToSkin: 'Back to skin', downscale: 'Lowering the resolution from {{from}} to {{to}} merges pixels. Continue?' },
   layers: {
     hairSection: 'Hair planes',
     importNew: 'Import image as new layer…',

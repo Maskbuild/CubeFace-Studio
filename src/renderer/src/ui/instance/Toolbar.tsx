@@ -3,6 +3,7 @@ import { useEditor, type PaintTarget, type Tool } from '../../store/editor'
 import { Icon } from '../common/Icon'
 import { parseHex, toHex } from '../../skin/color'
 import { commitFloating, copySelection, deleteSelection, pasteFloating, pixelsCopiedLast, select, selectAll } from '../../lib/selection'
+import { ValueField } from '../common/ValueField'
 
 const TOOLS: [Tool, string][] = [
   ['brush', 'brush'],
@@ -19,7 +20,7 @@ function Slider({ label, value, min, max, step = 1, fmt, onChange }: { label: st
     <label className="slider" title={label}>
       <span className="muted">{label}</span>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-      <span className="val">{fmt ? fmt(value) : value}</span>
+      <ValueField value={value} display={fmt ? fmt(value) : String(value)} min={min} max={max} step={step} onChange={onChange} />
     </label>
   )
 }

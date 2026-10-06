@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ValueField } from '../common/ValueField'
 import { HoverTip } from '../common/HoverTip'
 import { useTranslation } from 'react-i18next'
 import { SkinDoc } from '../../skin/doc'
@@ -197,9 +198,9 @@ function AdjustControls({ adjust, onChange }: { adjust: Adjust; onChange: (a: Ad
       </div>
       {adjust.mode === 'hsv' && (
         <>
-          <label className="phys-row"><span className="muted">{t('wardrobe.hue')}</span><input type="range" className="hue-range" min={-180} max={180} value={adjust.hue} onChange={(e) => onChange({ ...adjust, hue: +e.target.value })} /><span className="val">{adjust.hue}°</span></label>
-          <label className="phys-row"><span className="muted">{t('wardrobe.sat')}</span><input type="range" min={0} max={2} step={0.05} value={adjust.sat} onChange={(e) => onChange({ ...adjust, sat: +e.target.value })} /><span className="val">{Math.round(adjust.sat * 100)}%</span></label>
-          <label className="phys-row"><span className="muted">{t('wardrobe.light')}</span><input type="range" min={-0.6} max={0.6} step={0.02} value={adjust.light} onChange={(e) => onChange({ ...adjust, light: +e.target.value })} /><span className="val">{Math.round(adjust.light * 100)}</span></label>
+          <label className="phys-row"><span className="muted">{t('wardrobe.hue')}</span><input type="range" className="hue-range" min={-180} max={180} value={adjust.hue} onChange={(e) => onChange({ ...adjust, hue: +e.target.value })} /><ValueField value={adjust.hue} display={adjust.hue + '°'} min={-180} max={180} step={1} onChange={(v) => onChange({ ...adjust, hue: v })} /></label>
+          <label className="phys-row"><span className="muted">{t('wardrobe.sat')}</span><input type="range" min={0} max={2} step={0.05} value={adjust.sat} onChange={(e) => onChange({ ...adjust, sat: +e.target.value })} /><ValueField value={adjust.sat} display={Math.round(adjust.sat * 100) + '%'} min={0} max={2} step={0.05} onChange={(v) => onChange({ ...adjust, sat: v })} /></label>
+          <label className="phys-row"><span className="muted">{t('wardrobe.light')}</span><input type="range" min={-0.6} max={0.6} step={0.02} value={adjust.light} onChange={(e) => onChange({ ...adjust, light: +e.target.value })} /><ValueField value={adjust.light} display={String(Math.round(adjust.light * 100))} scale={100} min={-0.6} max={0.6} step={0.02} onChange={(v) => onChange({ ...adjust, light: v })} /></label>
         </>
       )}
       {adjust.mode === 'gradient' && (
@@ -209,7 +210,7 @@ function AdjustControls({ adjust, onChange }: { adjust: Adjust; onChange: (a: Ad
             <label className="row muted grow">{t('wardrobe.lightColor')}<input type="color" value={adjust.light} onChange={(e) => onChange({ ...adjust, light: e.target.value })} /></label>
           </div>
           <div className="grad-bar" style={{ background: `linear-gradient(90deg, ${adjust.dark}, ${adjust.light})` }} />
-          <label className="phys-row"><span className="muted">{t('wardrobe.mix')}</span><input type="range" min={0} max={1} step={0.05} value={adjust.mix} onChange={(e) => onChange({ ...adjust, mix: +e.target.value })} /><span className="val">{Math.round(adjust.mix * 100)}%</span></label>
+          <label className="phys-row"><span className="muted">{t('wardrobe.mix')}</span><input type="range" min={0} max={1} step={0.05} value={adjust.mix} onChange={(e) => onChange({ ...adjust, mix: +e.target.value })} /><ValueField value={adjust.mix} display={Math.round(adjust.mix * 100) + '%'} min={0} max={1} step={0.05} onChange={(v) => onChange({ ...adjust, mix: v })} /></label>
         </>
       )}
     </div>

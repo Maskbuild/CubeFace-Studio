@@ -7,6 +7,7 @@ import { useEditor } from '../../store/editor'
 import { Icon } from '../common/Icon'
 import { HairTextureTools } from './HairTexture'
 import { attachedPos, hairAttached } from '../../skin/hair'
+import { ValueField } from '../common/ValueField'
 
 const SIDES: HairSide[] = ['front', 'back']
 const LENGTHS: HairLength[] = ['short', 'medium', 'long']
@@ -43,7 +44,7 @@ function PhysSlider({ label, value, min, max, step, onChange, fmt }: { label: st
     <label className="phys-row">
       <span className="muted">{label}</span>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-      <span className="val">{fmt ? fmt(value) : Math.round(value * 100) + '%'}</span>
+      <ValueField value={value} display={fmt ? fmt(value) : Math.round(value * 100) + '%'} min={min} max={max} step={step} onChange={onChange} />
     </label>
   )
 }

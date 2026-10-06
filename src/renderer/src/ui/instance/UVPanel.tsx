@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
 import { cuboids, faceAt, faceRect, RESOLUTIONS, scaleRect, type Variant } from '../../skin/layout'
@@ -14,6 +14,8 @@ import { Icon } from '../common/Icon'
 import { brushOutline } from '../common/brushOutline'
 
 export function UVPanel({ doc }: { doc: SkinDoc }) {
+  const [big, setBig] = useState(false)
+  const refit = useRef<() => void>(() => {})
   const { t } = useTranslation()
   useEditor((s) => s.tick)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -69,6 +71,10 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       else offCtx.putImageData(imgData, 0, 0)
     }
 
+    refit.current = () => {
+      view.fitted = false
+      schedule()
+    }
     const fit = () => {
       const s = Math.min(canvas.width / src.img.w, canvas.height / src.img.h) * 0.94
       view.scale = s
@@ -139,8 +145,10 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
         const cell = step * s
         const i0 = Math.max(0, Math.floor(-ox / cell)), i1 = Math.min(Math.floor(W / step), Math.ceil((w - ox) / cell))
         const j0 = Math.max(0, Math.floor(-oy / cell)), j1 = Math.min(Math.floor(H / step), Math.ceil((h - oy) / cell))
-        ctx.strokeStyle = lineColor
-        ctx.globalAlpha = step === 1 ? 0.3 : 0.18
+        // difference: the line takes the opposite of the pixels under it (dark on skin tones,
+        // light on dark colours), so it shows on any colour
+        ctx.globalCompositeOperation = 'difference'
+        ctx.strokeStyle = step === 1 ? '#a0a0a0' : '#707070'
         ctx.lineWidth = 1
         ctx.beginPath()
         for (let i = i0; i <= i1; i++) {
@@ -154,7 +162,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
           ctx.lineTo(ox + sw, q)
         }
         ctx.stroke()
-        ctx.globalAlpha = 1
+        ctx.globalCompositeOperation = 'source-over'
       }
       // face outlines (skin only)
       ctx.strokeStyle = lineColor
@@ -323,7 +331,7 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       const dpr = window.devicePixelRatio
       const mx = (ev.clientX - r.left) * dpr, my = (ev.clientY - r.top) * dpr
       const k = Math.exp(-ev.deltaY * 0.0015)
-      const ns = Math.min(64, Math.max(0.1, view.scale * k))
+      const ns = Math.min(256, Math.max(0.1, view.scale * k))
       view.ox = mx - ((mx - view.ox) * ns) / view.scale
       view.oy = my - ((my - view.oy) * ns) / view.scale
       view.scale = ns
@@ -356,6 +364,18 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
     }
   }, [doc])
 
+  // fit the view again when it opens large or goes back
+  useEffect(() => {
+    const id = requestAnimationFrame(() => refit.current())
+    return () => cancelAnimationFrame(id)
+  }, [big])
+  useEffect(() => {
+    if (!big) return
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && setBig(false)
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [big])
+
   const changeRes = async (res: number) => {
     if (res < doc.res && !(await confirmBox(t('uv.downscale', { from: doc.res, to: res }), t('common.ok'), t('common.cancel')))) return
     doc.setResolution(res)
@@ -364,10 +384,13 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
   const hair = doc.hairPlane(doc.hairId)
   const frame = !hair && doc.faceFrame && doc.faces[doc.faceFrame] ? doc.faceFrame : null
   return (
-    <div className="uv-wrap">
+    <>
+    {big && <div className="uv-big-back" onMouseDown={() => setBig(false)} />}
+    <div className={'uv-wrap' + (big ? ' uv-big' : '')}>
       <div className="section" style={{ borderBottom: 0, paddingBottom: 8 }}>
         <div className="section-head">
           <span className="label">{t('uv.title')}</span>
+          <button className="btn sm-btn" title={t('uv.enlargeHint')} onClick={() => setBig(!big)}><Icon name={big ? 'x' : 'zoom'} size={13} />{big ? t('common.close') : t('figura.enlarge')}</button>
           <select className="select" style={{ height: 26 }} value={doc.res} onChange={(e) => changeRes(Number(e.target.value))}>
             {RESOLUTIONS.map((r) => (
               <option key={r} value={r}>{r}×{r}</option>
@@ -396,5 +419,6 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
         <canvas ref={canvasRef} />
       </div>
     </div>
+    </>
   )
 }

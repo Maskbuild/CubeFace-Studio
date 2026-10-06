@@ -81,7 +81,8 @@ export class HairRig {
   private entries = new Map<string, Entry>()
   private outlineMat = new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.6 })
   private selectedMat = new THREE.LineBasicMaterial({ color: 0x3fd6e3 })
-  private gridMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false })
+  // exclusion blend: shows on light and dark hair alike
+  private gridMat = new THREE.LineBasicMaterial({ color: 0x808080, transparent: true, opacity: 1, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneMinusDstColorFactor, blendDst: THREE.OneMinusSrcColorFactor })
   private gridOn = false
   selectedId: string | null = null
   showOutlines = true
@@ -188,7 +189,7 @@ export class HairRig {
   /** Texel grid on every plane (follows the editor's Grid button). */
   setGrid(on: boolean, dark: boolean) {
     this.gridOn = on
-    this.gridMat.color.set(dark ? 0xffffff : 0x000000)
+    void dark
     for (const e of this.entries.values()) for (const st of e.strands) for (const g of st.grids) g.visible = on
   }
 

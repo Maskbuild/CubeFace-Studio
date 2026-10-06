@@ -58,7 +58,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     controls.target.copy(TARGET)
     controls.enableDamping = true
     controls.dampingFactor = 0.18
-    controls.minDistance = 8
+    controls.minDistance = 2.5
     controls.maxDistance = 160
     controls.zoomToCursor = true
 
@@ -229,8 +229,12 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     // ---- picking -----------------------------------------------------------------------
     const ray = new THREE.Raycaster()
     const ndc = new THREE.Vector2()
-    /** px: screen pixels per texel at the hit point (for the brush ring). */
-    type Hit = { x: number; y: number; clip: Rect; hairId: string | null; face?: boolean; px?: number }
+    /**
+     * fp: how the hit surface maps to the painted image, to draw the brush outline on the surface:
+     * texel = floor(uv * T) - off on each axis.
+     */
+    type Footprint = { hit: THREE.Intersection; Tu: number; Tv: number; ou: number; ov: number }
+    type Hit = { x: number; y: number; clip: Rect; hairId: string | null; face?: boolean; px?: number; fp?: Footprint }
     const pxPer = (dist: number, obj: THREE.Object3D, texel: number) => {
       const sc = obj.getWorldScale(new THREE.Vector3()).x
       const h = renderer.domElement.getBoundingClientRect().height
@@ -254,7 +258,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
           const y = Math.min(h.img.h - 1, Math.max(0, Math.floor(hit.uv!.y * h.img.h)))
           // see through empty hair pixels unless this plane is selected (so blank planes can be painted)
           if (!only && h.id !== doc.hairId && h.img.data[(y * h.img.w + x) * 4 + 3] === 0) continue
-          return { x, y, clip: { x: 0, y: 0, w: h.img.w, h: h.img.h }, hairId: h.id, px: pxPer(hit.distance, hit.object, h.w / h.img.w) }
+          return { x, y, clip: { x: 0, y: 0, w: h.img.w, h: h.img.h }, hairId: h.id, px: pxPer(hit.distance, hit.object, h.w / h.img.w), fp: { hit, Tu: h.img.w, Tv: h.img.h, ou: 0, ov: 0 } }
         }
         const info = hit.object.userData as MeshInfo
         if (editFace) {
@@ -263,9 +267,13 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
           // another part of the model: no face hit (on click, the caller leaves face mode)
           if (cub.part !== 'head' || cub.faces[fi].name !== 'front') return null
           const r = faceRect(doc.variant, doc.res, { cuboid: info.cuboid, face: fi })
-          const x = Math.min(r.w - 1, Math.max(0, Math.floor(hit.uv!.x * doc.res) - r.x))
-          const y = Math.min(r.h - 1, Math.max(0, Math.floor(hit.uv!.y * doc.res) - r.y))
-          return { x, y, clip: { x: 0, y: 0, w: r.w, h: r.h }, hairId: null, face: true, px: pxPer(hit.distance, hit.object, 8 / doc.faceSize()) }
+          // face frames have their own size (face image size): texels of the frame, not of the skin
+          const fs = doc.faceSize()
+          const Tu = (doc.res * fs) / r.w, Tv = (doc.res * fs) / r.h
+          const ou = (r.x * fs) / r.w, ov = (r.y * fs) / r.h
+          const x = Math.min(fs - 1, Math.max(0, Math.floor(hit.uv!.x * Tu - ou)))
+          const y = Math.min(fs - 1, Math.max(0, Math.floor(hit.uv!.y * Tv - ov)))
+          return { x, y, clip: { x: 0, y: 0, w: fs, h: fs }, hairId: null, face: true, px: pxPer(hit.distance, hit.object, 8 / fs), fp: { hit, Tu, Tv, ou, ov } }
         }
         if (s.target === 'base' && info.kind !== 'base') continue
         if (s.target === 'overlay' && info.kind !== 'overlay') continue
@@ -275,31 +283,65 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
         // In auto mode, see through transparent overlay pixels to the base layer underneath.
         // Auto paints the body (inner layer) first; the outer layer only where the inner part is hidden
         if (s.target === 'auto' && info.kind === 'overlay' && !s.hidden[info.key.replace('overlay', 'base')]) continue
-        return { x, y, clip, hairId: null, px: pxPer(hit.distance, hit.object, 64 / doc.res) }
+        return { x, y, clip, hairId: null, px: pxPer(hit.distance, hit.object, 64 / doc.res), fp: { hit, Tu: doc.res, Tv: doc.res, ou: 0, ov: 0 } }
       }
       return null
     }
 
-    // brush ring: shows where and how big the brush paints
+    // brush outline drawn on the model's surface: exactly the texels the brush will paint
     renderer.domElement.parentElement?.querySelector('.brush-ring')?.remove()
-    const ring = document.createElement('div')
-    ring.className = 'brush-ring'
-    renderer.domElement.parentElement?.appendChild(ring)
+    const outlineMat = new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true })
+    const outlineShadow = new THREE.LineBasicMaterial({ color: 0x000000, depthTest: false, transparent: true, opacity: 0.55 })
+    const outline = new THREE.Group()
+    const outlineA = new THREE.LineLoop(new THREE.BufferGeometry(), outlineShadow)
+    const outlineB = new THREE.LineLoop(new THREE.BufferGeometry(), outlineMat)
+    outlineA.renderOrder = outlineB.renderOrder = 999
+    outline.add(outlineA, outlineB)
+    outline.visible = false
+    scene.add(outline)
+    const P = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]
+    const T = [new THREE.Vector2(), new THREE.Vector2(), new THREE.Vector2()]
     const showRing = (ev: PointerEvent | null) => {
       const s = useEditor.getState()
       const b = s.tool === 'eraser' ? s.eraser : s.brush
       const hit = ev && !posing() && !spaceOrbit && (s.tool === 'brush' || s.tool === 'eraser') ? hitTexel(ev, session.active ? (session.strokeHair ?? (doc.faceFrame ? 'face' : 'skin')) : undefined) : null
-      if (!ev || !hit?.px) {
-        ring.style.display = 'none'
+      const fp = hit?.fp
+      const geo = fp?.hit.object instanceof THREE.Mesh ? (fp.hit.object.geometry as THREE.BufferGeometry) : null
+      if (!hit || !fp || !geo || !fp.hit.face || !fp.hit.uv) {
+        if (outline.visible) (outline.visible = false), (dirty = true)
         return
       }
-      const box = renderer.domElement.getBoundingClientRect()
-      const d = Math.max(6, b.size * hit.px)
-      ring.style.display = 'block'
-      ring.style.width = ring.style.height = d + 'px'
-      ring.style.left = ev.clientX - box.left - d / 2 + 'px'
-      ring.style.top = ev.clientY - box.top - d / 2 + 'px'
-      ring.style.borderRadius = b.shape === 'circle' || b.size <= 2 ? '50%' : '2px'
+      // surface directions per texture unit, from the hit triangle (world space)
+      const pos = geo.getAttribute('position') as THREE.BufferAttribute, uvA = geo.getAttribute('uv') as THREE.BufferAttribute
+      const idx = [fp.hit.face.a, fp.hit.face.b, fp.hit.face.c]
+      idx.forEach((k, i) => (P[i].fromBufferAttribute(pos, k), fp.hit.object.localToWorld(P[i]), T[i].fromBufferAttribute(uvA, k)))
+      const e1 = P[1].clone().sub(P[0]), e2 = P[2].clone().sub(P[0])
+      const d1 = T[1].clone().sub(T[0]), d2 = T[2].clone().sub(T[0])
+      const det = d1.x * d2.y - d2.x * d1.y
+      if (Math.abs(det) < 1e-12) return
+      const Pu = e1.clone().multiplyScalar(d2.y).sub(e2.clone().multiplyScalar(d1.y)).divideScalar(det)
+      const Pv = e2.clone().multiplyScalar(d1.x).sub(e1.clone().multiplyScalar(d2.x)).divideScalar(det)
+      const normal = fp.hit.face.normal.clone().transformDirection(fp.hit.object.matrixWorld)
+      const base = fp.hit.point.clone().addScaledVector(normal, 0.03)
+      const at = (tx: number, ty: number) => {
+        // texel coordinates (clamped to the face being painted) -> a point on the surface
+        const cx = Math.min(hit.clip.x + hit.clip.w, Math.max(hit.clip.x, tx)), cy = Math.min(hit.clip.y + hit.clip.h, Math.max(hit.clip.y, ty))
+        return base.clone().addScaledVector(Pu, (cx + fp.ou) / fp.Tu - fp.hit.uv!.x).addScaledVector(Pv, (cy + fp.ov) / fp.Tv - fp.hit.uv!.y)
+      }
+      const n = Math.max(1, Math.round(b.size))
+      const x0 = hit.x - Math.floor(n / 2), y0 = hit.y - Math.floor(n / 2)
+      const pts: THREE.Vector3[] = []
+      if (b.shape === 'circle' && n > 2) {
+        for (let i = 0; i < 48; i++) {
+          const a = (i / 48) * Math.PI * 2
+          pts.push(at(x0 + n / 2 + Math.cos(a) * (n / 2), y0 + n / 2 + Math.sin(a) * (n / 2)))
+        }
+      } else pts.push(at(x0, y0), at(x0 + n, y0), at(x0 + n, y0 + n), at(x0, y0 + n))
+      outlineA.geometry.setFromPoints(pts)
+      outlineB.geometry.setFromPoints(pts)
+      outlineMat.color.set(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#3fd6e3')
+      outline.visible = true
+      dirty = true
     }
 
     const session = new PaintSession(doc)

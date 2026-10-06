@@ -58,7 +58,7 @@ export const th: Dict = {
   model: { wide: 'Wide (Steve)', slim: 'Slim (Alex)' },
   mode: { skin: 'สกิน', figura: 'Figura', pose: 'โพส' },
   top: { home: 'หน้าหลัก', undo: 'ย้อนกลับ (Ctrl+Z)', redo: 'ทำซ้ำ (Ctrl+Y)', save: 'บันทึก (Ctrl+S)', exportPng: 'ส่งออก PNG', unsaved: 'ยังไม่ได้บันทึก', leaveUnsaved: 'มีการแก้ไขที่ยังไม่ได้บันทึก ต้องการบันทึกก่อนออกไหม?' },
-  uv: { title: 'UV', backToSkin: 'กลับไปที่สกิน', downscale: 'การลดความละเอียดจาก {{from}} เป็น {{to}} จะรวมพิกเซลเข้าด้วยกัน ดำเนินการต่อ?' },
+  uv: { title: 'UV', enlargeHint: 'เปิดหน้า UV แบบขยายใหญ่ (กด Esc เพื่อปิด)', backToSkin: 'กลับไปที่สกิน', downscale: 'การลดความละเอียดจาก {{from}} เป็น {{to}} จะรวมพิกเซลเข้าด้วยกัน ดำเนินการต่อ?' },
   layers: {
     hairSection: 'ผมแยก',
     importNew: 'นำเข้าภาพเป็นเลเยอร์ใหม่…',

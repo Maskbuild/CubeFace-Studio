@@ -8,6 +8,7 @@ import { useEditor, type Tool } from '../../store/editor'
 import { Icon } from '../common/Icon'
 import { frameLabel } from './frameLabel'
 import { brushOutline } from '../common/brushOutline'
+import { ValueField } from '../common/ValueField'
 
 const TOOLS: [Tool, string][] = [
   ['brush', 'brush'],
@@ -94,7 +95,9 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
       ctx.globalAlpha = 1
       ctx.drawImage(frameCanvas, ox, oy, n * s, n * s)
       if (s >= 6) {
-        ctx.strokeStyle = 'rgba(0,0,0,.15)'
+        // difference: the line takes the opposite of the pixels under it, so it shows on any colour
+        ctx.globalCompositeOperation = 'difference'
+        ctx.strokeStyle = '#a0a0a0'
         ctx.lineWidth = 1
         ctx.beginPath()
         for (let i = 0; i <= n; i++) {
@@ -103,6 +106,7 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
           ctx.moveTo(ox, q), ctx.lineTo(ox + n * s, q)
         }
         ctx.stroke()
+        ctx.globalCompositeOperation = 'source-over'
       }
       const e = useEditor.getState()
       if (e.mirror) {
@@ -177,7 +181,7 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
       const r = c.getBoundingClientRect()
       const dpr = window.devicePixelRatio
       const mx = (ev.clientX - r.left) * dpr, my = (ev.clientY - r.top) * dpr
-      const ns = Math.min(400, Math.max(2, view.scale * Math.exp(-ev.deltaY * 0.0015)))
+      const ns = Math.min(1600, Math.max(1, view.scale * Math.exp(-ev.deltaY * 0.0015)))
       view.ox = mx - ((mx - view.ox) * ns) / view.scale
       view.oy = my - ((my - view.oy) * ns) / view.scale
       view.scale = ns
@@ -243,18 +247,18 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
             <label className="slider">
               <span className="muted">{t('tools.smooth')}</span>
               <input type="range" min={0} max={1} step={0.05} value={b.smooth ?? 0} onChange={(e) => ed.setBrush({ smooth: Number(e.target.value) })} />
-              <span className="val">{Math.round((b.smooth ?? 0) * 100)}%</span>
+              <ValueField value={b.smooth ?? 0} display={Math.round((b.smooth ?? 0) * 100) + '%'} min={0} max={1} step={0.05} onChange={(v) => ed.setBrush({ smooth: v })} />
             </label>
           )}
           <label className="slider">
             <span className="muted">{t('tools.size')}</span>
             <input type="range" min={1} max={Math.max(8, doc.faceSize() / 2)} value={b.size} onChange={(e) => ed.setBrush({ size: Number(e.target.value) })} />
-            <span className="val">{b.size}</span>
+            <ValueField value={b.size} min={1} max={Math.max(8, doc.faceSize() / 2)} step={1} onChange={(v) => ed.setBrush({ size: v })} />
           </label>
           <label className="slider">
             <span className="muted">{t('tools.opacity')}</span>
             <input type="range" min={0.05} max={1} step={0.05} value={b.opacity} onChange={(e) => ed.setBrush({ opacity: Number(e.target.value) })} />
-            <span className="val">{Math.round(b.opacity * 100)}%</span>
+            <ValueField value={b.opacity} display={Math.round(b.opacity * 100) + '%'} min={0.05} max={1} step={0.05} onChange={(v) => ed.setBrush({ opacity: v })} />
           </label>
           <button className={'icon-btn' + (ed.mirror ? ' active' : '')} title={t('tools.mirror')} onClick={() => ed.set({ mirror: !ed.mirror })}><Icon name="mirror" size={17} /></button>
           <label className="slider" title={t('figura.faceResHint')}>

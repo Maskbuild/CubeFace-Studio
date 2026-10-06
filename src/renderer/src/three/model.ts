@@ -83,19 +83,69 @@ export function cuboidGeometry(c: CuboidDef, bend = false): THREE.BufferGeometry
 }
 
 /** Pixel grid lines (one per texel at the current resolution) floating just above each face. */
+/** Skins up to this size get a grid coloured per pixel edge (finer ones use the blended grid). */
+const COLOR_GRID_MAX = 256
+
 function gridGeometry(c: CuboidDef, res: number): THREE.BufferGeometry {
   const [lo, hi] = bounds(c, 0.02)
   const pts: number[] = []
   const k = res / 64
+  // per pixel edge: the two texels on either side (-1 outside the face), to colour the line
+  const pairs: number[] = []
+  const perEdge = res <= COLOR_GRID_MAX
   for (const f of c.faces) {
     const w = f.rect.w * k
     const h = f.rect.h * k
-    for (let i = 0; i <= w; i++) pts.push(...facePoint(f.name, lo, hi, i / w, 0), ...facePoint(f.name, lo, hi, i / w, 1))
-    for (let j = 0; j <= h; j++) pts.push(...facePoint(f.name, lo, hi, 0, j / h), ...facePoint(f.name, lo, hi, 1, j / h))
+    const x0 = f.rect.x * k, y0 = f.rect.y * k
+    const tex = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? -1 : (y0 + y) * res + x0 + x)
+    if (!perEdge) {
+      for (let i = 0; i <= w; i++) pts.push(...facePoint(f.name, lo, hi, i / w, 0), ...facePoint(f.name, lo, hi, i / w, 1))
+      for (let j = 0; j <= h; j++) pts.push(...facePoint(f.name, lo, hi, 0, j / h), ...facePoint(f.name, lo, hi, 1, j / h))
+      continue
+    }
+    for (let i = 0; i <= w; i++)
+      for (let j = 0; j < h; j++) {
+        pts.push(...facePoint(f.name, lo, hi, i / w, j / h), ...facePoint(f.name, lo, hi, i / w, (j + 1) / h))
+        pairs.push(tex(i - 1, j), tex(i, j))
+      }
+    for (let j = 0; j <= h; j++)
+      for (let i = 0; i < w; i++) {
+        pts.push(...facePoint(f.name, lo, hi, i / w, j / h), ...facePoint(f.name, lo, hi, (i + 1) / w, j / h))
+        pairs.push(tex(i, j - 1), tex(i, j))
+      }
   }
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+  if (perEdge) {
+    g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(pts.length), 3))
+    g.userData.pairs = Int32Array.from(pairs)
+  }
   return g
+}
+
+/**
+ * Colour each grid edge from the pixels beside it: a dark line next to light pixels (skin tones),
+ * a light line next to dark ones, so the grid shows on any colour.
+ */
+function colorGrid(g: THREE.BufferGeometry, data: Uint8Array | Uint8ClampedArray) {
+  const pairs = g.userData.pairs as Int32Array | undefined
+  const col = g.getAttribute('color') as THREE.BufferAttribute | undefined
+  if (!pairs || !col) return
+  const arr = col.array as Float32Array
+  for (let e = 0; e < pairs.length / 2; e++) {
+    let sum = 0, n = 0
+    for (const t of [pairs[e * 2], pairs[e * 2 + 1]]) {
+      if (t < 0) continue
+      const a = data[t * 4 + 3]
+      if (a < 40) continue
+      sum += data[t * 4] * 0.299 + data[t * 4 + 1] * 0.587 + data[t * 4 + 2] * 0.114
+      n++
+    }
+    // no painted pixel beside it (an empty outer layer): a neutral grey
+    const v = n === 0 ? 0.55 : sum / n > 135 ? 0.08 : 0.95
+    arr.fill(v, e * 6, e * 6 + 6)
+  }
+  col.needsUpdate = true
 }
 
 /** Outline of the X=0 symmetry plane drawn over the head, body and between the legs. */
@@ -149,7 +199,10 @@ export class SkinModel {
   texture: THREE.DataTexture
   private baseMat: THREE.MeshBasicMaterial
   private overlayMat: THREE.MeshBasicMaterial
-  private gridMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false })
+  // exclusion blend: dark lines on light skin, light lines on dark skin, whatever the theme
+  // per-edge colours (dark on light pixels, light on dark), for skins up to 256 px
+  private gridEdgeMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false })
+  private gridMat = new THREE.LineBasicMaterial({ color: 0x808080, transparent: true, opacity: 1, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneMinusDstColorFactor, blendDst: THREE.OneMinusSrcColorFactor })
   private gridOn = false
   private gridTarget: 'auto' | 'base' | 'overlay' = 'auto'
   private hidden: Record<string, boolean> = {}
@@ -194,6 +247,7 @@ export class SkinModel {
     const cur = this.texture.image as { data: Uint8Array; width: number }
     if (cur.data.buffer === img.data.buffer && cur.width === img.w) {
       this.texture.needsUpdate = true
+      this.recolorGrid()
       return
     }
     const old = this.texture
@@ -209,12 +263,20 @@ export class SkinModel {
 
   refresh() {
     this.texture.needsUpdate = true
+    this.recolorGrid()
+  }
+
+  /** Re-colour the per-pixel grid from the current skin (only while the grid is shown). */
+  private recolorGrid() {
+    if (!this.gridOn) return
+    const data = (this.texture.image as { data: Uint8Array }).data
+    for (const g of this.grids) colorGrid(g.geometry, data)
   }
 
   build(variant: Variant) {
     this.variant = variant
-    // denser grids get fainter so high-resolution skins stay readable
-    this.gridMat.opacity = this.res <= 64 ? 0.3 : this.res <= 256 ? 0.2 : 0.12
+    // fine textures (above 256) get a soft blended grid; smaller ones colour each edge
+    this.gridMat.color.setScalar(0.3)
     for (const o of [...this.meshes, ...this.grids]) {
       o.removeFromParent()
       o.geometry.dispose()
@@ -235,13 +297,15 @@ export class SkinModel {
       m.position.set(-PIVOTS[c.part][0], -PIVOTS[c.part][1], -PIVOTS[c.part][2])
       this.meshes.push(m)
       part.add(m)
-      const g = new THREE.LineSegments(gridGeometry(c, this.res), this.gridMat)
+      const geo2 = gridGeometry(c, this.res)
+      const g = new THREE.LineSegments(geo2, geo2.userData.pairs ? this.gridEdgeMat : this.gridMat)
       g.renderOrder = 2
       g.position.copy(m.position)
       this.grids.push(g)
       part.add(g)
     })
     this.applyVisibility()
+    this.recolorGrid()
   }
 
   /** Back to the neutral standing pose. */
@@ -300,8 +364,9 @@ export class SkinModel {
   setGrid(on: boolean, dark: boolean, target: 'auto' | 'base' | 'overlay' = this.gridTarget) {
     this.gridOn = on
     this.gridTarget = target
-    this.gridMat.color.set(dark ? 0xffffff : 0x000000)
+    void dark // the line colour comes from the skin under it, not the theme
     this.applyVisibility()
+    this.recolorGrid()
   }
 
   setMirror(on: boolean, color: string) {
@@ -323,6 +388,7 @@ export class SkinModel {
     this.baseMat.dispose()
     this.overlayMat.dispose()
     this.gridMat.dispose()
+    this.gridEdgeMat.dispose()
     this.mirrorLines.geometry.dispose()
     ;(this.mirrorLines.material as THREE.Material).dispose()
     this.texture.dispose()
