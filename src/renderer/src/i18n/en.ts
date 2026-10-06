@@ -58,6 +58,7 @@ export const en = {
   top: { home: 'Home', undo: 'Undo (Ctrl+Z)', redo: 'Redo (Ctrl+Y)', save: 'Save (Ctrl+S)', exportPng: 'Export PNG', unsaved: 'Unsaved changes', leaveUnsaved: 'You have unsaved changes. Save before leaving?' },
   uv: { title: 'UV', backToSkin: 'Back to skin', downscale: 'Lowering the resolution from {{from}} to {{to}} merges pixels. Continue?' },
   layers: {
+    hairSection: 'Hair planes',
     importNew: 'Import image as new layer…',
     importInto: 'Import image into this layer…',
     copy: 'Copy layer',
@@ -119,7 +120,7 @@ export const en = {
     grid: 'Grid',
     mirror: 'Mirror (M)',
     target: 'Paint on',
-    targetAuto: 'Auto',
+    targetAuto: 'Auto (body first)',
     targetBase: 'Base',
     targetOverlay: 'Overlay',
     preview: 'Full-body preview',
@@ -140,6 +141,18 @@ export const en = {
     allOverlay: 'All overlays'
   },
   hair: {
+    hang: "Falls with gravity when bending",
+    hangHint: "On: the hair keeps hanging down when you look down or up, like real hair. Off: it moves with the head.",
+    flutter: "Flowing",
+    strands: "Strands",
+    curl: "Curve",
+    flowyHint: "Strands split the plane into locks that swing on their own; Flowing adds a gentle wave even when standing still.",
+    flowyPreset: "Make it flowy",
+    tips: "Hair tips (cut pointed ends into the texture)",
+    tipLength: "Tip length",
+    tipWidth: "Lock width",
+    makeTips: "Make hair tips",
+    tipsHint: "Click again for different tip lengths; Ctrl+Z undoes",
     texture: "Texture",
     textureImport: "Import picture…",
     textureMove: "Move texture (UV) / flip",
@@ -197,7 +210,7 @@ export const en = {
     upload: 'Upload item',
     editItem: 'Edit item',
     all: 'All',
-    cat: { outfit: 'Full outfit', top: 'Top', bottom: 'Pants', skin: 'Skin tone', head: 'Head (hair, eyes, mouth)' },
+    cat: { outfit: 'Full outfit', top: 'Top', bottom: 'Pants', skin: 'Skin tone', head: 'Head' },
     empty: 'Nothing here yet. Upload a skin-format PNG (only the painted parts are used).',
     selected: 'Wearing',
     noneSelected: 'Click items to try them on. One per category.',
@@ -224,6 +237,10 @@ export const en = {
     confirmDelete: 'Delete "{{name}}" from the wardrobe?'
   },
   figura: {
+    eyeFollow: "Eyes look where you turn",
+    eyeRange: "How far (texels)",
+    eyeFollowHint: "The iris slides inside the eye boxes (set them above); hidden while blinking or when an expression draws its own eyes.",
+    headTilt: "Tilt into turns",
     skinParts: "Skin parts inside the avatar",
     partsNeeded: "Only what is needed",
     partsAll: "Whole skin",
@@ -359,6 +376,10 @@ export const en = {
     bedrockNote: 'Bedrock can only change the player model through a resource pack, so every player in a world that uses the pack will look like this skin — best for single-player, screenshots and videos. Expressions follow game states (hurt = angry, sneaking = shy, eating = happy, low health = crying, falling = surprised); blinking and sleeping close the eyes. Talking and smooth eyes are Java/Figura-only. Open the .mcpack to import it, then enable it in the world\'s Resource Packs.'
   },
   wheel: {
+    toggle_glow: "Glow on/off",
+    toggle_eyes: "Eyes follow",
+    why_noGlow: "nothing marked to glow",
+    why_noEyes: "eye follow off",
     title: "Action wheel",
     open: "Wheel settings…",
     summary: "{{style}} · {{p}} pages · {{n}} buttons",
@@ -416,6 +437,10 @@ export const en = {
     footer: "Saved with the skin and used on the next export. In game the real items are drawn by Minecraft.",
   },
   pose: {
+    addLogo: "Add logo (PNG)",
+    changeLogo: "Change logo",
+    removeLogo: "Remove logo",
+    logoHint: "A picture shown for this emote, e.g. for .json emotes that came without one",
     toolbarHint: "Click a part of the character to pose it · right drag to turn the view",
     tabPoses: "Poses",
     tabAnims: "Animations",

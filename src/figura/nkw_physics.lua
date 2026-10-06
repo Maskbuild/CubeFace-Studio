@@ -8,6 +8,7 @@
     gravity = 0.75, drag = 2.4, sway = 0.75,
     limitIn = 4, limitOut = 70,  -- degrees
     axis = 1,               -- flip to -1 if the plane swings the wrong way
+    flutter = 0, phase = 0, -- optional flowing wave (0..1) and its rhythm offset per strand
   })
 
   Each segment's absolute angle is its own critically damped spring (it never bounces past
@@ -24,6 +25,8 @@ local chains = {}
 local D2R, R2D = math.pi / 180, 180 / math.pi
 local LAG = 0.72 -- each lower segment follows at 72% of the stiffness above it
 local ROOT = 0.3 -- the top segment shows 30% of its swing, the tip 100%
+local FL_SPEED, FL_TRAVEL, FL_OUT, FL_ROLL = 2.4, 0.9, 0.35, 0.18 -- flutter wave (rad/s, rad, rad, rad)
+local time = 0
 local function weight(i, n) return n <= 1 and 0.6 or ROOT + (1 - ROOT) * (i - 1) / (n - 1) end
 local prevYaw
 local smooth -- look direction smoothed like the smooth head (when followHead is used)
@@ -47,6 +50,7 @@ function P.chain(parts, cfg)
     k = cfg.stiffness or 0.16, g = cfg.gravity or 0.75,
     drag = cfg.drag or 2.4, sway = cfg.sway or 0.75,
     lo = -(cfg.limitIn or 4) * D2R, hi = (cfg.limitOut or 70) * D2R,
+    flutter = cfg.flutter or 0, phase = cfg.phase or 0,
     a = zeros(n), r = zeros(n), va = zeros(n), vr = zeros(n), pa = zeros(n), pr = zeros(n),
     rest = {},
   }
@@ -62,8 +66,10 @@ local function step(c, m)
     c.pa[i], c.pr[i] = c.a[i], c.r[i]
     local k = c.k * LAG ^ (i - 1)
     local keep = 1 / (1 + math.sqrt(k)) ^ 2 -- critical damping: fastest without overshoot
-    c.va[i] = (c.va[i] + (outT - c.a[i]) * k) * keep
-    c.vr[i] = (c.vr[i] + (rollT - c.r[i]) * k) * keep
+    -- flowing wave travelling down the strand
+    local wave = c.flutter * math.sin(time * FL_SPEED + c.phase - (i - 1) * FL_TRAVEL)
+    c.va[i] = (c.va[i] + (outT + wave * FL_OUT - c.a[i]) * k) * keep
+    c.vr[i] = (c.vr[i] + (rollT + wave * FL_ROLL - c.r[i]) * k) * keep
     c.a[i] = c.a[i] + c.va[i]
     c.r[i] = c.r[i] + c.vr[i]
     if c.a[i] < c.lo then c.a[i], c.va[i] = c.lo, 0 end
@@ -91,6 +97,7 @@ events.TICK:register(function()
     yawRate = prevYaw and -math.rad(rot.y - prevYaw) or 0,
   }
   prevYaw = rot.y
+  time = time + 0.05
   for _, c in ipairs(chains) do step(c, m) end
 end)
 

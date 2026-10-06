@@ -35,6 +35,14 @@ export interface HairPlane {
   phys: HairPhys
   presetId?: string // (older projects) the plane came from a removed Figura preset
   glow?: boolean // glows in the dark in Figura
+  /** Hang down with gravity when the head bends (default on). */
+  hang?: boolean
+  /** Rest curve in degrees over the whole plane (+ = curls outward, like bangs). */
+  curl?: number
+  /** Split into this many strands that swing on their own (1 = one plane). */
+  strands?: number
+  /** Gentle flowing wave even when standing still (0 = none … 1 = strong). */
+  flutter?: number
   img: Img // texture, (w*k) x (h*k) texels where k = skin res / 64
 }
 
@@ -80,6 +88,28 @@ export function hairDefaults(side: HairSide, length: HairLength): Omit<HairInfo,
     phys: { ...p.phys }
   }
 }
+
+/** The hair-specific options with their defaults filled in. */
+export function hairOpts(p: Pick<HairPlane, 'hang' | 'curl' | 'strands' | 'flutter'>) {
+  return { hang: p.hang !== false, curl: p.curl ?? 0, strands: Math.max(1, Math.min(8, Math.round(p.strands ?? 1))), flutter: Math.min(1, Math.max(0, p.flutter ?? 0)) }
+}
+
+/**
+ * Physics as it runs: with "hang" the hair keeps pointing down when the head bends (full
+ * gravity, room to swing out), without it the hair moves with the head.
+ */
+export function livePhys(p: HairPhys, hang: boolean): HairPhys {
+  return { ...p, gravity: hang ? 1 : 0, limitOut: hang ? Math.max(p.limitOut, 100) : p.limitOut }
+}
+
+/** Each strand of a split plane gets its own rhythm and a slightly different speed, so they drift apart. */
+export function strandVariation(i: number, n: number): { phase: number; jitter: number } {
+  if (n <= 1) return { phase: 0, jitter: 0 }
+  return { phase: (i * 2.39996) % (2 * Math.PI), jitter: (((i * 7) % 5) / 4) * 0.24 - 0.12 }
+}
+
+/** Flutter wave: rad/s, travel between segments (rad), outward and sideways amplitude (rad). */
+export const FLUTTER = { speed: 2.4, travel: 0.9, out: 0.35, roll: 0.18 }
 
 export const hairTexSize = (w: number, h: number, res: number) => [Math.max(1, Math.round((w * res) / 64)), Math.max(1, Math.round((h * res) / 64))] as const
 
@@ -139,10 +169,14 @@ export class HairSim {
   private pa: Float64Array
   private pr: Float64Array
 
+  /** seconds of simulated time (drives the flutter wave) */
+  private t = 0
+
   constructor(
     readonly segments: number,
     public side: HairSide,
-    public phys: HairPhys
+    public phys: HairPhys,
+    public extra: { flutter: number; phase: number; jitter: number } = { flutter: 0, phase: 0, jitter: 0 }
   ) {
     const n = segments
     this.out = new Float64Array(n)
@@ -165,11 +199,15 @@ export class HairSim {
     const hi = p.limitOut * D2R
     this.pa.set(this.a)
     this.pr.set(this.r)
+    this.t += 1 / 20
+    const { flutter, phase, jitter } = this.extra
     for (let i = 0; i < this.segments; i++) {
-      const k = p.stiffness * LAG ** i
+      const k = p.stiffness * (1 + jitter) * LAG ** i
       const keep = criticalKeep(k)
-      this.va[i] = (this.va[i] + (outTarget - this.a[i]) * k) * keep
-      this.vr[i] = (this.vr[i] + (rollTarget - this.r[i]) * k) * keep
+      // flowing wave travelling down the strand
+      const wave = flutter ? flutter * Math.sin(this.t * FLUTTER.speed + phase - i * FLUTTER.travel) : 0
+      this.va[i] = (this.va[i] + (outTarget + wave * FLUTTER.out - this.a[i]) * k) * keep
+      this.vr[i] = (this.vr[i] + (rollTarget + wave * FLUTTER.roll - this.r[i]) * k) * keep
       this.a[i] += this.va[i]
       this.r[i] += this.vr[i]
       if (this.a[i] < lo) (this.a[i] = lo), (this.va[i] = 0)
@@ -189,4 +227,28 @@ export class HairSim {
     const lerp = (prev: Float64Array, cur: Float64Array, j: number) => (j < 0 ? 0 : (prev[j] + (cur[j] - prev[j]) * alpha) * rootWeight(j, n))
     return [lerp(this.pa, this.a, i) - lerp(this.pa, this.a, i - 1), lerp(this.pr, this.r, i) - lerp(this.pr, this.r, i - 1)]
   }
+}
+
+/**
+ * Cut pointed tips into the bottom of a hair texture: the plane is split into strands of
+ * `strand` texels, each ending in a point `length` texels long (lengths vary a little so the
+ * ends look natural). Returns a new image; transparent where the tips are cut away.
+ */
+export function hairTips(img: Img, strand: number, length: number, seed = 1): Img {
+  const out = createImg(img.w, img.h)
+  out.data.set(img.data)
+  const sw = Math.max(2, Math.round(strand))
+  let rnd = seed * 9301 + 49297
+  const next = () => ((rnd = (rnd * 9301 + 49297) % 233280) / 233280)
+  for (let x0 = 0; x0 < img.w; x0 += sw) {
+    const w = Math.min(sw, img.w - x0)
+    const len = Math.max(1, Math.round(length * (0.65 + next() * 0.7)))
+    const centre = x0 + w / 2
+    for (let r = 0; r < len && r < img.h; r++) {
+      const y = img.h - 1 - r
+      const half = (w / 2) * ((r + 0.5) / len) // narrower towards the very end
+      for (let x = x0; x < x0 + w; x++) if (Math.abs(x + 0.5 - centre) > half) out.data[(y * img.w + x) * 4 + 3] = 0
+    }
+  }
+  return out
 }

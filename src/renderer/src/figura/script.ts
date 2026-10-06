@@ -1,5 +1,5 @@
 import { allFrames, coversEyes, itemView, liveWheel, toEnglish, type FiguraConfig, type WheelIcon, type WheelToggle } from '../skin/figura'
-import type { HairInfo } from '../skin/hair'
+import { hairOpts, livePhys, strandVariation, type HairInfo } from '../skin/hair'
 import type { ModelInfo } from './bbmodel'
 
 const lua = (n: number) => String(Math.round(n * 1000) / 1000)
@@ -59,10 +59,15 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
     for (const c of chains) {
       const h = hair.find((x) => x.id === c.id)
       if (!h) continue
-      const parts = c.path.slice(1).map((_, i) => path(['Head', ...c.path.slice(0, i + 2)]))
-      const p = h.phys
+      // every group on the path from the first segment down (a strand group sits above them)
+      const first = c.path.findIndex((x) => /^s\d+$/.test(x))
+      const parts = c.path.slice(first).map((_, i) => path(['Head', ...c.path.slice(0, first + i + 1)]))
+      const o = hairOpts(h)
+      const p = livePhys(h.phys, o.hang)
+      const v = strandVariation(c.strand ?? 0, c.strands ?? 1)
+      const flow = o.flutter ? `, flutter = ${lua(o.flutter)}, phase = ${lua(v.phase)}` : ''
       add(
-        `phys.chain({ ${parts.join(', ')} }, { side = "${h.side}", stiffness = ${lua(p.stiffness)}, gravity = ${lua(p.gravity)}, drag = ${lua(p.drag)}, sway = ${lua(p.sway)}, limitIn = ${lua(p.limitIn)}, limitOut = ${lua(p.limitOut)}, axis = ${cfg.swingAxis} })`
+        `phys.chain({ ${parts.join(', ')} }, { side = "${h.side}", stiffness = ${lua(p.stiffness * (1 + v.jitter))}, gravity = ${lua(p.gravity)}, drag = ${lua(p.drag)}, sway = ${lua(p.sway)}, limitIn = ${lua(p.limitIn)}, limitOut = ${lua(p.limitOut)}, axis = ${cfg.swingAxis}${flow} })`
       )
     }
     add('')
@@ -75,7 +80,8 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
   add(
     'local state = { expr = nil, blink = false, talk = false }',
     '-- features the action wheel can switch off',
-    'local toggles = { blink = true, physics = true, smoothHead = true, talk = true }',
+    'local toggles = { blink = true, physics = true, smoothHead = true, talk = true, glow = true, eyes = true }',
+    ...(info.eyes ? [`local eyes = { ${Object.values(info.eyes).map((n) => `M.Head.Face.${n}`).join(', ')} }`] : []),
     `local covers = { ${allFrames(cfg).filter((f) => coversEyes(f, cfg)).map((f) => `${f} = true`).join(', ')} }`,
     'local function refresh()',
     '  for k, p in pairs(face) do',
@@ -86,12 +92,15 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
     '  if face.talk then face.talk:setVisible(state.talk) end',
     '  -- the base frame replaces the skin face and stays under everything',
     '  if face.base then face.base:setVisible(true) end',
+    ...(info.eyes
+      ? ['  -- moving eyes hide while the eyes are closed or an expression draws its own', '  for _, e in pairs(eyes) do e:setVisible(not state.blink and not (state.expr and covers[state.expr])) end']
+      : []),
     'end',
     ''
   )
 
   // ---- action wheel (pages of expressions and toggles, synced with pings) ----------------
-  const pages = liveWheel(cfg, { frames: has, physics: chains.length > 0 })
+  const pages = liveWheel(cfg, { frames: has, physics: chains.length > 0, glow: !!info.glow, eyes: !!info.eyes })
   const live = pages.filter((p, i) => i === 0 || pages.some((q) => q.items.some((it) => it.type === 'page' && it.page === p.id)))
   if (live[0]?.items.length) {
     const pageIx = new Map(live.map((p, i) => [p.id, i + 1]))
@@ -111,7 +120,9 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
         blink: 'if not on then state.blink = false; refresh() end',
         talk: 'if not on then state.talk = false; refresh() end',
         physics: 'phys.setEnabled(on)',
-        smoothHead: 'if not on then M.Head:setRot(0, 0, 0) end'
+        smoothHead: 'if not on then M.Head:setRot(0, 0, 0) end',
+        glow: 'M:setSecondaryRenderType(on and "EMISSIVE" or "NONE")',
+        eyes: 'if not on then for _, e in pairs(eyes) do e:setUVPixels(0, 0) end end'
       }
       add(
         `local TOGGLE = { ${usedToggles.map((t) => `"${t}"`).join(', ')} }`,
@@ -225,8 +236,31 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
       '  sm = sm or target',
       `  local f = 1 - (1 - ${lua(cfg.headSpeed)}) ^ dt`,
       '  sm = sm + vec(wrap(target.x - sm.x), wrap(target.y - sm.y), wrap(target.z - sm.z)) * f',
-      '  M.Head:setRot(vec(wrap(sm.x - target.x), wrap(sm.y - target.y), wrap(sm.z - target.z)))',
+      ...(cfg.headTilt
+        ? [`  -- tilt a little into the turn while the head is catching up`, `  local tilt = math.max(-1, math.min(1, wrap(target.y - sm.y) / 30)) * ${lua(cfg.headTilt)}`]
+        : ['  local tilt = 0']),
+      '  M.Head:setRot(vec(wrap(sm.x - target.x), wrap(sm.y - target.y), wrap(sm.z - target.z) + tilt))',
       'end',
+      ''
+    )
+  }
+  // ---- render: eyes look where the player turns ---------------------------------------------
+  if (info.eyes) {
+    add(
+      `local EYE_RANGE = ${lua(cfg.eyeRange)}`,
+      'local eyeX, eyeY = 0, 0',
+      'local function clamp1(v) return math.max(-1, math.min(1, v)) end',
+      'events.RENDER:register(function(delta, ctx)',
+      '  if ctx ~= "RENDER" and ctx ~= "FIRST_PERSON" then return end',
+      '  if not toggles.eyes then return end',
+      '  local rot = player:getRot(delta)',
+      '  local turn = (rot.y - player:getBodyYaw(delta) + 180) % 360 - 180 -- + = looking right',
+      '  eyeX = eyeX + (clamp1(turn / 45) * EYE_RANGE - eyeX) * 0.3',
+      '  eyeY = eyeY + (clamp1(rot.x / 45) * EYE_RANGE - eyeY) * 0.3',
+      '  -- whole texels; sliding the UV right shows the iris further to the left, and so on',
+      '  local dx, dy = math.floor(eyeX + 0.5), math.floor(eyeY + 0.5)',
+      '  for _, e in pairs(eyes) do e:setUVPixels(dx, -dy) end',
+      'end)',
       ''
     )
   }

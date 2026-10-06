@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { DEFAULT_FLOW, LENGTH_PRESET, physFromFlow, type HairLength, type HairPlane, type HairSide } from '../../skin/hair'
+import { DEFAULT_FLOW, LENGTH_PRESET, physFromFlow, type HairLength, type HairPlane, type HairSide, hairOpts } from '../../skin/hair'
 import { MOTION_MODES, type MotionMode } from '../../three/motion'
 import { useEditor } from '../../store/editor'
 import { Icon } from '../common/Icon'
@@ -37,12 +37,12 @@ function Vec3({ value, step, onChange }: { value: [number, number, number]; step
   )
 }
 
-function PhysSlider({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void }) {
+function PhysSlider({ label, value, min, max, step, onChange, fmt }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; fmt?: (v: number) => string }) {
   return (
     <label className="phys-row">
       <span className="muted">{label}</span>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-      <span className="val">{Math.round(value * 100)}%</span>
+      <span className="val">{fmt ? fmt(value) : Math.round(value * 100) + '%'}</span>
     </label>
   )
 }
@@ -52,6 +52,7 @@ function HairProps({ doc, h }: { doc: SkinDoc; h: HairPlane }) {
   const up = (p: Partial<HairPlane>) => doc.updateHair(h.id, p)
   // older planes have no smoothness value yet: show their length's default
   const flow = h.phys.flow ?? DEFAULT_FLOW[h.length]
+  const opt = hairOpts(h)
   return (
     <div className="hair-props">
       <input className="input" value={h.name} onChange={(e) => up({ name: e.target.value })} />
@@ -104,6 +105,18 @@ function HairProps({ doc, h }: { doc: SkinDoc; h: HairPlane }) {
           {t('hair.resetPhys')}
         </button>
       </div>
+      <label className="row" style={{ fontSize: 12 }} title={t('hair.hangHint')}>
+        <input type="checkbox" checked={opt.hang} onChange={(e) => up({ hang: e.target.checked })} />
+        {t('hair.hang')}
+      </label>
+      <PhysSlider label={t('hair.flutter')} value={opt.flutter} min={0} max={1} step={0.05} onChange={(v) => up({ flutter: v })} />
+      <PhysSlider label={t('hair.strands')} value={opt.strands} min={1} max={8} step={1} fmt={(v) => String(v)} onChange={(v) => up({ strands: v })} />
+      <PhysSlider label={t('hair.curl')} value={opt.curl} min={-90} max={90} step={5} fmt={(v) => v + '°'} onChange={(v) => up({ curl: v })} />
+      <span className="muted" style={{ fontSize: 11 }}>{t('hair.flowyHint')}</span>
+      <button className="btn sm-btn" onClick={() => up({ flutter: 0.6, strands: Math.max(4, Math.round(h.w / 2)), hang: true, phys: physFromFlow(Math.max(flow, 0.7), h.length) })}>
+        <Icon name="sparkle" size={12} />
+        {t('hair.flowyPreset')}
+      </button>
     </div>
   )
 }

@@ -31,8 +31,8 @@ export type WheelIcon =
   | { kind: 'face'; frame: FaceFrame } // the expression's own face frame (already in the atlas)
 
 /** Things a wheel toggle can switch on/off in game. */
-export type WheelToggle = 'blink' | 'physics' | 'smoothHead' | 'talk'
-export const WHEEL_TOGGLES: WheelToggle[] = ['blink', 'physics', 'smoothHead', 'talk']
+export type WheelToggle = 'blink' | 'physics' | 'smoothHead' | 'talk' | 'glow' | 'eyes'
+export const WHEEL_TOGGLES: WheelToggle[] = ['blink', 'physics', 'smoothHead', 'talk', 'glow', 'eyes']
 
 export interface WheelItem {
   id: string
@@ -81,7 +81,9 @@ export const DEFAULT_TOGGLE: Record<WheelToggle, { title: string; icon: string }
   blink: { title: 'Blinking', icon: 'minecraft:ender_eye' },
   physics: { title: 'Hair physics', icon: 'minecraft:feather' },
   smoothHead: { title: 'Smooth head', icon: 'minecraft:armor_stand' },
-  talk: { title: 'Talking mouth', icon: 'minecraft:note_block' }
+  talk: { title: 'Talking mouth', icon: 'minecraft:note_block' },
+  glow: { title: 'Glow', icon: 'minecraft:glowstone_dust' },
+  eyes: { title: 'Eyes follow', icon: 'minecraft:ender_eye' }
 }
 export const DEFAULT_AURIA: AuriaStyle = { overlay: '#33383f', overlayAlpha: 0.5, blur: true, mode: 'MIXED', holdTime: 250, animationSpeed: 0.5, animations: true }
 
@@ -97,7 +99,8 @@ export function defaultWheel(): WheelPage[] {
       items: [
         { id: 'go_faces', type: 'page', page: 'faces', title: 'Expressions', icon: { kind: 'item', id: 'minecraft:painting' } },
         { id: 't_blink', type: 'toggle', toggle: 'blink', title: '' },
-        { id: 't_physics', type: 'toggle', toggle: 'physics', title: '' }
+        { id: 't_physics', type: 'toggle', toggle: 'physics', title: '' },
+        { id: 't_glow', type: 'toggle', toggle: 'glow', title: '' }
       ]
     },
     { id: 'faces', title: 'Expressions', auto: true, items: [{ id: 'clear', type: 'clear', title: 'Normal face', icon: { kind: 'item', id: 'minecraft:barrier' } }] }
@@ -139,6 +142,14 @@ export interface FiguraConfig {
   skinParts: 'needed' | 'all'
   /** Face frames that glow in the dark (e.g. the base face for glowing eyes). */
   glowFrames: FaceFrame[]
+  /** Eyes look where the player turns (the iris slides inside the eye boxes). */
+  eyeFollow: boolean
+  /** How far the iris can slide, in face texels. */
+  eyeRange: number
+  /** Head tilts a little while turning (degrees, smooth head only). */
+  headTilt: number
+  /** Wheel layout version (adds new built-in buttons once to older wheels). */
+  wheelV?: number
   /** Library avatars added to this skin (previewed together, exported as separate folders). */
   attached: { id: string; enabled: boolean }[]
   avatarName: string // export metadata, English only
@@ -174,6 +185,10 @@ export function figuraDefaults(res: number): FiguraConfig {
     iconVersion: '1.21.4',
     skinParts: 'needed',
     glowFrames: [],
+    eyeFollow: true,
+    eyeRange: k,
+    headTilt: 6,
+    wheelV: 2,
     attached: [],
     avatarName: '',
     author: '',
@@ -255,6 +270,8 @@ export function syncWheel(cfg: FiguraConfig): WheelPage[] {
 export interface WheelContext {
   frames: (f: FaceFrame) => boolean // face frame exported
   physics: boolean // hair chains exported with physics
+  glow?: boolean // a glow texture is exported
+  eyes?: boolean // eye-follow planes are exported
 }
 
 /** Visible, working wheel: hidden/inactive items removed, empty pages and links to them dropped. */
@@ -264,7 +281,9 @@ export function liveWheel(cfg: FiguraConfig, ctx: WheelContext): WheelPage[] {
     if (it.type === 'expr') return cfg.expressions && !!it.expr && ctx.frames(it.expr)
     if (it.type === 'clear') return cfg.expressions
     if (it.type === 'toggle')
-      return it.toggle === 'physics' ? ctx.physics : it.toggle === 'blink' ? cfg.blink && ctx.frames('blink') : it.toggle === 'talk' ? cfg.talk && ctx.frames('talk') : cfg.smoothHead
+      if (it.toggle === 'glow') return !!ctx.glow
+    if (it.toggle === 'eyes') return !!ctx.eyes
+    return it.toggle === 'physics' ? ctx.physics : it.toggle === 'blink' ? cfg.blink && ctx.frames('blink') : it.toggle === 'talk' ? cfg.talk && ctx.frames('talk') : cfg.smoothHead
     return true
   }
   let pages = syncWheel(cfg).map((p) => ({ ...p, items: p.items.filter(works) }))
@@ -283,7 +302,14 @@ export function liveWheel(cfg: FiguraConfig, ctx: WheelContext): WheelPage[] {
 
 /** Convert a config saved before wheel pages existed. */
 export function migrateWheel(cfg: Partial<FiguraConfig> & Record<string, unknown>): Partial<FiguraConfig> {
-  if (cfg.wheelPages) return cfg
+  if (cfg.wheelPages) {
+    // v2: the glow switch joins the main page once
+    if ((cfg.wheelV ?? 1) < 2 && cfg.wheelPages[0] && !cfg.wheelPages.some((p) => p.items.some((i) => i.toggle === 'glow'))) {
+      const [main, ...rest] = cfg.wheelPages
+      return { ...cfg, wheelV: 2, wheelPages: [{ ...main, items: [...main.items, { id: 't_glow', type: 'toggle', toggle: 'glow', title: '' }] }, ...rest] }
+    }
+    return cfg
+  }
   const old = (cfg.buttons ?? {}) as Partial<Record<ExprKey, { title?: string; icon?: string; color?: string; hidden?: boolean }>>
   const order = (cfg.wheelOrder ?? []) as ExprKey[]
   const pages = defaultWheel()

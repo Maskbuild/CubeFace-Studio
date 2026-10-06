@@ -44,6 +44,28 @@ export function faceWithFrame(doc: SkinDoc, frame: FaceFrame): Img {
   return out
 }
 
+/**
+ * Eye boxes cut from the face (skin face + base frame), tiled 3×3 so the eye planes can shift
+ * their UV by up to one box in any direction and still show the eye wrapping around.
+ */
+export function eyeTiles(doc: SkinDoc): Record<string, Img> {
+  const face = faceWithFrame(doc, 'base')
+  const out: Record<string, Img> = {}
+  for (const [key, r] of [['eye_R', doc.figura.eyeR], ['eye_L', doc.figura.eyeL]] as const) {
+    if (r.w < 1 || r.h < 1) continue
+    const tile = createImg(r.w * 3, r.h * 3)
+    for (let ty = 0; ty < 3; ty++)
+      for (let tx = 0; tx < 3; tx++)
+        for (let y = 0; y < r.h; y++)
+          for (let x = 0; x < r.w; x++) {
+            const sx = Math.min(face.w - 1, r.x + x), sy = Math.min(face.h - 1, r.y + y)
+            tile.data.set(face.data.subarray((sy * face.w + sx) * 4, (sy * face.w + sx) * 4 + 4), ((ty * r.h + y) * tile.w + tx * r.w + x) * 4)
+          }
+    out[key] = tile
+  }
+  return out
+}
+
 /** Pictures the exported wheel needs in the atlas (uploads and baked faces): item id -> image. */
 export async function wheelIcons(doc: SkinDoc, frames: string[], physics: boolean): Promise<Record<string, Img>> {
   const out: Record<string, Img> = {}
@@ -88,6 +110,7 @@ export function prepareAtlas(doc: SkinDoc, target: 'figura' | 'bedrock' = 'bedro
   })
   for (const f of frames) extras['face_' + f] = doc.faces[f]!
   for (const [id, img] of Object.entries(icons)) extras['icon_' + id] = img
+  if (target === 'figura' && cfg.eyeFollow) Object.assign(extras, eyeTiles(doc))
 
   // ship only the texture rows the shipped parts need (a head-only skin keeps the top quarter)
   const used = shippedCuboids(doc, target)

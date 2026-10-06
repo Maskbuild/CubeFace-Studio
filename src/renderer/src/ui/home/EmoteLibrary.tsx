@@ -4,9 +4,24 @@ import { emoteToEmotecraft } from '../../pose/emote'
 import { pickEmoteFiles, readEmoteFiles, usePoseLibrary } from '../../pose/library'
 import { BUILTIN_ANIMS } from '../../pose/presets'
 import { storage } from '../../lib/storage'
+import { loadImage } from '../../lib/png'
 import { Icon } from '../common/Icon'
 import { confirmBox, promptBox, toast } from '../common/dialogs'
 import { EmotePreview } from '../pose/EmotePreview'
+
+/** A logo fitted into a 128px square (keeps the library small; pixel art stays crisp). */
+async function squareLogo(dataUrl: string): Promise<string> {
+  const img = await loadImage(dataUrl)
+  const S = 128
+  const c = document.createElement('canvas')
+  c.width = c.height = S
+  const g = c.getContext('2d')!
+  const k = Math.min(S / img.width, S / img.height)
+  g.imageSmoothingEnabled = k < 1
+  const w = img.width * k, h = img.height * k
+  g.drawImage(img, (S - w) / 2, (S - h) / 2, w, h)
+  return c.toDataURL('image/png')
+}
 
 /** Home tab: emotes for every skin (Emotecraft .json / .emotecraft), with a playing preview. */
 export function EmoteLibraryTab() {
@@ -79,6 +94,22 @@ export function EmoteLibraryTab() {
             {emote.description && <span className="muted" style={{ fontSize: 12 }}>{emote.description}</span>}
             <span className="muted" style={{ fontSize: 12 }}>{(emote.endTick / 20).toFixed(2)} s · {emote.loop ? t('pose.loop') : t('pose.once')}</span>
             <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+              {!emote.builtin && (
+                <button
+                  className="btn sm-btn"
+                  title={t('pose.logoHint')}
+                  onClick={async () => {
+                    const f = await storage.openImage()
+                    if (f) lib.updateEmote(emote.id, { icon: await squareLogo(f.dataUrl) })
+                  }}
+                >
+                  <Icon name="image" size={13} />
+                  {emote.icon ? t('pose.changeLogo') : t('pose.addLogo')}
+                </button>
+              )}
+              {!emote.builtin && emote.icon && (
+                <button className="btn sm-btn" onClick={() => lib.updateEmote(emote.id, { icon: undefined })}>{t('pose.removeLogo')}</button>
+              )}
               {!emote.builtin && (
                 <button
                   className="btn sm-btn"

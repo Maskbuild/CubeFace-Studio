@@ -25,7 +25,9 @@ function wheelContext(doc: SkinDoc): WheelContext {
   const c = doc.figura
   return {
     frames: (f) => !!doc.faces[f] && (f !== 'blink' || c.blink) && (f !== 'talk' || c.talk),
-    physics: c.hairPhysics && doc.hair.some((h) => h.visible)
+    physics: c.hairPhysics && doc.hair.some((h) => h.visible),
+    glow: doc.layers.some((l) => l.glow) || doc.hair.some((h) => h.glow) || (c.glowFrames ?? []).some((f) => !!doc.faces[f]),
+    eyes: c.eyeFollow
   }
 }
 
@@ -38,6 +40,8 @@ function inactive(c: FiguraConfig, ctx: WheelContext, it: WheelItem): string | n
     if (it.toggle === 'physics') return ctx.physics ? null : 'noPhysics'
     if (it.toggle === 'blink') return c.blink && ctx.frames('blink') ? null : 'noBlink'
     if (it.toggle === 'talk') return c.talk && ctx.frames('talk') ? null : 'noTalk'
+    if (it.toggle === 'glow') return ctx.glow ? null : 'noGlow'
+    if (it.toggle === 'eyes') return ctx.eyes ? null : 'noEyes'
     return c.smoothHead ? null : 'noSmooth'
   }
   return null

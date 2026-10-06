@@ -266,7 +266,8 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
         const x = Math.min(clip.x + clip.w - 1, Math.max(clip.x, Math.floor(hit.uv!.x * doc.res)))
         const y = Math.min(clip.y + clip.h - 1, Math.max(clip.y, Math.floor(hit.uv!.y * doc.res)))
         // In auto mode, see through transparent overlay pixels to the base layer underneath.
-        if (s.target === 'auto' && info.kind === 'overlay' && doc.composite.data[(y * doc.res + x) * 4 + 3] === 0) continue
+        // Auto paints the body (inner layer) first; the outer layer only where the inner part is hidden
+        if (s.target === 'auto' && info.kind === 'overlay' && !s.hidden[info.key.replace('overlay', 'base')]) continue
         return { x, y, clip, hairId: null }
       }
       return null
@@ -420,6 +421,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
           figAcc -= 0.05
           fig.tick(doc)
         }
+        fig.updateEyes(doc, model.parts.head)
         // smooth head: the head lags behind where the animation points it
         const head = model.parts.head
         if (cfg.smoothHead && driver.mode !== 'off' && !posing()) {

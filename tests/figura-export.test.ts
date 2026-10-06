@@ -237,3 +237,50 @@ describe('action wheel pages', () => {
       expect(() => luaparse.parse(readFileSync('src/figura/auria_wheel/' + f, 'utf8'), { luaVersion: '5.2' }), f).not.toThrow()
   })
 })
+
+import { hairTips } from '../src/renderer/src/skin/hair'
+
+describe('flowing hair, tips, eyes and glow switch', () => {
+  it('splits a plane into strands with their own chains, curve and flutter', () => {
+    const h = { ...hair, strands: 3, curl: 30, flutter: 0.5 }
+    const { model, info } = buildModel(input({ hair: [h], faceFrames: [] })) as { model: Any; info: any }
+    expect(info.hairChains).toHaveLength(3)
+    expect(info.hairChains[1].path).toEqual(['Hair1', 'st2', 's1', 's2', 's3'])
+    expect(model.groups.find((g: Any) => g.name === 's1').rotation[0]).toBeCloseTo(10) // 30° over 3 segments
+    const s = buildScript('T', figuraDefaults(64), info, [h])
+    expect(s.match(/phys\.chain\(/g)).toHaveLength(3)
+    expect(s).toContain('M.Head.Hair1.st2.s1, M.Head.Hair1.st2.s1.s2')
+    expect(s).toContain('flutter = 0.5, phase =')
+    expect(s).toContain('gravity = 1') // hangs down when bending (default on)
+    parse(s)
+    const stiff = buildScript('T', figuraDefaults(64), info, [{ ...h, hang: false }])
+    expect(stiff).toContain('gravity = 0')
+  })
+  it('cuts pointed tips into the bottom of a hair texture', () => {
+    const img = createImg(8, 8)
+    img.data.fill(255)
+    const out = hairTips(img, 4, 3)
+    expect(out.data[(7 * 8 + 0) * 4 + 3]).toBe(0) // corner of a lock is cut away
+    expect(out.data[(0 * 8 + 0) * 4 + 3]).toBe(255) // the top stays
+  })
+  it('exports eye planes that slide with the look, and a glow switch', () => {
+    const slots = { ...input().slots, face_base: { x: 0, y: 72, w: 8, h: 8 }, eye_R: { x: 24, y: 64, w: 6, h: 3 }, eye_L: { x: 32, y: 64, w: 6, h: 3 } }
+    const { model, info } = buildModel(input({ slots, faceFrames: ['base', 'blink'], glowDataUrl: 'data:image/png;base64,' })) as { model: Any; info: any }
+    expect(info.eyes).toEqual({ R: 'EyeR', L: 'EyeL' })
+    expect(info.glow).toBe(true)
+    const eye = model.elements.find((e: Any) => e.name === 'EyeR')
+    expect(eye.faces.north.uv[0]).toBeCloseTo((24 + 2) * (64 / 64)) // centre tile of the 3×3 eye
+    const s = buildScript('T', figuraDefaults(64), info, [hair])
+    expect(s).toContain('e:setUVPixels(dx, -dy)')
+    expect(s).toContain('player:getBodyYaw(delta)')
+    expect(s).toContain('M:setSecondaryRenderType(on and "EMISSIVE" or "NONE")')
+    expect(s).toContain('title("Glow")')
+    parse(s)
+  })
+  it('adds the glow switch once to older wheels', () => {
+    const old = { ...figuraDefaults(64), wheelV: undefined, wheelPages: [{ id: 'main', title: 'Main', items: [] }] } as never
+    const cfg = migrateWheel(old) as { wheelPages: { items: { toggle?: string }[] }[]; wheelV: number }
+    expect(cfg.wheelPages[0].items.map((i) => i.toggle)).toEqual(['glow'])
+    expect(cfg.wheelV).toBe(2)
+  })
+})

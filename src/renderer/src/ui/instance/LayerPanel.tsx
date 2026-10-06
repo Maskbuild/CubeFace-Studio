@@ -7,6 +7,7 @@ import { Icon } from '../common/Icon'
 import { ContextMenu, type MenuItem } from '../common/ContextMenu'
 import { copyLayer, exportLayer, importAsNewLayers, importIntoLayer, pasteLayer } from '../../lib/layerActions'
 import { readDroppedImages } from '../../lib/files'
+import type { HairPlane } from '../../skin/hair'
 
 function LayerThumb({ layer, res }: { layer: Layer; res: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -23,6 +24,52 @@ function LayerThumb({ layer, res }: { layer: Layer; res: number }) {
     ctx.drawImage(tmp, 0, 0, 64, 64)
   }, [layer, layer.img, res, tick])
   return <canvas ref={ref} className="lthumb checker" />
+}
+
+/** Thumbnail of a hair plane's texture (keeps its shape). */
+function HairThumb({ h }: { h: HairPlane }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  const tick = useEditor((s) => s.tick)
+  useEffect(() => {
+    const c = ref.current!
+    c.width = c.height = 64
+    const ctx = c.getContext('2d')!
+    const tmp = document.createElement('canvas')
+    tmp.width = h.img.w
+    tmp.height = h.img.h
+    tmp.getContext('2d')!.putImageData(new ImageData(h.img.data, h.img.w, h.img.h), 0, 0)
+    ctx.clearRect(0, 0, 64, 64)
+    ctx.imageSmoothingEnabled = false
+    const k = Math.min(64 / h.img.w, 64 / h.img.h)
+    ctx.drawImage(tmp, (64 - h.img.w * k) / 2, (64 - h.img.h * k) / 2, h.img.w * k, h.img.h * k)
+  }, [h, h.img, tick])
+  return <canvas ref={ref} className="lthumb checker" />
+}
+
+/**
+ * Hair planes listed as their own layers under the skin layers: click to paint one (the UV
+ * panel and the 3D view switch to it), hide it, make it glow.
+ */
+function HairLayers({ doc }: { doc: SkinDoc }) {
+  const { t } = useTranslation()
+  if (!doc.hair.length) return null
+  return (
+    <div className="hair-layers">
+      <span className="label">{t('layers.hairSection')}</span>
+      {[...doc.hair].reverse().map((h) => (
+        <div key={h.id} className={'layer' + (doc.hairId === h.id ? ' on' : '') + (h.visible ? '' : ' hidden-layer')} onClick={() => doc.selectHair(doc.hairId === h.id ? null : h.id)}>
+          <button className="icon-btn sm" title={t('layers.visible')} onClick={(e) => (e.stopPropagation(), doc.updateHair(h.id, { visible: !h.visible }))}>
+            <Icon name={h.visible ? 'eye' : 'eyeOff'} size={14} />
+          </button>
+          <HairThumb h={h} />
+          <div className="lname"><span>{h.name}</span></div>
+          <button className={'icon-btn sm glow-btn' + (h.glow ? ' on' : '')} title={t('glow.toggle')} onClick={(e) => (e.stopPropagation(), doc.updateHair(h.id, { glow: !h.glow }))}>
+            <Icon name="sun" size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 const LICENSES: License[] = ['free', 'commercial-nomod', 'commercial-mod', 'exclusive']
@@ -242,6 +289,7 @@ export function LayerPanel({ doc }: { doc: SkinDoc }) {
           </div>
         ))}
       </div>
+      <HairLayers doc={doc} />
       <div className="layer-foot">
         <button className="icon-btn" title={t('layers.add')} onClick={() => doc.addLayer(t('layers.defaultName', { n: doc.layers.length + 1 }))}><Icon name="plus" /></button>
         <button className="icon-btn" title={t('layers.duplicate')} disabled={!active} onClick={() => active && doc.duplicateLayer(active.id)}><Icon name="copy" /></button>

@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import vanillaEntity from '../../../bedrock/player.entity.json'
 import vanillaRc from '../../../bedrock/player.render_controllers.json'
 import { cuboids, type PartId, type Variant } from '../skin/layout'
-import { criticalKeep, LAG, rootWeight, type HairInfo, type HairPhys } from '../skin/hair'
+import { criticalKeep, FLUTTER, hairOpts, LAG, livePhys, rootWeight, type HairInfo, type HairPhys } from '../skin/hair'
 import { coversEyes, type FaceFrame, type FiguraConfig } from '../skin/figura'
 import type { AtlasSlot } from '../figura/atlas'
 
@@ -124,6 +124,8 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
       const segTop: V3 = [top[0], top[1] - i * len, top[2]]
       const rowH = s.h / h.segments
       bone(name, parent, segTop, {
+        // rest curve, same direction as the outward swing
+        ...(hairOpts(h).curl ? { rotation: [r4((hairOpts(h).curl / h.segments) * inp.figura.swingAxis), 0, 0] } : {}),
         cubes: [{ origin: [r4(top[0] - h.w / 2), r4(top[1] - (i + 1) * len), r4(-top[2])], size: [h.w, r4(len), 0], uv: plane(slotUV(s, i * rowH, rowH)) }]
       })
       names.push(name)
@@ -168,7 +170,7 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
    * the target (lower segments slower by LAG); bones rotate by the difference to their parent.
    * Per-frame here, so the per-tick constants are scaled by v.nkw_dt.
    */
-  const spring = (prefix: string, bonesList: string[], side: 'front' | 'back', p: HairPhys) => {
+  const spring = (prefix: string, bonesList: string[], side: 'front' | 'back', p: HairPhys, flutter = 0) => {
     const s = side === 'front' ? 1 : -1
     pre.push(
       `v.${prefix}ot = ${-s} * v.nkw_vz * ${r4(p.drag)} + math.max(0, -v.nkw_vy) * ${r4(p.drag * 0.6)} + ${s} * v.nkw_pitch * ${r4(p.gravity)};`,
@@ -178,10 +180,12 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
       const k = p.stiffness * LAG ** i
       const keep = r4(criticalKeep(k))
       const A = `v.${prefix}a${i}`, VA = `v.${prefix}va${i}`, R = `v.${prefix}r${i}`, VR = `v.${prefix}vr${i}`
+      // flowing wave (Molang sin takes degrees): same speed / travel as FLUTTER in hair.ts
+      const wave = flutter ? `math.sin(query.life_time * ${r4(FLUTTER.speed * 57.3)} - ${r4(i * FLUTTER.travel * 57.3)}) * ${r4(flutter)}` : '0'
       pre.push(
-        `${VA} = ((${VA} ?? 0) + (v.${prefix}ot - (${A} ?? 0)) * ${r4(k)} * v.nkw_dt) * math.pow(${keep}, v.nkw_dt);`,
+        `${VA} = ((${VA} ?? 0) + (v.${prefix}ot + ${wave} * ${FLUTTER.out} - (${A} ?? 0)) * ${r4(k)} * v.nkw_dt) * math.pow(${keep}, v.nkw_dt);`,
         `${A} = math.clamp((${A} ?? 0) + ${VA} * v.nkw_dt, ${r4(-p.limitIn * 0.01745)}, ${r4(p.limitOut * 0.01745)});`,
-        `${VR} = ((${VR} ?? 0) + (v.${prefix}rt - (${R} ?? 0)) * ${r4(k)} * v.nkw_dt) * math.pow(${keep}, v.nkw_dt);`,
+        `${VR} = ((${VR} ?? 0) + (v.${prefix}rt + ${wave} * ${FLUTTER.roll} - (${R} ?? 0)) * ${r4(k)} * v.nkw_dt) * math.pow(${keep}, v.nkw_dt);`,
         `${R} = math.clamp((${R} ?? 0) + ${VR} * v.nkw_dt, -0.9, 0.9);`
       )
       const n = bonesList.length
@@ -192,7 +196,7 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
       anim[bone] = { rotation: [`(${A} * ${w}${pa}) * ${r4(57.3 * cfg.swingAxis)}`, 0, `(${R} * ${w}${pr}) * 57.3`] }
     })
   }
-  if (cfg.hairPhysics) chains.forEach((c, i) => spring(`nkw_c${i}`, c.bones, c.hair.side, c.hair.phys))
+  if (cfg.hairPhysics) chains.forEach((c, i) => spring(`nkw_c${i}`, c.bones, c.hair.side, livePhys(c.hair.phys, hairOpts(c.hair).hang), hairOpts(c.hair).flutter))
 
   // ---- face frame visibility (Bedrock has no action wheel: expressions follow game states) --
   const vis: Json[] = []

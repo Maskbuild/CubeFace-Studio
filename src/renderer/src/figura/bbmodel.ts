@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { cuboids, type FaceName, type PartId, type Rect, type Variant } from '../skin/layout'
-import type { HairInfo } from '../skin/hair'
+import { hairOpts, type HairInfo } from '../skin/hair'
 import type { FaceFrame, FiguraConfig } from '../skin/figura'
 import type { AtlasSlot } from './atlas'
 
@@ -47,12 +47,16 @@ const NO_FACE: BBFace = { uv: [0, 0, 0, 0], texture: null }
 
 /** Lua paths and settings the script generator needs. */
 export interface ModelInfo {
-  hairChains: { path: string[]; id: string }[]
+  hairChains: { path: string[]; id: string; strand?: number; strands?: number }[]
   faceParts: Partial<Record<FaceFrame, string>>
   /** Vanilla parts this avatar replaces (Figura vanilla_model names). */
   replaces: string[]
   /** Atlas size and slots (wheel icons drawn from the avatar texture). */
   atlas: { w: number; h: number; slots: Record<string, AtlasSlot> }
+  /** Eye planes that follow the look (part names under Head.Face), if exported. */
+  eyes?: { R?: string; L?: string }
+  /** A glow (emissive) texture is part of the model. */
+  glow?: boolean
 }
 
 export interface ModelInput {
@@ -171,26 +175,54 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
     plane(faceGroup, name, -4, 4, 24, 32, r4(-4.02 - i * 0.001), slotUV(s))
     info.faceParts[fr] = name
   })
-  // ---- hair planes -----------------------------------------------------------------------
+  // eyes that follow the look: the eye box's centre tile, just in front of the base face
+  const fk = inp.res / 64 // face texels per head pixel
+  for (const [side, key] of [['R', 'eye_R'], ['L', 'eye_L']] as const) {
+    const s = inp.slots[key]
+    const r = side === 'R' ? inp.figura.eyeR : inp.figura.eyeL
+    if (!s || !inp.figura.eyeFollow) continue
+    const x0 = -4 + r.x / fk, x1 = -4 + (r.x + r.w) / fk // head space, player's right is -X
+    const y1 = 32 - r.y / fk, y0 = 32 - (r.y + r.h) / fk
+    const name = 'Eye' + side
+    plane(faceGroup, name, r4(-x1), r4(-x0), r4(y0), r4(y1), -4.0205, slotUV(s, { x: r.w, y: r.h, w: r.w, h: r.h }))
+    ;(info.eyes ??= {})[side] = name
+  }
+  info.glow = !!inp.glowDataUrl
+  // ---- hair planes: one chain per strand (a plane can be split into strands that swing apart) ----
   inp.hair.forEach((h, hi) => {
     const s = inp.slots['hair_' + h.id]
     if (!s || !h.visible) return
+    const o = hairOpts(h)
     const len = h.h / h.segments
     const top: V3 = bb([h.pos[0], h.pos[1] + 24, h.pos[2]])
-    const path: string[] = []
     const name = `Hair${hi + 1}`
     const container = group(name, top, toBBRotation(h.rot))
     head.children.push(container)
-    let parent = container
-    for (let i = 0; i < h.segments; i++) {
-      const seg = group('s' + (i + 1), [top[0], r4(top[1] - i * len), top[2]])
-      parent.children.push(seg)
-      const segH = (s.h / h.segments)
-      plane(seg, `${name}_${i + 1}`, top[0] - h.w / 2, top[0] + h.w / 2, r4(top[1] - (i + 1) * len), r4(top[1] - i * len), top[2], slotUV(s, { x: 0, y: i * segH, w: s.w, h: segH }))
-      path.push('s' + (i + 1))
-      parent = seg
+    // rest curve per segment, in the same direction the physics swings outward
+    const curl = r4((o.curl / h.segments) * inp.figura.swingAxis)
+    const sw = h.w / o.strands
+    const tw = s.w / o.strands
+    for (let j = 0; j < o.strands; j++) {
+      // strand centre in head space (x mirrors into Blockbench space)
+      const cx = r4(top[0] - (-h.w / 2 + (j + 0.5) * sw))
+      let parent = container
+      const strandName = o.strands > 1 ? `st${j + 1}` : ''
+      if (strandName) {
+        const sg = group(strandName, [cx, top[1], top[2]])
+        container.children.push(sg)
+        parent = sg
+      }
+      const path: string[] = strandName ? [strandName] : []
+      for (let i = 0; i < h.segments; i++) {
+        const seg = group('s' + (i + 1), [cx, r4(top[1] - i * len), top[2]], [curl, 0, 0])
+        parent.children.push(seg)
+        const segH = s.h / h.segments
+        plane(seg, `${name}_${strandName ? strandName + '_' : ''}${i + 1}`, cx - sw / 2, cx + sw / 2, r4(top[1] - (i + 1) * len), r4(top[1] - i * len), top[2], slotUV(s, { x: j * tw, y: i * segH, w: tw, h: segH }))
+        path.push('s' + (i + 1))
+        parent = seg
+      }
+      info.hairChains.push({ path: [name, ...path], id: h.id, strand: j, strands: o.strands })
     }
-    info.hairChains.push({ path: [name, ...path], id: h.id })
   })
 
   const outline = (g: BBGroup): object => ({ uuid: g.uuid, isOpen: false, children: g.children.map((c) => (typeof c === 'string' ? c : outline(c))) })

@@ -507,3 +507,5 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .glow-btn { opacity: .35; }
 .glow-btn:hover { opacity: .8; }
 .glow-btn.on { opacity: 1; color: #f2b400; }
+
+.hair-layers { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; border-top: 1px solid var(--border); max-height: 34%; overflow-y: auto; flex: none; }
