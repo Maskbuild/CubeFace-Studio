@@ -40,7 +40,7 @@ The app is in **Thai and English** (switch any time in ⚙ Settings).
 
 **Figura avatar builder**
 - Smooth head (also turns the head pieces of avatars merged into it), hair planes with
-  physics, blinking, talking mouth (Plasmo Voice), expressions and your own custom faces.
+  physics, blinking, expressions and your own custom faces.
 - Face frames from 16×16 to 128×128 px, drawn in a dedicated paint window; face sets you can
   reuse on other skins.
 - Glow: eyes (paint exactly which spots glow), hair planes, layers, each with its own switch.
@@ -84,8 +84,8 @@ In short:
 
 Get the latest version from **[Releases](https://github.com/Maskbuild/Nkw-Custom-Skin/releases/latest)** (Windows 10/11, 64-bit):
 
-- **CubeFace-Studio-Setup-1.0.0.exe**: installer (choose the folder, adds Start menu and desktop shortcuts).
-- **CubeFace-Studio-1.0.0-win-x64-portable.zip**: no install; unzip anywhere and run `CubeFace Studio.exe`.
+- **CubeFace-Studio-Setup-1.0.1.exe**: installer (choose the folder, adds Start menu and desktop shortcuts).
+- **CubeFace-Studio-1.0.1-win-x64-portable.zip**: no install; unzip anywhere and run `CubeFace Studio.exe`.
 
 The app is not code-signed, so Windows SmartScreen may warn the first time: click *More info → Run anyway*.
 

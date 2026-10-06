@@ -18,7 +18,8 @@ export type CustomFrame = `x_${string}`
 export type FaceFrame = Expression | 'base' | 'blink' | 'talk' | 'glowMask' | CustomFrame
 /** Any expression shown on the action wheel (built-in or custom). */
 export type ExprKey = Expression | CustomFrame
-export const FACE_FRAMES: FaceFrame[] = ['base', 'blink', 'talk', ...EXPRESSIONS]
+/** ('talk' stays in the type only so old projects still load; the talking mouth was removed.) */
+export const FACE_FRAMES: FaceFrame[] = ['base', 'blink', ...EXPRESSIONS]
 
 // ---- action wheel ---------------------------------------------------------------------------
 
@@ -35,7 +36,7 @@ export type WheelIcon =
 /** Glow switches: everything, the eyes, the skin layers, or one hair plane ("glowHair:<id>"). */
 export type GlowToggle = 'glow' | 'glowEyes' | 'glowSkin' | `glowHair:${string}`
 export type WheelToggle = 'blink' | 'physics' | 'smoothHead' | 'talk' | GlowToggle
-export const WHEEL_TOGGLES: WheelToggle[] = ['blink', 'physics', 'smoothHead', 'talk', 'glow', 'glowEyes', 'glowSkin']
+export const WHEEL_TOGGLES: WheelToggle[] = ['blink', 'physics', 'smoothHead', 'glow', 'glowEyes', 'glowSkin']
 export const isGlowToggle = (t: string): t is GlowToggle => t === 'glow' || t.startsWith('glow')
 
 export interface WheelItem {
@@ -193,7 +194,7 @@ export function figuraDefaults(res: number): FiguraConfig {
     mouth: { x: 3 * k, y: 6 * k, w: 2 * k, h: 1 * k },
     hideVanilla: 'used',
     expressions: true,
-    talk: true,
+    talk: false,
     talkThreshold: 0.05,
     customExpr: [],
     wheel: 'figura',
@@ -271,6 +272,8 @@ export function syncWheel(cfg: FiguraConfig): WheelPage[] {
     // a home button whose page was deleted goes to the first page
     items: p.items.map((it) => (it.type === 'home' && it.page && !ids.has(it.page) ? { ...it, page: undefined } : it)).filter((it) => {
       if (it.type === 'page') return !!it.page && ids.has(it.page) && it.page !== p.id
+      // the talking mouth was removed: drop its old switch
+      if (it.type === 'toggle' && it.toggle === 'talk') return false
       if (it.type !== 'expr') return true
       if (!it.expr || !exprs.includes(it.expr) || seen.has(it.expr)) return false
       seen.add(it.expr)
@@ -308,7 +311,7 @@ export function liveWheel(cfg: FiguraConfig, ctx: WheelContext): WheelPage[] {
     if (it.toggle === 'glowEyes') return !!ctx.glow?.eyes
     if (it.toggle === 'glowSkin') return !!ctx.glow?.skin
     if (it.toggle?.startsWith('glowHair:')) return !!ctx.glow?.hair.includes(it.toggle.slice(9))
-    return it.toggle === 'physics' ? ctx.physics : it.toggle === 'blink' ? cfg.blink && ctx.frames('blink') : it.toggle === 'talk' ? cfg.talk && ctx.frames('talk') : cfg.smoothHead
+    return it.toggle === 'physics' ? ctx.physics : it.toggle === 'blink' ? cfg.blink && ctx.frames('blink') : it.toggle === 'talk' ? false : cfg.smoothHead
     return true
   }
   let pages = syncWheel(cfg).map((p) => ({ ...p, items: p.items.filter(works) }))
@@ -529,9 +532,6 @@ export function generateFrames(face: Img, c: FiguraConfig): Record<FaceFrame, Im
     cover(frames.blink, e)
     curve(frames.blink, e, 0.55, 0.6)
   })
-
-  frames.talk = make()
-  block(frames.talk, m.x, m.y, m.w, Math.max(m.h, 2 * t), mouthDark)
 
   frames.happy = make()
   eyes.forEach((e) => {

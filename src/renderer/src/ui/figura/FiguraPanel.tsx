@@ -247,7 +247,7 @@ function AttachedAvatars({ doc }: { doc: SkinDoc }) {
 export function FiguraPanel({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
   useEditor((s) => s.tick)
-  const { figura: preview, figExpr, figTalk, motion, set } = useEditor()
+  const { figura: preview, figExpr, motion, set } = useEditor()
   const c = doc.figura
   const up = (p: Partial<FiguraConfig>) => doc.updateFigura(p)
 
@@ -305,13 +305,6 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
           </div>
           <span className="label" style={{ marginTop: 6 }}>{t('figura.actionWheel')}</span>
           <WheelSummary doc={doc} />
-        </Toggle>
-        <Toggle label={t('figura.talk')} on={c.talk} onChange={(v) => up({ talk: v })}>
-          <span className="muted" style={{ fontSize: 11 }}>{t('figura.talkHelp')}</span>
-          <Range label={t('figura.talkThreshold')} value={c.talkThreshold} min={0} max={0.5} step={0.01} onChange={(v) => up({ talkThreshold: v })} />
-          <button className={'btn sm-btn' + (figTalk ? ' primary' : '')} disabled={!doc.faces.talk} onClick={() => set({ figTalk: !figTalk })}>
-            {t('figura.testTalk')}
-          </button>
         </Toggle>
       </div>
     </div>

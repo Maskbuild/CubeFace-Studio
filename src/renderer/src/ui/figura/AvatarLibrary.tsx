@@ -9,6 +9,7 @@ import { AvatarViewer } from './AvatarViewer'
 import { RightsBadges, RightsEditor } from '../common/RightsEditor'
 import { defaultRights, type Rights } from '../../skin/rights'
 import { Modal } from '../common/dialogs'
+import { HoverTip } from '../common/HoverTip'
 
 const kb = (n: number) => (n / 1024).toFixed(1) + ' KB'
 const desktopOnly = !window.nkw
@@ -49,11 +50,8 @@ function useAvatars() {
 function AvatarCard({ a, selected, onClick, onView, onMenu }: { a: Meta; selected?: boolean; onClick?: () => void; onView: () => void; onMenu: (e: React.MouseEvent) => void }) {
   const { t, i18n } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
-  const [tip, setTip] = useState<{ x: number; y: number } | null>(null)
-  const show = () => {
-    const r = ref.current!.getBoundingClientRect()
-    setTip({ x: Math.min(r.right + 8, window.innerWidth - 260), y: Math.max(8, Math.min(r.top, window.innerHeight - 220)) })
-  }
+  const [tip, setTip] = useState<DOMRect | null>(null)
+  const show = () => setTip(ref.current!.getBoundingClientRect())
   const thumb = a.thumb3d ?? a.thumb
   return (
     <div ref={ref} className={'item-card' + (selected ? ' on' : '')} onClick={onClick ?? onView} onDoubleClick={onView} onContextMenu={onMenu} onMouseEnter={show} onMouseLeave={() => setTip(null)}>
@@ -67,7 +65,7 @@ function AvatarCard({ a, selected, onClick, onView, onMenu }: { a: Meta; selecte
         <button className="icon-btn sm" title={t('avatars.more')} onClick={onMenu}><Icon name="settings" size={13} /></button>
       </div>
       {tip && (
-        <div className="item-tip" style={{ left: tip.x, top: tip.y }}>
+        <HoverTip anchor={tip}>
           <b>{a.name}</b>
           <dl>
             <dt>{t('figura.author')}</dt><dd>{a.authors.join(', ') || t('common.none')}</dd>
@@ -77,7 +75,7 @@ function AvatarCard({ a, selected, onClick, onView, onMenu }: { a: Meta; selecte
             <dt>{t('rights.title')}</dt><dd>{a.rights ? rightsText(t, a.rights) : t('rights.unset')}</dd>
             <dt>{t('avatars.added')}</dt><dd>{new Date(a.importedAt).toLocaleString(i18n.language === 'th' ? 'th-TH' : 'en-GB')}</dd>
           </dl>
-        </div>
+        </HoverTip>
       )}
     </div>
   )

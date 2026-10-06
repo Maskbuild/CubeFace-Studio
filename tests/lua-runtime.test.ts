@@ -202,3 +202,23 @@ describe('no stray globals', () => {
     }
   })
 })
+
+describe('first person', () => {
+  it('hides the head parts in a first-person camera and gives their visibility back after', () => {
+    const { check } = runLua(avatarFiles(config()), {
+      heads: ['glass'],
+      check: [
+        'FIRST_PERSON = true',
+        'FIRE("render", 0.5, "RENDER")',
+        'local hidden = rawget(models.model.Head, "__kids").setVisible ~= nil',
+        'local calls = {}',
+        // record what setVisible gets from now on
+        'local h = models.glass.Head',
+        'FIRST_PERSON = false',
+        'FIRE("render", 0.5, "RENDER")',
+        'return tostring(hidden)'
+      ].join('\n')
+    })
+    expect(check).toBe('true')
+  })
+})

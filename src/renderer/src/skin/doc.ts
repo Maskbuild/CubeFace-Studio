@@ -459,7 +459,7 @@ export class SkinDoc {
 
   /** Initial Figura data (no history). */
   initFigura(cfg: FiguraConfig | undefined, faces: Partial<Record<FaceFrame, Img>>) {
-    if (cfg) this.figura = { ...figuraDefaults(this.res), ...migrateWheel(cfg as FiguraConfig & Record<string, unknown>) }
+    if (cfg) this.figura = { ...figuraDefaults(this.res), ...migrateWheel(cfg as FiguraConfig & Record<string, unknown>), talk: false }
     this.faces = faces
     this.emit({ type: 'structure' })
   }

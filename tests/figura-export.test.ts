@@ -85,7 +85,8 @@ describe('script generator', () => {
   it('wires physics, expressions, blink, talking and smooth head', () => {
     expect(script).toContain('phys.chain({ M.Head.Hair1.s1, M.Head.Hair1.s1.s2, M.Head.Hair1.s1.s2.s3 }')
     expect(script).toContain('function pings.nkwExpr(i)')
-    expect(script).toContain('plasmovoice:getVoiceLevel(player:getUUID())')
+    expect(script).not.toContain('plasmovoice') // the talking mouth was removed
+    expect(script).toContain('renderer:isFirstPerson()') // head kept out of a first-person camera
     expect(script).toContain('vanilla_model.HEAD:getOriginRot()')
     expect(script).not.toMatch(/[\u0E00-\u0E7F]/) // English only
   })
@@ -255,7 +256,8 @@ describe('smooth hair, glowing eyes and glow switches', () => {
     const s = buildScript('T', figuraDefaults(64), info, [h])
     expect(s.match(/phys\.chain\(/g)).toHaveLength(1)
     expect(s).not.toContain('flutter =') // flowing hair was removed
-    expect(s).toContain('gravity = 1') // hangs down when bending (default on)
+    expect(s).toContain('gravity = 0.8') // hangs down when bending (default on)
+    expect(Number(/limitOut = ([\d.]+)/.exec(s)?.[1])).toBeLessThanOrEqual(70) // but never folds over
     parse(s)
     expect(buildScript('T', figuraDefaults(64), info, [{ ...h, hang: false }])).toContain('gravity = 0')
   })

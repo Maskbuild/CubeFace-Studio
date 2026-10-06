@@ -105,7 +105,7 @@ export function prepareAtlas(doc: SkinDoc, target: 'figura' | 'bedrock' = 'bedro
     if (!doc.faces[f]) return false
     if (f === 'base') return true
     if (f === 'blink') return cfg.blink
-    if (f === 'talk') return cfg.talk
+    if (f === 'talk') return false
     return cfg.expressions
   })
   for (const f of frames) extras['face_' + f] = fit(doc.faces[f]!)

@@ -99,7 +99,8 @@ export function hairOpts(p: Pick<HairPlane, 'hang' | 'curl' | 'strands' | 'flutt
  * gravity, room to swing out), without it the hair moves with the head.
  */
 export function livePhys(p: HairPhys, hang: boolean): HairPhys {
-  return { ...p, gravity: hang ? 1 : 0, limitOut: hang ? Math.max(p.limitOut, 100) : p.limitOut }
+  // hanging hair may swing further out, but not so far that the plane folds over (looked broken in game)
+  return { ...p, gravity: hang ? 0.8 : 0, limitOut: hang ? Math.min(Math.max(p.limitOut, 60), 70) : Math.min(p.limitOut, 70) }
 }
 
 /** Each strand of a split plane gets its own rhythm and a slightly different speed, so they drift apart. */

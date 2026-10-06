@@ -113,6 +113,7 @@ local function call(owner, name, ...)
   if name:match("Yaw$") or name:match("Time$") or name:match("Age$") or name:match("Level$") or name:match("Width$") or name:match("Height$") or name:match("Count$") or name:match("Health$") then
     return math.random() * 10
   end
+  if name == "isFirstPerson" then return FIRST_PERSON == true end
   if name:match("^is") or name:match("^has") then return name == "isHost" or name == "isLoaded" end
   if name:match("Rot$") or name:match("^getRot") or name:match("^getPos") or name:match("Pos$") or name:match("^getVelocity") or name:match("^getLookDir") or name:match("^getScale") or name:match("^getMousePos") then
     return vec(math.random() * 20 - 10, math.random() * 60 - 30, 0)

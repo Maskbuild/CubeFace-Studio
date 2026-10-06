@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { HoverTip } from '../common/HoverTip'
 import { useTranslation } from 'react-i18next'
 import { SkinDoc } from '../../skin/doc'
 import { RESOLUTIONS, type Variant } from '../../skin/layout'
@@ -42,12 +43,9 @@ export function useLibrary() {
 function ItemCard({ item, selected, onClick, onEdit, onDelete }: { item: WardrobeItem; selected?: boolean; onClick?: () => void; onEdit: () => void; onDelete: () => void }) {
   const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
-  const [tip, setTip] = useState<{ x: number; y: number } | null>(null)
+  const [tip, setTip] = useState<DOMRect | null>(null)
   const press = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const show = () => {
-    const r = ref.current!.getBoundingClientRect()
-    setTip({ x: Math.min(r.right + 8, window.innerWidth - 250), y: Math.max(8, Math.min(r.top, window.innerHeight - 220)) })
-  }
+  const show = () => setTip(ref.current!.getBoundingClientRect())
   return (
     <div
       ref={ref}
@@ -68,7 +66,7 @@ function ItemCard({ item, selected, onClick, onEdit, onDelete }: { item: Wardrob
         <button className="icon-btn sm" title={t('common.delete')} onClick={onDelete}><Icon name="trash" size={13} /></button>
       </div>
       {tip && (
-        <div className="item-tip" style={{ left: tip.x, top: tip.y }}>
+        <HoverTip anchor={tip}>
           <b>{item.name}</b>
           <dl>
             <dt>{t('wardrobe.category')}</dt><dd>{t(`wardrobe.cat.${item.category}`)}</dd>
@@ -77,7 +75,7 @@ function ItemCard({ item, selected, onClick, onEdit, onDelete }: { item: Wardrob
             <dt>{t('wardrobe.usage')}</dt><dd>{t(`license.${item.license}`)}</dd>
             {item.license === 'commercial-mod' && (<><dt>{t('wardrobe.modify')}</dt><dd>{item.modifyPercent}%</dd></>)}
           </dl>
-        </div>
+        </HoverTip>
       )}
     </div>
   )

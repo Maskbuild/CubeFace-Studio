@@ -144,8 +144,7 @@ This tab sets up everything the exported avatar does.
   wings, accessories). They show in the preview and are exported with this skin.
 - **Head**: *Smooth head* turns the head smoothly (speed and tilt can be set). It also turns
   the head pieces of added avatars, so glasses and hats stay on.
-- **Hair physics**, **Blinking** (random time between blinks), **Talking mouth** (needs
-  Plasmo Voice), **Expressions**.
+- **Hair physics**, **Blinking** (random time between blinks), **Expressions**.
 
 ## 7. Face: expressions, blinking, glowing eyes
 
@@ -157,7 +156,7 @@ In the left column of the Figura tab (**Face setup**):
    square in a box's corner to resize it.
 2. **Face image size**: how detailed face frames are. *Same as skin*, or 128 / 256 / 512 /
    1024 (128 = 16×16 px faces, 1024 = 128×128 px). Frames already drawn are rescaled.
-3. **Generate face frames**: makes blinking, talking and every expression automatically
+3. **Generate face frames**: makes blinking and every expression automatically
    from the boxes. You can repaint any of them.
 4. **Face sets…** saves the whole face (every frame, blinking, boxes) to use on another
    skin.
@@ -184,7 +183,7 @@ switch features. Open it with **Wheel settings…** in the Figura tab.
 - **Pages**: *Main* opens first. Add pages with **+ Page**, and link to them with a page
   button. **New expressions go here** picks the page that new expressions are added to.
 - **Buttons**: expressions, **Normal face**, **switches** (blinking, hair physics, smooth
-  head, talking, glow: all / eyes / skin / one hair plane), page buttons and **Home** (jumps
+  head, glow: all / eyes / skin / one hair plane), page buttons and **Home** (jumps
   to the first page, or a page you choose).
 - Click a button to change its **title** (English only in game), **icon** (any Minecraft
   item, your own picture, or the face of the expression) and **colour**.
