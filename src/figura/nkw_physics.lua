@@ -7,6 +7,7 @@
     stiffness = 0.16,       -- how fast the hair follows (lower = floatier)
     gravity = 0.75, drag = 2.4, sway = 0.75,
     limitIn = 4, limitOut = 70,  -- degrees
+    tiltIn = 4,             -- how far the root may turn inwards to undo the head's tilt (degrees)
     axis = 1,               -- flip to -1 if the plane swings the wrong way
     flutter = 0, phase = 0, -- optional flowing wave (0..1) and its rhythm offset per strand
   })
@@ -24,7 +25,7 @@ local P = { enabled = true }
 local chains = {}
 local D2R, R2D = math.pi / 180, 180 / math.pi
 local LAG = 0.72 -- each lower segment follows at 72% of the stiffness above it
-local ROOT = 0.3 -- the top segment shows 30% of its swing, the tip 100%
+local ROOT = 0 -- the top segment stays pinned to the head; the swing grows down to the tip
 local MAX_ROLL = 0.35 -- largest sideways swing (rad, about 20 degrees)
 local FL_SPEED, FL_TRAVEL, FL_OUT, FL_ROLL = 2.4, 0.9, 0.35, 0.18 -- flutter wave (rad/s, rad, rad, rad)
 local time = 0
@@ -51,6 +52,7 @@ function P.chain(parts, cfg)
     k = cfg.stiffness or 0.16, g = cfg.gravity or 0.75,
     drag = cfg.drag or 2.4, sway = cfg.sway or 0.75,
     lo = -(cfg.limitIn or 4) * D2R, hi = (cfg.limitOut or 70) * D2R,
+    tiltIn = (cfg.tiltIn or cfg.limitIn or 4) * D2R, tilt = 0, ptilt = 0,
     flutter = cfg.flutter or 0, phase = cfg.phase or 0,
     a = zeros(n), r = zeros(n), va = zeros(n), vr = zeros(n), pa = zeros(n), pr = zeros(n),
     rest = {},
@@ -61,7 +63,11 @@ function P.chain(parts, cfg)
 end
 
 local function step(c, m)
-  local outT = -c.s * m.vz * c.drag + math.max(0, -m.vy) * c.drag * 0.6 + c.s * m.pitch * c.g
+  -- the head's tilt is undone at once at the plane's root: it turns about its top edge, which stays
+  -- on the head, so the hair keeps hanging down; the springs only carry the swing from moving
+  c.ptilt = c.tilt
+  c.tilt = math.max(-c.tiltIn, math.min(math.pi / 2, c.s * m.pitch * c.g))
+  local outT = -c.s * m.vz * c.drag + math.max(0, -m.vy) * c.drag * 0.6
   local rollT = -m.vx * c.drag * 0.8 - m.yawRate * c.sway * 4
   for i = 1, c.n do
     c.pa[i], c.pr[i] = c.a[i], c.r[i]
@@ -106,14 +112,14 @@ events.RENDER:register(function(delta)
   if not P.enabled then return end
   for _, c in ipairs(chains) do
     local lastA = 0
-    -- the sideways swing turns the whole plane from its root (the top segment): rolling each
-    -- segment inside the plane made the edges of the joints miss each other (torn, zigzag hair)
+    -- hair only bends forward / back: a sideways swing either tore the plane's joints (per segment)
+    -- or pulled its top edge off the head (whole plane)
     local n = c.n
-    local roll = (c.pr[n] + (c.r[n] - c.pr[n]) * delta) * weight(n, n)
     for i = 1, n do
       -- interpolate absolute angles, then bend each segment by the difference to its parent
       local a = (c.pa[i] + (c.a[i] - c.pa[i]) * delta) * weight(i, n)
-      c.parts[i]:setRot(c.rest[i] + vec((a - lastA) * R2D * c.axis, 0, i == 1 and -roll * R2D or 0))
+      local tilt = i == 1 and (c.ptilt + (c.tilt - c.ptilt) * delta) or 0
+      c.parts[i]:setRot(c.rest[i] + vec((a - lastA + tilt) * R2D * c.axis, 0, 0))
       lastA = a
     end
   end

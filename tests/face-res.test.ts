@@ -81,15 +81,25 @@ describe('no z-fighting in game', () => {
 })
 
 import { HairSim, MAX_ROLL, livePhys as livePhys2 } from '../src/renderer/src/skin/hair'
-describe('hair stays in one piece', () => {
-  it('turns sideways only at the root (no in-plane twist between segments)', () => {
-    const h = hairDefaults('back', 'long')
-    const sim = new HairSim(6, 'back', livePhys2(h.phys, true))
-    for (let t = 0; t < 40; t++) sim.step({ vz: 0.2, vx: 0.4, vy: 0, pitch: 0.3, yawRate: 0.2 })
-    for (let i = 1; i < 6; i++) expect(sim.sample(i, 1)[1]).toBe(0)
-    const root = sim.sample(0, 1)[1]
-    expect(root).not.toBe(0)
-    expect(Math.abs(root)).toBeLessThanOrEqual(MAX_ROLL)
+describe('hair stays in one piece and hangs down', () => {
+  const h = hairDefaults('back', 'long')
+  const run = (pitch: number, below = false) => {
+    const sim = new HairSim(6, 'back', livePhys2(h.phys, true, below))
+    for (let t = 0; t < 40; t++) sim.step({ vz: 0, vx: 0.4, vy: 0, pitch, yawRate: 0.2 })
+    return sim
+  }
+  it('never swings sideways', () => {
+    const sim = run(0.3)
+    for (let i = 0; i < 6; i++) expect(sim.sample(i, 1)[1]).toBe(0)
+    expect(MAX_ROLL).toBeLessThan(0.4)
+  })
+  it('undoes the head tilt at the root so the hair keeps hanging', () => {
+    // looking up 60°: back hair turns out by the full 60° at its top edge
+    expect(run(-1.05).sample(0, 1)[0]).toBeCloseTo(1.05, 2)
+    // looking down on the head: only a little inwards (it would go into the head)
+    expect(run(0.8).sample(0, 1)[0]).toBeCloseTo(-4 * Math.PI / 180, 3)
+    // looking down with a plane below the head: turns inwards fully
+    expect(run(0.8, true).sample(0, 1)[0]).toBeCloseTo(-0.8, 2)
   })
 })
 

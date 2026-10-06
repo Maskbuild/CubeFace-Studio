@@ -89,11 +89,12 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
       const first = c.path.findIndex((x) => /^s\d+$/.test(x))
       const parts = c.path.slice(first).map((_, i) => path(['Head', ...c.path.slice(0, first + i + 1)]))
       const o = hairOpts(h)
-      const p = livePhys(h.phys, o.hang)
+      // a plane starting below the head may turn inwards to keep hanging when looking down
+      const p = livePhys(h.phys, o.hang, h.pos[1] <= 2)
       const v = strandVariation(c.strand ?? 0, c.strands ?? 1)
       const flow = o.flutter ? `, flutter = ${lua(o.flutter)}, phase = ${lua(v.phase)}` : ''
       add(
-        `phys.chain({ ${parts.join(', ')} }, { side = "${h.side}", stiffness = ${lua(p.stiffness * (1 + v.jitter))}, gravity = ${lua(p.gravity)}, drag = ${lua(p.drag)}, sway = ${lua(p.sway)}, limitIn = ${lua(p.limitIn)}, limitOut = ${lua(p.limitOut)}, axis = ${cfg.swingAxis}${flow} })`
+        `phys.chain({ ${parts.join(', ')} }, { side = "${h.side}", stiffness = ${lua(p.stiffness * (1 + v.jitter))}, gravity = ${lua(p.gravity)}, drag = ${lua(p.drag)}, sway = ${lua(p.sway)}, limitIn = ${lua(p.limitIn)}, limitOut = ${lua(p.limitOut)}, tiltIn = ${lua(p.tiltIn ?? p.limitIn)}, axis = ${cfg.swingAxis}${flow} })`
       )
     }
     add('')

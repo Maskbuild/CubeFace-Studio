@@ -139,7 +139,8 @@ describe('hair stays on the head', () => {
     expect(Math.abs(abs[0])).toBeLessThan(Math.abs(abs[3]) * 0.45)
     // each joint bends a little, no sharp kink
     for (let i = 1; i < 4; i++) expect(Math.abs(abs[i] - abs[i - 1])).toBeLessThan(Math.abs(abs[3]) * 0.6)
-    expect(rootWeight(0, 4)).toBeCloseTo(0.3)
+    expect(rootWeight(0, 4)).toBe(0) // the top segment stays pinned to the head
+    expect(sim.sample(0, 1)[0]).toBe(0)
     expect(rootWeight(3, 4)).toBe(1)
   })
 })

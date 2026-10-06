@@ -59,7 +59,8 @@ describe('bedrock pack', () => {
     const anim = parse(f, 'animations/nkw.animation.json').animations['animation.nkw.abc123'].bones
     expect(anim.head).toBeDefined() // smooth head
     expect(anim.nkw_hair1_1.rotation[0]).toContain('v.nkw_c0a0')
-    expect(anim.nkw_hair1_2.rotation[0]).toContain('v.nkw_c0a1 * 0.65 - v.nkw_c0a0 * 0.3') // relative to the parent
+    expect(anim.nkw_hair1_2.rotation[0]).toContain('v.nkw_c0a1 * 0.5 - v.nkw_c0a0 * 0') // relative to the parent (top pinned)
+    expect(anim.nkw_hair1_1.rotation[2]).toBe(0) // no sideways swing
     const rc = parse(f, 'render_controllers/nkw.render_controllers.json').render_controllers
     expect(rc['controller.render.player.nkw'].geometry).toBe('Geometry.nkw')
   })

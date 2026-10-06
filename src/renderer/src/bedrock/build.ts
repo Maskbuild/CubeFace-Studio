@@ -173,7 +173,9 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
   const spring = (prefix: string, bonesList: string[], side: 'front' | 'back', p: HairPhys, flutter = 0) => {
     const s = side === 'front' ? 1 : -1
     pre.push(
-      `v.${prefix}ot = ${-s} * v.nkw_vz * ${r4(p.drag)} + math.max(0, -v.nkw_vy) * ${r4(p.drag * 0.6)} + ${s} * v.nkw_pitch * ${r4(p.gravity)};`,
+      `v.${prefix}ot = ${-s} * v.nkw_vz * ${r4(p.drag)} + math.max(0, -v.nkw_vy) * ${r4(p.drag * 0.6)};`,
+      // the head's tilt undone at the root (the plane turns about its top edge)
+      `v.${prefix}tilt = math.clamp(${s} * v.nkw_pitch * ${r4(p.gravity)}, ${r4(-(p.tiltIn ?? p.limitIn) * 0.01745)}, 1.5708);`,
       `v.${prefix}rt = -v.nkw_yawrate * ${r4(p.sway * 4)};`
     )
     bonesList.forEach((bone, i) => {
@@ -192,12 +194,11 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
       const w = r4(rootWeight(i, n))
       const pw = i ? r4(rootWeight(i - 1, n)) : 0
       const pa = i ? ` - v.${prefix}a${i - 1} * ${pw}` : ''
-      // sideways swing only on the first bone (the plane turns as one piece; per-bone roll tore it)
-      const tip = `v.${prefix}r${n - 1} * ${r4(rootWeight(n - 1, n))}`
-      anim[bone] = { rotation: [`(${A} * ${w}${pa}) * ${r4(57.3 * cfg.swingAxis)}`, 0, i ? 0 : `(${tip}) * 57.3`] }
+      // forward / back only: a sideways swing tore the plane or pulled it off the head
+      anim[bone] = { rotation: [`(${A} * ${w}${pa}${i ? '' : ` + v.${prefix}tilt`}) * ${r4(57.3 * cfg.swingAxis)}`, 0, 0] }
     })
   }
-  if (cfg.hairPhysics) chains.forEach((c, i) => spring(`nkw_c${i}`, c.bones, c.hair.side, livePhys(c.hair.phys, hairOpts(c.hair).hang), hairOpts(c.hair).flutter))
+  if (cfg.hairPhysics) chains.forEach((c, i) => spring(`nkw_c${i}`, c.bones, c.hair.side, livePhys(c.hair.phys, hairOpts(c.hair).hang, c.hair.pos[1] <= 2), hairOpts(c.hair).flutter))
 
   // ---- face frame visibility (Bedrock has no action wheel: expressions follow game states) --
   const vis: Json[] = []

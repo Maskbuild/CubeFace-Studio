@@ -256,7 +256,8 @@ describe('smooth hair, glowing eyes and glow switches', () => {
     const s = buildScript('T', figuraDefaults(64), info, [h])
     expect(s.match(/phys\.chain\(/g)).toHaveLength(1)
     expect(s).not.toContain('flutter =') // flowing hair was removed
-    expect(s).toContain('gravity = 0.8') // hangs down when bending (default on)
+    expect(s).toContain('gravity = 1') // hangs down when bending (default on)
+    expect(s).toContain('tiltIn = ')
     expect(Number(/limitOut = ([\d.]+)/.exec(s)?.[1])).toBeLessThanOrEqual(70) // but never folds over
     parse(s)
     expect(buildScript('T', figuraDefaults(64), info, [{ ...h, hang: false }])).toContain('gravity = 0')

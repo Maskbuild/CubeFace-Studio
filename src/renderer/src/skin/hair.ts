@@ -14,6 +14,8 @@ export interface HairPhys {
   sway: number // sideways swing from head turning (0..1)
   limitIn: number // max inward swing in degrees (towards the head; keeps bangs out of the face)
   limitOut: number // max outward swing in degrees
+  /** Max inward turn (degrees) to undo the head's tilt: small on the head (no clipping), large below it. */
+  tiltIn?: number
 }
 
 /**
@@ -98,9 +100,10 @@ export function hairOpts(p: Pick<HairPlane, 'hang' | 'curl' | 'strands' | 'flutt
  * Physics as it runs: with "hang" the hair keeps pointing down when the head bends (full
  * gravity, room to swing out), without it the hair moves with the head.
  */
-export function livePhys(p: HairPhys, hang: boolean): HairPhys {
-  // hanging hair may swing further out, but not so far that the plane folds over (looked broken in game)
-  return { ...p, gravity: hang ? 0.8 : 0, limitOut: hang ? Math.min(Math.max(p.limitOut, 60), 70) : Math.min(p.limitOut, 70) }
+export function livePhys(p: HairPhys, hang: boolean, belowHead = false): HairPhys {
+  // gravity 1: the whole plane turns against the head's tilt at its top edge, so it keeps hanging
+  // down; below the head it may also turn inwards (nothing to clip into there)
+  return { ...p, gravity: hang ? 1 : 0, limitOut: Math.min(Math.max(p.limitOut, hang ? 60 : 0), 70), tiltIn: belowHead ? 90 : p.limitIn }
 }
 
 /** Each strand of a split plane gets its own rhythm and a slightly different speed, so they drift apart. */
@@ -163,7 +166,8 @@ export const LAG = 0.72
  * How much of its swing each segment shows: the root stays close to the head (so the hair
  * never lifts off the scalp) and the tips move fully, which also curves the strand smoothly.
  */
-export const ROOT = 0.3
+/** The top segment stays put (pinned to the head); the swing grows down to the tip. */
+export const ROOT = 0
 export const rootWeight = (i: number, n: number) => (n <= 1 ? 0.6 : ROOT + (1 - ROOT) * (i / (n - 1)))
 
 /**
@@ -189,6 +193,9 @@ export class HairSim {
   private vr: Float64Array
   private pa: Float64Array
   private pr: Float64Array
+  /** the head's tilt undone at the root (rad), now and one tick ago */
+  private tilt = 0
+  private ptilt = 0
 
   /** seconds of simulated time (drives the flutter wave) */
   private t = 0
@@ -214,7 +221,11 @@ export class HairSim {
     const p = this.phys
     const s = this.side === 'front' ? 1 : -1
     // targets: drag from moving, lift from falling, keep hanging when the head tilts, sway on turns
-    const outTarget = -s * m.vz * p.drag + Math.max(0, -m.vy) * p.drag * 0.6 + s * m.pitch * p.gravity
+    // the head's tilt is undone at once at the plane's root (it turns about its top edge, which stays
+    // on the head); the springs only carry the swing from moving
+    this.ptilt = this.tilt
+    this.tilt = Math.max(-(p.tiltIn ?? p.limitIn) * D2R, Math.min(Math.PI / 2, s * m.pitch * p.gravity))
+    const outTarget = -s * m.vz * p.drag + Math.max(0, -m.vy) * p.drag * 0.6
     const rollTarget = -m.vx * p.drag * 0.8 - m.yawRate * p.sway * 4
     const lo = -p.limitIn * D2R
     const hi = p.limitOut * D2R
@@ -237,10 +248,10 @@ export class HairSim {
     }
     const n = this.segments
     for (let i = 0; i < n; i++) {
-      this.out[i] = this.a[i] * rootWeight(i, n) - (i ? this.a[i - 1] * rootWeight(i - 1, n) : 0)
-      // the sideways swing turns the whole plane from its root: rolling each segment in the plane
-      // made the edges of the joints miss each other (a torn, zigzag look in game)
-      this.roll[i] = i ? 0 : this.r[n - 1] * rootWeight(n - 1, n)
+      this.out[i] = this.a[i] * rootWeight(i, n) - (i ? this.a[i - 1] * rootWeight(i - 1, n) : 0) + (i ? 0 : this.tilt)
+      // no sideways swing: rolling segments inside a flat plane tears its joints apart, and turning
+      // the whole plane pulls its top edge off the head
+      this.roll[i] = 0
     }
   }
 
@@ -248,7 +259,8 @@ export class HairSim {
   sample(i: number, alpha: number): [number, number] {
     const n = this.segments
     const lerp = (prev: Float64Array, cur: Float64Array, j: number) => (j < 0 ? 0 : (prev[j] + (cur[j] - prev[j]) * alpha) * rootWeight(j, n))
-    return [lerp(this.pa, this.a, i) - lerp(this.pa, this.a, i - 1), i ? 0 : lerp(this.pr, this.r, n - 1)]
+    const tilt = i ? 0 : this.ptilt + (this.tilt - this.ptilt) * alpha
+    return [lerp(this.pa, this.a, i) - lerp(this.pa, this.a, i - 1) + tilt, 0]
   }
 }
 

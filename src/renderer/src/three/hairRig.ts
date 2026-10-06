@@ -117,7 +117,7 @@ export class HairRig {
         const o = hairOpts(p)
         e.strands.forEach((st, i) => {
           st.sim.side = p.side
-          st.sim.phys = livePhys(p.phys, o.hang)
+          st.sim.phys = livePhys(p.phys, o.hang, p.pos[1] <= 2)
           st.sim.extra = { flutter: o.flutter, ...strandVariation(i, e.strands.length) }
         })
         this.place(e)
@@ -140,7 +140,7 @@ export class HairRig {
     const len = p.h / p.segments
     const strands: Strand[] = []
     for (let j = 0; j < n; j++) {
-      const st: Strand = { segs: [], meshes: [], outline: [], grids: [], sim: new HairSim(p.segments, p.side, livePhys(p.phys, o.hang), { flutter: o.flutter, ...strandVariation(j, n) }) }
+      const st: Strand = { segs: [], meshes: [], outline: [], grids: [], sim: new HairSim(p.segments, p.side, livePhys(p.phys, o.hang, p.pos[1] <= 2), { flutter: o.flutter, ...strandVariation(j, n) }) }
       const holder = new THREE.Group()
       holder.position.x = -p.w / 2 + (j + 0.5) * sw
       root.add(holder)
