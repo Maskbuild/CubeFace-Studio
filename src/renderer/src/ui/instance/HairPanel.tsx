@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { LENGTH_PRESET, type HairLength, type HairPhys, type HairPlane, type HairSide } from '../../skin/hair'
+import { DEFAULT_FLOW, LENGTH_PRESET, physFromFlow, type HairLength, type HairPlane, type HairSide } from '../../skin/hair'
 import { MOTION_MODES, type MotionMode } from '../../three/motion'
 import { useEditor } from '../../store/editor'
 import { Icon } from '../common/Icon'
@@ -41,7 +41,7 @@ function PhysSlider({ label, value, min, max, step, onChange }: { label: string;
     <label className="phys-row">
       <span className="muted">{label}</span>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-      <span className="val">{Number.isInteger(step) ? value : value.toFixed(2)}</span>
+      <span className="val">{Math.round(value * 100)}%</span>
     </label>
   )
 }
@@ -49,7 +49,8 @@ function PhysSlider({ label, value, min, max, step, onChange }: { label: string;
 function HairProps({ doc, h }: { doc: SkinDoc; h: HairPlane }) {
   const { t } = useTranslation()
   const up = (p: Partial<HairPlane>) => doc.updateHair(h.id, p)
-  const phys = (p: Partial<HairPhys>) => up({ phys: { ...h.phys, ...p } })
+  // older planes have no smoothness value yet: show their length's default
+  const flow = h.phys.flow ?? DEFAULT_FLOW[h.length]
   return (
     <div className="hair-props">
       <input className="input" value={h.name} onChange={(e) => up({ name: e.target.value })} />
@@ -86,12 +87,15 @@ function HairProps({ doc, h }: { doc: SkinDoc; h: HairPlane }) {
       <span className="muted">{t('hair.rot')}</span>
       <Vec3 value={h.rot} step={5} onChange={(v) => up({ rot: v })} />
       <span className="label" style={{ marginTop: 4 }}>{t('hair.physics')}</span>
-      <PhysSlider label={t('hair.stiffness')} value={h.phys.stiffness} min={0.02} max={0.8} step={0.01} onChange={(v) => phys({ stiffness: v })} />
-      <PhysSlider label={t('hair.damping')} value={h.phys.damping} min={0.02} max={0.8} step={0.01} onChange={(v) => phys({ damping: v })} />
-      <PhysSlider label={t('hair.gravity')} value={h.phys.gravity} min={0} max={1} step={0.05} onChange={(v) => phys({ gravity: v })} />
-      <PhysSlider label={t('hair.drag')} value={h.phys.drag} min={0} max={6} step={0.1} onChange={(v) => phys({ drag: v })} />
-      <PhysSlider label={t('hair.sway')} value={h.phys.sway} min={0} max={2} step={0.05} onChange={(v) => phys({ sway: v })} />
-      <PhysSlider label={t('hair.limitOut') + ' °'} value={h.phys.limitOut} min={5} max={170} step={1} onChange={(v) => phys({ limitOut: v })} />
+      {/* one setting: everything else is derived and always bounce-free */}
+      <PhysSlider label={t('hair.flow')} value={flow} min={0} max={1} step={0.05} onChange={(v) => up({ phys: physFromFlow(v, h.length) })} />
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <span className="muted" style={{ fontSize: 11 }}>{t('hair.flowHint')}</span>
+        <button className="btn sm-btn" disabled={flow === DEFAULT_FLOW[h.length]} onClick={() => up({ phys: physFromFlow(DEFAULT_FLOW[h.length], h.length) })}>
+          <Icon name="reset" size={12} />
+          {t('hair.resetPhys')}
+        </button>
+      </div>
     </div>
   )
 }

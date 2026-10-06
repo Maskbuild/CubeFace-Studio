@@ -163,3 +163,28 @@ describe('action wheel', () => {
       expect(() => luaparse.parse(readFileSync('src/figura/auria_wheel/' + f, 'utf8'), { luaVersion: '5.2' }), f).not.toThrow()
   })
 })
+
+describe('detailed wheel settings', () => {
+  const info = { hairChains: [{ path: ['Hair1', 's1'], id: 'h1' }], faceParts: { happy: 'F_happy', sad: 'F_sad', angry: 'F_angry' }, replaces: [] }
+  it('follows order, hides buttons, colours them and adds extra buttons', () => {
+    const cfg = {
+      ...figuraDefaults(64),
+      wheelOrder: ['sad', 'happy'] as ('sad' | 'happy')[],
+      wheelTitle: 'Faces',
+      wheelExtras: { clear: true, physics: true },
+      buttons: { angry: { title: '', icon: '', hidden: true }, happy: { title: 'Yay', icon: 'minecraft:cake', color: '#ff8000' } }
+    }
+    const s = buildScript('T', cfg, info, [hair])
+    expect(s).toContain('local EXPR = { "sad", "happy" }')
+    expect(s).toContain('newPage("Faces")')
+    expect(s).toContain(':setColor(vec(1, 0.502, 0))')
+    expect(s).toContain('title("Normal face")')
+    expect(s).toContain('pings.nkwPhys(physOn)')
+    expect(s).not.toContain('"angry"')
+    expect(() => luaparse.parse(s, { luaVersion: '5.2' })).not.toThrow()
+    const auria = buildScript('T', { ...cfg, wheel: 'auria' }, info, [hair])
+    expect(auria).toContain('page:setTitle("Faces")')
+    expect(auria).toContain('newToggle():setTitle("Hair physics")')
+    expect(() => luaparse.parse(auria, { luaVersion: '5.2' })).not.toThrow()
+  })
+})

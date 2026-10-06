@@ -94,3 +94,35 @@ describe('SkinDoc hair planes', () => {
     expect('img' in json.hair![0]).toBe(false)
   })
 })
+
+import { physFromFlow, criticalKeep } from '../src/renderer/src/skin/hair'
+
+describe('smooth (bounce-free) physics', () => {
+  it('critical damping has a double root', () => {
+    for (const k of [0.05, 0.1, 0.2, 0.3]) {
+      const c = criticalKeep(k)
+      expect((1 + c - c * k) ** 2).toBeCloseTo(4 * c, 10)
+    }
+  })
+
+  it.each([2, 3, 5, 8])('never overshoots when walking starts or stops (%i segments)', (segs) => {
+    for (const flow of [0, 0.35, 0.55, 0.75, 1]) {
+      const sim = new HairSim(segs, 'back', { ...physFromFlow(flow, 'long'), limitOut: 170 })
+      const target = 0.2 * sim.phys.drag
+      let peak = 0, low = Infinity
+      for (let t = 0; t < 400; t++) {
+        sim.step(t < 200 ? { ...still, vz: 0.2 } : still)
+        const tot = sim.out.reduce((a, b) => a + b, 0)
+        if (t < 200) peak = Math.max(peak, tot)
+        else low = Math.min(low, tot)
+      }
+      expect(peak).toBeLessThanOrEqual(target * 1.0001)
+      expect(low).toBeGreaterThanOrEqual(-1e-9) // no swing back past rest
+    }
+  })
+
+  it('maps one smoothness value to all settings, defaults per length', () => {
+    expect(LENGTH_PRESET.long.phys.flow).toBeGreaterThan(LENGTH_PRESET.short.phys.flow!)
+    expect(physFromFlow(1, 'medium').stiffness).toBeLessThan(physFromFlow(0, 'medium').stiffness)
+  })
+})

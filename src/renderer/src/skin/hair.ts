@@ -5,8 +5,10 @@ export type HairLength = 'short' | 'medium' | 'long'
 
 /** Physics tuning; the same numbers drive the in-app preview and the exported Lua (nkw_physics.lua). */
 export interface HairPhys {
+  /** The single user setting: 0 = snappy … 1 = floaty. The values below are derived from it. */
+  flow?: number
   stiffness: number // spring pull back to rest, per tick (0..1)
-  damping: number // velocity loss per tick (0..1)
+  damping: number // unused: damping is always critical (no bounce); kept for older projects
   gravity: number // how strongly segments keep hanging down when the head tilts (0..1)
   drag: number // swing from movement speed (rad per block/tick)
   sway: number // sideways swing from head turning (0..1)
@@ -37,10 +39,30 @@ export interface HairPlane {
 
 export type HairInfo = Omit<HairPlane, 'img'>
 
+/** Default smoothness per hair length (0 = snappy, 1 = slow and floaty). */
+export const DEFAULT_FLOW: Record<HairLength, number> = { short: 0.35, medium: 0.55, long: 0.75 }
+const LIMIT_OUT: Record<HairLength, number> = { short: 50, medium: 70, long: 85 }
+
+/** All physics values from the single "smoothness" setting. */
+export function physFromFlow(flow: number, length: HairLength): HairPhys {
+  const f = Math.min(1, Math.max(0, flow))
+  const r = (n: number) => Math.round(n * 1000) / 1000
+  return {
+    flow: r(f),
+    stiffness: r(0.3 + (0.05 - 0.3) * f),
+    damping: 0, // derived (critical) — kept for older projects
+    gravity: r(0.6 + 0.3 * f),
+    drag: r(1.6 + 1.4 * f),
+    sway: r(0.5 + 0.5 * f),
+    limitIn: 4,
+    limitOut: LIMIT_OUT[length]
+  }
+}
+
 export const LENGTH_PRESET: Record<HairLength, { h: number; segments: number; phys: HairPhys }> = {
-  short: { h: 4, segments: 2, phys: { stiffness: 0.32, damping: 0.32, gravity: 0.6, drag: 1.6, sway: 0.5, limitIn: 4, limitOut: 50 } },
-  medium: { h: 8, segments: 3, phys: { stiffness: 0.22, damping: 0.26, gravity: 0.75, drag: 2.2, sway: 0.7, limitIn: 4, limitOut: 70 } },
-  long: { h: 14, segments: 5, phys: { stiffness: 0.14, damping: 0.2, gravity: 0.85, drag: 2.8, sway: 0.9, limitIn: 4, limitOut: 85 } }
+  short: { h: 4, segments: 2, phys: physFromFlow(DEFAULT_FLOW.short, 'short') },
+  medium: { h: 8, segments: 3, phys: physFromFlow(DEFAULT_FLOW.medium, 'medium') },
+  long: { h: 14, segments: 5, phys: physFromFlow(DEFAULT_FLOW.long, 'long') }
 }
 
 export function hairDefaults(side: HairSide, length: HairLength): Omit<HairInfo, 'id' | 'name'> {
@@ -83,19 +105,32 @@ export interface Motion {
 }
 
 const D2R = Math.PI / 180
+/** Each lower segment follows a little slower (stiffness x LAG per segment): a soft wave. */
+export const LAG = 0.72
 
 /**
- * Spring chain for one hair plane, stepped at 20 ticks/s and interpolated per frame.
- * Each segment has an outward swing angle (about local X) and a side roll (about local Z).
- * Must stay in sync with src/figura/nkw_physics.lua.
+ * Damping that makes a per-tick spring critically damped: it reaches its target as fast as
+ * possible without ever bouncing past it. For v' = (v + (T - x)k)(1 - d), x' = x + v',
+ * the double root is at 1 - d = 1 / (1 + sqrt(k))^2.
+ */
+export const criticalKeep = (k: number) => 1 / (1 + Math.sqrt(k)) ** 2
+
+/**
+ * Hair chain for one plane, stepped at 20 ticks/s and interpolated per frame. Each segment's
+ * absolute angle is its own critically damped spring towards the same target (lower segments
+ * a bit slower), so the chain bends smoothly and never wobbles. Segment rotations are the
+ * differences between neighbours. Must stay in sync with src/figura/nkw_physics.lua.
  */
 export class HairSim {
+  /** relative (per-segment) angles, what the model applies */
   out: Float64Array
   roll: Float64Array
-  private vOut: Float64Array
-  private vRoll: Float64Array
-  private pOut: Float64Array
-  private pRoll: Float64Array
+  private a: Float64Array // absolute outward angle per segment
+  private r: Float64Array // absolute roll per segment
+  private va: Float64Array
+  private vr: Float64Array
+  private pa: Float64Array
+  private pr: Float64Array
 
   constructor(
     readonly segments: number,
@@ -105,46 +140,44 @@ export class HairSim {
     const n = segments
     this.out = new Float64Array(n)
     this.roll = new Float64Array(n)
-    this.vOut = new Float64Array(n)
-    this.vRoll = new Float64Array(n)
-    this.pOut = new Float64Array(n)
-    this.pRoll = new Float64Array(n)
+    this.a = new Float64Array(n)
+    this.r = new Float64Array(n)
+    this.va = new Float64Array(n)
+    this.vr = new Float64Array(n)
+    this.pa = new Float64Array(n)
+    this.pr = new Float64Array(n)
   }
 
   step(m: Motion) {
     const p = this.phys
     const s = this.side === 'front' ? 1 : -1
-    // world-space targets: drag from moving, lift from falling, keep hanging when the head tilts
+    // targets: drag from moving, lift from falling, keep hanging when the head tilts, sway on turns
     const outTarget = -s * m.vz * p.drag + Math.max(0, -m.vy) * p.drag * 0.6 + s * m.pitch * p.gravity
     const rollTarget = -m.vx * p.drag * 0.8 - m.yawRate * p.sway * 4
     const lo = -p.limitIn * D2R
     const hi = p.limitOut * D2R
-    let parentOut = 0
-    let parentRoll = 0
-    this.pOut.set(this.out)
-    this.pRoll.set(this.roll)
+    this.pa.set(this.a)
+    this.pr.set(this.r)
     for (let i = 0; i < this.segments; i++) {
-      // angles are relative to the parent: spread what is still missing over the remaining
-      // segments, so the chain curves smoothly and its tip ends up at the target
-      const k = p.stiffness
-      const share = 1 / (this.segments - i)
-      const tOut = (outTarget - parentOut) * share
-      const tRoll = (rollTarget - parentRoll) * share
-      this.vOut[i] = (this.vOut[i] + (tOut - this.out[i]) * k) * (1 - p.damping)
-      this.vRoll[i] = (this.vRoll[i] + (tRoll - this.roll[i]) * k) * (1 - p.damping)
-      this.out[i] += this.vOut[i]
-      this.roll[i] += this.vRoll[i]
-      const total = parentOut + this.out[i]
-      if (total < lo) (this.out[i] = lo - parentOut), (this.vOut[i] = 0)
-      if (total > hi) (this.out[i] = hi - parentOut), (this.vOut[i] = 0)
-      this.roll[i] = Math.max(-0.9, Math.min(0.9, this.roll[i]))
-      parentOut += this.out[i]
-      parentRoll += this.roll[i]
+      const k = p.stiffness * LAG ** i
+      const keep = criticalKeep(k)
+      this.va[i] = (this.va[i] + (outTarget - this.a[i]) * k) * keep
+      this.vr[i] = (this.vr[i] + (rollTarget - this.r[i]) * k) * keep
+      this.a[i] += this.va[i]
+      this.r[i] += this.vr[i]
+      if (this.a[i] < lo) (this.a[i] = lo), (this.va[i] = 0)
+      if (this.a[i] > hi) (this.a[i] = hi), (this.va[i] = 0)
+      this.r[i] = Math.max(-0.9, Math.min(0.9, this.r[i]))
+    }
+    for (let i = 0; i < this.segments; i++) {
+      this.out[i] = this.a[i] - (i ? this.a[i - 1] : 0)
+      this.roll[i] = this.r[i] - (i ? this.r[i - 1] : 0)
     }
   }
 
-  /** Interpolated angles between the previous and current tick (alpha 0..1). */
+  /** Interpolated relative angles between the previous and current tick (alpha 0..1). */
   sample(i: number, alpha: number): [number, number] {
-    return [this.pOut[i] + (this.out[i] - this.pOut[i]) * alpha, this.pRoll[i] + (this.roll[i] - this.pRoll[i]) * alpha]
+    const lerp = (prev: Float64Array, cur: Float64Array, j: number) => (j < 0 ? 0 : prev[j] + (cur[j] - prev[j]) * alpha)
+    return [lerp(this.pa, this.a, i) - lerp(this.pa, this.a, i - 1), lerp(this.pr, this.r, i) - lerp(this.pr, this.r, i - 1)]
   }
 }

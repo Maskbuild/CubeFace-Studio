@@ -1,4 +1,4 @@
-import { allFrames, coversEyes, exprKeys, toEnglish, wheelButton, type FiguraConfig } from '../skin/figura'
+import { allFrames, coversEyes, orderedExprs, toEnglish, wheelButton, type FiguraConfig } from '../skin/figura'
 import type { HairInfo } from '../skin/hair'
 import type { ModelInfo } from './bbmodel'
 
@@ -37,7 +37,7 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
       const parts = c.path.slice(1).map((_, i) => path(['Head', ...c.path.slice(0, i + 2)]))
       const p = h.phys
       add(
-        `phys.chain({ ${parts.join(', ')} }, { side = "${h.side}", stiffness = ${lua(p.stiffness)}, damping = ${lua(p.damping)}, gravity = ${lua(p.gravity)}, drag = ${lua(p.drag)}, sway = ${lua(p.sway)}, limitIn = ${lua(p.limitIn)}, limitOut = ${lua(p.limitOut)}, axis = ${cfg.swingAxis} })`
+        `phys.chain({ ${parts.join(', ')} }, { side = "${h.side}", stiffness = ${lua(p.stiffness)}, gravity = ${lua(p.gravity)}, drag = ${lua(p.drag)}, sway = ${lua(p.sway)}, limitIn = ${lua(p.limitIn)}, limitOut = ${lua(p.limitOut)}, axis = ${cfg.swingAxis} })`
       )
     }
     add('')
@@ -64,31 +64,49 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
   )
 
   // ---- expressions (action wheel, synced with pings) ------------------------------------
-  const exprs = exprKeys(cfg).filter(has)
-  if (cfg.expressions && exprs.length) {
+  const exprs = orderedExprs(cfg).filter((e) => has(e) && !wheelButton(cfg, e).hidden)
+  const physToggle = cfg.wheelExtras.physics && chains.length > 0
+  if (cfg.expressions && (exprs.length || physToggle)) {
     add(
       `local EXPR = { ${exprs.map((e) => `"${e}"`).join(', ')} }`,
       'function pings.nkwExpr(i)',
       '  local e = EXPR[i]',
-      '  state.expr = (state.expr ~= e) and e or nil',
+      '  state.expr = (e and state.expr ~= e) and e or nil',
       '  refresh()',
       'end'
     )
-    const buttons = exprs.map((e) => {
+    if (physToggle) add('function pings.nkwPhys(on) phys.setEnabled(on) end')
+    type Btn = { title: string; icon: string; color?: string; ping: string }
+    const buttons: Btn[] = exprs.map((e, i) => {
       const b = wheelButton(cfg, e)
-      return { title: str(b.title, 'Expression'), icon: b.icon.trim() }
+      return { title: str(b.title, 'Expression'), icon: b.icon.trim(), color: b.color, ping: `pings.nkwExpr(${i + 1})` }
     })
+    if (cfg.wheelExtras.clear && exprs.length) buttons.push({ title: 'Normal face', icon: 'minecraft:barrier', ping: 'pings.nkwExpr(0)' })
+    const colour = (hex?: string) => {
+      const m = hex && /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex)
+      return m ? `vec(${[m[1], m[2], m[3]].map((h) => lua(parseInt(h, 16) / 255)).join(', ')})` : null
+    }
+    const title = str(cfg.wheelTitle, 'Expressions')
     if (cfg.wheel === 'auria') {
       // Auria's wheel (MIT, AuriaFoxGirl): animated wheel, supports emoji icons
-      add('local wheel = require("auria_wheel.main")', 'local page = wheel.newPage()', 'wheel.setPage(page)')
-      buttons.forEach((b, i) => {
+      add('local wheel = require("auria_wheel.main")', 'local page = wheel.newPage()', `page:setTitle("${title}")`, 'wheel.setPage(page)')
+      for (const b of buttons) {
         const icon = isEmoji(b.icon) ? `:setIconEmoji("${b.icon}")` : `:setIconItem("${item(b.icon)}")`
-        add(`page:newAction():setTitle("${b.title}")${icon}:onPress(function() pings.nkwExpr(${i + 1}) end)`)
-      })
+        add(`page:newAction():setTitle("${b.title}")${icon}:onPress(function() ${b.ping} end)`)
+      }
+      if (physToggle) add('page:newToggle():setTitle("Hair physics"):setIconItem("minecraft:feather"):setToggled(true):onToggle(function(on) pings.nkwPhys(on) end)')
       add('')
     } else {
-      add('if host:isHost() then', '  local page = action_wheel:newPage("Expressions")')
-      buttons.forEach((b, i) => add(`  page:newAction():title("${b.title}"):item("${isEmoji(b.icon) ? 'minecraft:name_tag' : item(b.icon)}"):onLeftClick(function() pings.nkwExpr(${i + 1}) end)`))
+      add('if host:isHost() then', `  local page = action_wheel:newPage("${title}")`)
+      for (const b of buttons) {
+        const c = colour(b.color)
+        add(`  page:newAction():title("${b.title}"):item("${isEmoji(b.icon) ? 'minecraft:name_tag' : item(b.icon)}")${c ? `:setColor(${c})` : ''}:onLeftClick(function() ${b.ping} end)`)
+      }
+      if (physToggle)
+        add(
+          '  local physOn = true',
+          '  page:newAction():title("Hair physics"):item("minecraft:feather"):onLeftClick(function() physOn = not physOn; pings.nkwPhys(physOn) end)'
+        )
       add('  action_wheel:setPage(page)', 'end', '')
     }
   }

@@ -133,6 +133,9 @@ export const en = {
     allOverlay: 'All overlays'
   },
   hair: {
+    flow: 'Smoothness',
+    flowHint: 'Left = snappy, right = slow and floaty',
+    resetPhys: 'Reset',
     title: 'Hair planes',
     add: 'Add hair plane',
     front: 'Front',
@@ -150,12 +153,6 @@ export const en = {
     pos: 'Offset (x, y, z)',
     rot: 'Rotation (x, y, z)',
     physics: 'Physics',
-    stiffness: 'Stiffness',
-    damping: 'Damping',
-    gravity: 'Gravity',
-    drag: 'Wind / speed',
-    sway: 'Turn sway',
-    limitOut: 'Max swing',
     outlines: 'Show outlines',
     preview: 'Figura preview',
     presets: 'Figura presets',
@@ -265,7 +262,6 @@ export const en = {
     description: 'Description',
     englishOnly: 'Only English letters, numbers and basic punctuation are exported.',
     exported: 'Avatar saved to {{dir}}',
-    merge: 'Merge avatars…',
     merged: 'Merged {{n}} avatars into {{dir}}. Renamed: {{r}}',
     head: 'Head',
     smoothHead: 'Smooth head',
@@ -314,10 +310,6 @@ export const en = {
     files: 'Files',
     added: 'Added',
     desktopOnly: 'The avatar library needs the desktop app (folder access).',
-    mergeTitle: 'Merge Figura avatars',
-    includeCurrent: 'Include this skin\'s avatar ({{name}})',
-    mergeHint: '{{n}} selected · files with the same name are renamed automatically',
-    merge: 'Merge'
   },
   ui: {
     paintTab: 'Paint',
@@ -325,7 +317,10 @@ export const en = {
     uiScale: 'Interface size'
   },
   export: {
-    withAttached: 'Also export the {{n}} Figura used with this skin (separate folders)',
+    includeFigura: 'Figura to include',
+    includeNone: 'Only this skin. Add Figura from your library to export them too.',
+    separate: 'Separate folders',
+    mergeOne: 'Merge into one avatar',
     button: 'Export…',
     title: 'Export',
     png: 'Skin PNG',
@@ -336,6 +331,28 @@ export const en = {
     bedrockHint: '.mcpack resource pack: HD skin, hair physics, face',
     saved: 'Saved to {{path}}',
     bedrockNote: 'Bedrock can only change the player model through a resource pack, so every player in a world that uses the pack will look like this skin — best for single-player, screenshots and videos. Expressions follow game states (hurt = angry, sneaking = shy, eating = happy, low health = crying, falling = surprised); blinking and sleeping close the eyes. Talking and smooth eyes are Java/Figura-only. Open the .mcpack to import it, then enable it in the world\'s Resource Packs.'
+  },
+  wheel: {
+    title: 'Action wheel',
+    open: 'Wheel settings…',
+    summary: '{{style}} · {{n}} buttons',
+    style: 'Style',
+    pageTitle: 'Wheel title (English)',
+    extras: 'Extra buttons',
+    extraClear: 'Back to normal face',
+    extraPhysics: 'Hair physics on / off',
+    needsHair: 'Needs hair planes with physics',
+    buttons: 'Buttons (click to edit)',
+    color: 'Button colour',
+    noColor: 'Default',
+    colorFiguraOnly: 'Colours are for the Figura wheel',
+    emojiAuriaOnly: 'Emoji show on the Auria wheel (Figura wheel uses a name tag)',
+    clickSlot: 'Click a button',
+    extraButton: 'extra button',
+    page: 'Page {{n}} / {{of}}',
+    previewFigura: "Preview of Figura's wheel (8 buttons per page). Items show as coloured badges with their initials.",
+    previewAuria: 'Preview of the Auria wheel (animated in game; all buttons on one ring).',
+    footer: 'Changes are saved with the skin and used on the next export.'
   },
   extras: { hair: 'Hair planes', wardrobe: 'Wardrobe', figuraPreview: 'Figura preview' }
 }

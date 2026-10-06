@@ -135,6 +135,9 @@ export const th: Dict = {
     allOverlay: 'ชั้นนอกทั้งหมด'
   },
   hair: {
+    flow: 'ความสมูท',
+    flowHint: 'ซ้าย = กระชับ, ขวา = พลิ้วช้าๆ',
+    resetPhys: 'ค่าเริ่มต้น',
     title: 'แผ่นผม',
     add: 'เพิ่มแผ่นผม',
     front: 'ด้านหน้า',
@@ -152,12 +155,6 @@ export const th: Dict = {
     pos: 'ตำแหน่ง (x, y, z)',
     rot: 'การหมุน (x, y, z)',
     physics: 'ฟิสิกส์',
-    stiffness: 'ความแข็ง',
-    damping: 'การหน่วง',
-    gravity: 'แรงโน้มถ่วง',
-    drag: 'ลม / ความเร็ว',
-    sway: 'แกว่งตอนหันหัว',
-    limitOut: 'แกว่งได้สูงสุด',
     outlines: 'แสดงเส้นขอบ',
     preview: 'Figura preview',
     presets: 'Figura preset',
@@ -267,7 +264,6 @@ export const th: Dict = {
     description: 'คำอธิบาย',
     englishOnly: 'ตอน export จะใช้เฉพาะตัวอักษรอังกฤษ ตัวเลข และเครื่องหมายพื้นฐาน',
     exported: 'บันทึก avatar ไว้ที่ {{dir}}',
-    merge: 'รวม avatar…',
     merged: 'รวม {{n}} avatar ไว้ที่ {{dir}} แล้ว เปลี่ยนชื่อไฟล์: {{r}}',
     head: 'หัว',
     smoothHead: 'หัวสมูท',
@@ -316,10 +312,6 @@ export const th: Dict = {
     files: 'ไฟล์',
     added: 'เพิ่มเมื่อ',
     desktopOnly: 'คลัง avatar ต้องใช้ในแอปเดสก์ท็อป (ต้องเข้าถึงโฟลเดอร์)',
-    mergeTitle: 'รวม Figura avatar',
-    includeCurrent: 'รวม avatar ของสกินนี้ด้วย ({{name}})',
-    mergeHint: 'เลือกแล้ว {{n}} อัน · ไฟล์ชื่อซ้ำจะเปลี่ยนชื่อให้อัตโนมัติ',
-    merge: 'รวม'
   },
   ui: {
     paintTab: 'ระบายสี',
@@ -327,7 +319,10 @@ export const th: Dict = {
     uiScale: 'ขนาดหน้าจอ (UI)'
   },
   export: {
-    withAttached: 'ส่งออก Figura ที่ใช้กับสกินนี้ {{n}} อันด้วย (แยกโฟลเดอร์)',
+    includeFigura: 'Figura ที่จะส่งออกด้วย',
+    includeNone: 'ส่งออกเฉพาะสกินนี้ เพิ่ม Figura จากคลังเพื่อส่งออกไปด้วยได้',
+    separate: 'แยกโฟลเดอร์',
+    mergeOne: 'รวมเป็น avatar เดียว',
     button: 'ส่งออก…',
     title: 'ส่งออก',
     png: 'ไฟล์สกิน PNG',
@@ -338,6 +333,28 @@ export const th: Dict = {
     bedrockHint: 'resource pack .mcpack: สกิน HD ผมฟิสิกส์ และหน้า',
     saved: 'บันทึกไว้ที่ {{path}}',
     bedrockNote: 'Bedrock เปลี่ยนโมเดลผู้เล่นได้ผ่าน resource pack เท่านั้น ผู้เล่นทุกคนในโลกที่ใช้ pack นี้จะเป็นสกินนี้ทั้งหมด เหมาะกับเล่นคนเดียว ถ่ายรูป หรือทำคลิป สีหน้าจะเปลี่ยนตามสถานะในเกม (โดนตี = โกรธ, ย่อ = เขิน, กิน = ดีใจ, เลือดน้อย = ร้องไห้, ตกจากที่สูง = ตกใจ) กระพริบตาและตอนนอนจะหลับตา ส่วนปากพูดและตาสมูทมีเฉพาะ Java/Figura เปิดไฟล์ .mcpack เพื่อนำเข้า แล้วเปิดใช้ใน Resource Packs ของโลก'
+  },
+  wheel: {
+    title: 'ตั้งค่าวงล้อ (Action wheel)',
+    open: 'ตั้งค่าวงล้อ…',
+    summary: '{{style}} · {{n}} ปุ่ม',
+    style: 'รูปแบบ',
+    pageTitle: 'ชื่อวงล้อ (ภาษาอังกฤษ)',
+    extras: 'ปุ่มเสริม',
+    extraClear: 'กลับเป็นหน้าปกติ',
+    extraPhysics: 'เปิด/ปิดฟิสิกส์ผม',
+    needsHair: 'ต้องมีแผ่นผมที่เปิดฟิสิกส์',
+    buttons: 'ปุ่ม (คลิกเพื่อแก้ไข)',
+    color: 'สีปุ่ม',
+    noColor: 'ค่าเริ่มต้น',
+    colorFiguraOnly: 'สีใช้ได้กับวงล้อ Figura',
+    emojiAuriaOnly: 'อีโมจิแสดงในวงล้อ Auria (วงล้อ Figura จะใช้ป้ายชื่อแทน)',
+    clickSlot: 'คลิกที่ปุ่ม',
+    extraButton: 'ปุ่มเสริม',
+    page: 'หน้า {{n}} / {{of}}',
+    previewFigura: 'ตัวอย่างวงล้อ Figura (หน้าละ 8 ปุ่ม) ไอเทมแสดงเป็นป้ายสีพร้อมตัวย่อ',
+    previewAuria: 'ตัวอย่างวงล้อ Auria (ในเกมมีแอนิเมชัน ทุกปุ่มอยู่ในวงเดียว)',
+    footer: 'การตั้งค่าบันทึกไปกับสกิน และใช้ตอน export ครั้งถัดไป'
   },
   extras: { hair: 'แผ่นผม', wardrobe: 'ตู้เสื้อผ้า', figuraPreview: 'Figura preview' }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { DEFAULT_BUTTONS, exprKeys, toEnglish, wheelButton, type ExprKey, type Expression, type FiguraConfig } from '../../skin/figura'
+import { exprKeys, orderedExprs, toEnglish, wheelButton, type FiguraConfig } from '../../skin/figura'
 import { frameLabel } from './frameLabel'
 import { buildAvatar, type AvatarFiles } from '../../figura/avatar'
 import { storage, type AvatarMeta } from '../../lib/storage'
@@ -9,12 +9,11 @@ import { useEditor } from '../../store/editor'
 import { MOTION_MODES } from '../../three/motion'
 import { Icon } from '../common/Icon'
 import { AttachWindow } from './AvatarLibrary'
+import { WheelWindow } from './WheelWindow'
 
 const LIMIT = 100 * 1024
 const CLOUD = 'https://figura-sirufree.shirounetwork.com'
 const kb = (n: number) => (n / 1024).toFixed(1) + ' KB'
-/** Quick picks for action-wheel icons (items work everywhere, emoji only on the auria wheel). */
-const ICON_SUGGESTIONS = ['minecraft:sunflower', 'minecraft:poppy', 'minecraft:blaze_powder', 'minecraft:spyglass', 'minecraft:water_bucket', 'minecraft:cake', 'minecraft:heart_of_the_sea', 'minecraft:name_tag', ':smile:', ':heart:', ':star:', ':fox:']
 
 function Toggle({ label, on, onChange, children }: { label: string; on: boolean; onChange: (v: boolean) => void; children?: ReactNode }) {
   return (
@@ -82,37 +81,17 @@ function SizeMeter({ doc }: { doc: SkinDoc }) {
   )
 }
 
-/** Title + icon of each expression's action-wheel button. */
-function WheelEditor({ doc }: { doc: SkinDoc }) {
+/** Wheel summary in the panel; the full editor opens in its own window. */
+function WheelSummary({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
   const c = doc.figura
-  const keys = exprKeys(c).filter((e) => !!doc.faces[e])
-  const set = (e: ExprKey, patch: Partial<{ title: string; icon: string }>) => {
-    const cur = c.buttons[e] ?? { title: '', icon: '' }
-    doc.updateFigura({ buttons: { ...c.buttons, [e]: { ...cur, ...patch } } })
-  }
+  const count = orderedExprs(c).filter((e) => doc.faces[e] && !wheelButton(c, e).hidden).length
   return (
     <div className="wheel-edit">
-      <div className="seg">
-        <button className={c.wheel === 'figura' ? 'on' : ''} onClick={() => doc.updateFigura({ wheel: 'figura' })}>{t('figura.wheelFigura')}</button>
-        <button className={c.wheel === 'auria' ? 'on' : ''} onClick={() => doc.updateFigura({ wheel: 'auria' })}>{t('figura.wheelAuria')}</button>
-      </div>
-      <span className="muted" style={{ fontSize: 11 }}>{c.wheel === 'auria' ? t('figura.wheelAuriaHint') : t('figura.wheelFiguraHint')}</span>
-      <datalist id="nkw-icons">
-        {ICON_SUGGESTIONS.map((i) => <option key={i} value={i} />)}
-      </datalist>
-      {keys.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t('figura.noExprFrames')}</span>}
-      {keys.map((e) => {
-        const b = wheelButton(c, e)
-        const def = e.startsWith('x_') ? undefined : DEFAULT_BUTTONS[e as Expression]
-        return (
-          <div key={e} className="wheel-row">
-            <span className="wheel-name">{frameLabel(t, c, e)}</span>
-            <input className="input" placeholder={def?.title ?? b.title} value={c.buttons[e]?.title ?? ''} onChange={(ev) => set(e, { title: ev.target.value })} title={t('figura.buttonTitle')} />
-            <input className="input" list="nkw-icons" placeholder={def?.icon ?? b.icon} value={c.buttons[e]?.icon ?? ''} onChange={(ev) => set(e, { icon: ev.target.value })} title={t('figura.buttonIcon')} />
-          </div>
-        )
-      })}
+      <span className="muted" style={{ fontSize: 12 }}>{t('wheel.summary', { style: c.wheel === 'auria' ? t('figura.wheelAuria') : t('figura.wheelFigura'), n: count })}</span>
+      <button className="btn" onClick={() => setOpen(true)}><Icon name="settings" />{t('wheel.open')}</button>
+      {open && <WheelWindow doc={doc} onClose={() => setOpen(false)} />}
     </div>
   )
 }
@@ -220,7 +199,7 @@ export function FiguraPanel({ doc }: { doc: SkinDoc }) {
             ))}
           </div>
           <span className="label" style={{ marginTop: 6 }}>{t('figura.actionWheel')}</span>
-          <WheelEditor doc={doc} />
+          <WheelSummary doc={doc} />
         </Toggle>
         <Toggle label={t('figura.talk')} on={c.talk} onChange={(v) => up({ talk: v })}>
           <span className="muted" style={{ fontSize: 11 }}>{t('figura.talkHelp')}</span>

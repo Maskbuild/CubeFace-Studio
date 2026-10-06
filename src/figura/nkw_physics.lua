@@ -1,14 +1,17 @@
---[[ NKW Physics v1.0 - smooth spring-chain physics for Figura (hair, ears, tails, cloth)
-  Same algorithm as the NKW Skin & Figura Custom editor preview (src/renderer/src/skin/hair.ts).
+--[[ NKW Physics v2.0 - smooth, bounce-free chain physics for Figura (hair, cloth, ribbons)
+  Same model as the NKW Skin & Figura Custom editor preview (src/renderer/src/skin/hair.ts).
 
   local phys = require("nkw_physics")
   phys.chain({ models.model.Head.HairBack.s1, models.model.Head.HairBack.s1.s2 }, {
     side = "back",          -- "front" (bangs) or "back"
-    stiffness = 0.22, damping = 0.26, gravity = 0.75, drag = 2.2, sway = 0.7,
+    stiffness = 0.16,       -- how fast the hair follows (lower = floatier)
+    gravity = 0.75, drag = 2.4, sway = 0.75,
     limitIn = 4, limitOut = 70,  -- degrees
     axis = 1,               -- flip to -1 if the plane swings the wrong way
   })
 
+  Each segment's absolute angle is its own critically damped spring (it never bounces past
+  its target); lower segments follow a little slower, so the chain bends in a soft wave.
   Each segment must be the child of the previous one, with its pivot on its top edge.
   Physics runs at 20 ticks/s; rotations are interpolated every frame, so motion stays smooth
   at any FPS. Licensed with the NKW Skin & Figura Custom project.
@@ -16,6 +19,7 @@
 local P = { enabled = true }
 local chains = {}
 local D2R, R2D = math.pi / 180, 180 / math.pi
+local LAG = 0.72 -- each lower segment follows at 72% of the stiffness above it
 local prevYaw
 
 local function zeros(n)
@@ -30,10 +34,10 @@ function P.chain(parts, cfg)
   local n = #parts
   local c = {
     parts = parts, n = n, s = cfg.side == "front" and 1 or -1, axis = cfg.axis or 1,
-    k = cfg.stiffness or 0.22, d = cfg.damping or 0.26, g = cfg.gravity or 0.75,
-    drag = cfg.drag or 2.2, sway = cfg.sway or 0.7,
+    k = cfg.stiffness or 0.16, g = cfg.gravity or 0.75,
+    drag = cfg.drag or 2.4, sway = cfg.sway or 0.75,
     lo = -(cfg.limitIn or 4) * D2R, hi = (cfg.limitOut or 70) * D2R,
-    out = zeros(n), roll = zeros(n), vo = zeros(n), vr = zeros(n), po = zeros(n), pr = zeros(n),
+    a = zeros(n), r = zeros(n), va = zeros(n), vr = zeros(n), pa = zeros(n), pr = zeros(n),
     rest = {},
   }
   for i, p in ipairs(parts) do c.rest[i] = p:getRot() end
@@ -44,19 +48,17 @@ end
 local function step(c, m)
   local outT = -c.s * m.vz * c.drag + math.max(0, -m.vy) * c.drag * 0.6 + c.s * m.pitch * c.g
   local rollT = -m.vx * c.drag * 0.8 - m.yawRate * c.sway * 4
-  local po, pr = 0, 0
   for i = 1, c.n do
-    c.po[i], c.pr[i] = c.out[i], c.roll[i]
-    local share = 1 / (c.n - i + 1)
-    c.vo[i] = (c.vo[i] + ((outT - po) * share - c.out[i]) * c.k) * (1 - c.d)
-    c.vr[i] = (c.vr[i] + ((rollT - pr) * share - c.roll[i]) * c.k) * (1 - c.d)
-    c.out[i] = c.out[i] + c.vo[i]
-    c.roll[i] = c.roll[i] + c.vr[i]
-    local total = po + c.out[i]
-    if total < c.lo then c.out[i], c.vo[i] = c.lo - po, 0 end
-    if total > c.hi then c.out[i], c.vo[i] = c.hi - po, 0 end
-    c.roll[i] = math.max(-0.9, math.min(0.9, c.roll[i]))
-    po, pr = po + c.out[i], pr + c.roll[i]
+    c.pa[i], c.pr[i] = c.a[i], c.r[i]
+    local k = c.k * LAG ^ (i - 1)
+    local keep = 1 / (1 + math.sqrt(k)) ^ 2 -- critical damping: fastest without overshoot
+    c.va[i] = (c.va[i] + (outT - c.a[i]) * k) * keep
+    c.vr[i] = (c.vr[i] + (rollT - c.r[i]) * k) * keep
+    c.a[i] = c.a[i] + c.va[i]
+    c.r[i] = c.r[i] + c.vr[i]
+    if c.a[i] < c.lo then c.a[i], c.va[i] = c.lo, 0 end
+    if c.a[i] > c.hi then c.a[i], c.va[i] = c.hi, 0 end
+    c.r[i] = math.max(-0.9, math.min(0.9, c.r[i]))
   end
 end
 
@@ -80,10 +82,13 @@ end)
 events.RENDER:register(function(delta)
   if not P.enabled then return end
   for _, c in ipairs(chains) do
+    local lastA, lastR = 0, 0
     for i = 1, c.n do
-      local o = c.po[i] + (c.out[i] - c.po[i]) * delta
-      local r = c.pr[i] + (c.roll[i] - c.pr[i]) * delta
-      c.parts[i]:setRot(c.rest[i] + vec(o * R2D * c.axis, 0, -r * R2D))
+      -- interpolate absolute angles, then rotate each segment by the difference to its parent
+      local a = c.pa[i] + (c.a[i] - c.pa[i]) * delta
+      local r = c.pr[i] + (c.r[i] - c.pr[i]) * delta
+      c.parts[i]:setRot(c.rest[i] + vec((a - lastA) * R2D * c.axis, 0, -(r - lastR) * R2D))
+      lastA, lastR = a, r
     end
   end
 end)

@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { SkinDoc } from '../../skin/doc'
 import { storage, type AvatarMeta } from '../../lib/storage'
 import { renderAvatarThumb } from '../../lib/avatarModels'
-import { buildAvatar } from '../../figura/avatar'
 import { confirmBox, promptBox, toast } from '../common/dialogs'
 import { ContextMenu, type MenuItem } from '../common/ContextMenu'
 import { Icon } from '../common/Icon'
-import { avatarMeta } from './FiguraPanel'
 import { AvatarViewer } from './AvatarViewer'
 
 const kb = (n: number) => (n / 1024).toFixed(1) + ' KB'
@@ -256,60 +253,6 @@ export function AttachWindow({ initial, onClose, onApply }: { initial: string[];
           <div className="grow" />
           <button className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button className="btn primary" onClick={() => onApply(sel)}>{t('wardrobe.apply')}</button>
-        </footer>
-      </div>
-    </div>
-  )
-}
-
-/** Merge window (from Export): pick avatars, optionally including this skin's own avatar. */
-export function MergeWindow({ doc, onClose }: { doc: SkinDoc; onClose: () => void }) {
-  const { t } = useTranslation()
-  const [sel, setSel] = useState<Set<string>>(() => new Set(doc.figura.attached.filter((a) => a.enabled).map((a) => a.id)))
-  const [withCurrent, setWithCurrent] = useState(true)
-  const [name, setName] = useState('Merged avatar')
-  const count = sel.size + (withCurrent ? 1 : 0)
-
-  const merge = async () => {
-    const current = withCurrent ? { name: avatarMeta(doc).name, files: (await buildAvatar(doc, avatarMeta(doc))).files } : null
-    const r = await storage.mergeAvatars([...sel], current, name)
-    if (!r) return
-    toast(t('figura.merged', { n: r.count, dir: r.out, r: r.renamed.length ? r.renamed.map((x) => `${x.from} → ${x.to}`).join(', ') : t('figura.none') }))
-    onClose()
-  }
-
-  return (
-    <div className="modal-back">
-      <div className="wardrobe" style={{ gridTemplateRows: 'auto 1fr auto' }}>
-        <header className="wardrobe-head">
-          <Icon name="merge" size={18} />
-          <b>{t('avatars.mergeTitle')}</b>
-          <div className="grow" />
-          <button className="icon-btn" onClick={onClose}><Icon name="x" /></button>
-        </header>
-        <div className="wardrobe-right" style={{ padding: 16 }}>
-          <label className="row merge-current">
-            <input type="checkbox" checked={withCurrent} onChange={(e) => setWithCurrent(e.target.checked)} />
-            <span>{t('avatars.includeCurrent', { name: avatarMeta(doc).name })}</span>
-          </label>
-          <AvatarLibrary
-            selected={sel}
-            onToggle={(id) =>
-              setSel((s) => {
-                const n = new Set(s)
-                if (n.has(id)) n.delete(id)
-                else n.add(id)
-                return n
-              })
-            }
-          />
-        </div>
-        <footer className="wardrobe-foot">
-          <input className="input" style={{ width: 220 }} value={name} onChange={(e) => setName(e.target.value)} />
-          <span className="muted" style={{ fontSize: 12 }}>{t('avatars.mergeHint', { n: count })}</span>
-          <div className="grow" />
-          <button className="btn" onClick={onClose}>{t('common.cancel')}</button>
-          <button className="btn primary" disabled={count < 2} onClick={merge}><Icon name="merge" />{t('avatars.merge')}</button>
         </footer>
       </div>
     </div>

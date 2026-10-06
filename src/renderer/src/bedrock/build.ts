@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import vanillaEntity from '../../../bedrock/player.entity.json'
 import vanillaRc from '../../../bedrock/player.render_controllers.json'
 import { cuboids, type PartId, type Variant } from '../skin/layout'
-import type { HairInfo } from '../skin/hair'
+import { criticalKeep, LAG, type HairInfo, type HairPhys } from '../skin/hair'
 import { coversEyes, type FaceFrame, type FiguraConfig } from '../skin/figura'
 import type { AtlasSlot } from '../figura/atlas'
 
@@ -163,25 +163,30 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
     // vanilla already turns the head to the target; we add (smoothed - target)
     anim.head = { rotation: ['v.nkw_hx - query.target_x_rotation', 'v.nkw_hy - query.target_y_rotation', 0] }
   }
-  const spring = (prefix: string, bonesList: string[], side: 'front' | 'back', p: { stiffness: number; damping: number; gravity: number; drag: number; sway: number; limitIn: number; limitOut: number }) => {
+  /**
+   * Same model as HairSim: each segment's absolute angle is a critically damped spring towards
+   * the target (lower segments slower by LAG); bones rotate by the difference to their parent.
+   * Per-frame here, so the per-tick constants are scaled by v.nkw_dt.
+   */
+  const spring = (prefix: string, bonesList: string[], side: 'front' | 'back', p: HairPhys) => {
     const s = side === 'front' ? 1 : -1
-    const n = bonesList.length
     pre.push(
       `v.${prefix}ot = ${-s} * v.nkw_vz * ${r4(p.drag)} + math.max(0, -v.nkw_vy) * ${r4(p.drag * 0.6)} + ${s} * v.nkw_pitch * ${r4(p.gravity)};`,
-      `v.${prefix}rt = -v.nkw_yawrate * ${r4(p.sway * 4)};`,
-      `v.${prefix}po = 0; v.${prefix}pr = 0;`
+      `v.${prefix}rt = -v.nkw_yawrate * ${r4(p.sway * 4)};`
     )
-    bonesList.forEach((b, i) => {
-      const o = `v.${prefix}o${i}`, vo = `v.${prefix}vo${i}`, rr = `v.${prefix}r${i}`, vr = `v.${prefix}vr${i}`
-      const share = r4(1 / (n - i))
+    bonesList.forEach((bone, i) => {
+      const k = p.stiffness * LAG ** i
+      const keep = r4(criticalKeep(k))
+      const A = `v.${prefix}a${i}`, VA = `v.${prefix}va${i}`, R = `v.${prefix}r${i}`, VR = `v.${prefix}vr${i}`
       pre.push(
-        `${vo} = ((${vo} ?? 0) + ((v.${prefix}ot - v.${prefix}po) * ${share} - (${o} ?? 0)) * ${r4(p.stiffness)} * v.nkw_dt) * math.pow(${r4(1 - p.damping)}, v.nkw_dt);`,
-        `${o} = math.clamp((${o} ?? 0) + ${vo} * v.nkw_dt, ${r4(-p.limitIn * 0.01745)} - v.${prefix}po, ${r4(p.limitOut * 0.01745)} - v.${prefix}po);`,
-        `${vr} = ((${vr} ?? 0) + ((v.${prefix}rt - v.${prefix}pr) * ${share} - (${rr} ?? 0)) * ${r4(p.stiffness)} * v.nkw_dt) * math.pow(${r4(1 - p.damping)}, v.nkw_dt);`,
-        `${rr} = math.clamp((${rr} ?? 0) + ${vr} * v.nkw_dt, -0.9, 0.9);`,
-        `v.${prefix}po = v.${prefix}po + ${o}; v.${prefix}pr = v.${prefix}pr + ${rr};`
+        `${VA} = ((${VA} ?? 0) + (v.${prefix}ot - (${A} ?? 0)) * ${r4(k)} * v.nkw_dt) * math.pow(${keep}, v.nkw_dt);`,
+        `${A} = math.clamp((${A} ?? 0) + ${VA} * v.nkw_dt, ${r4(-p.limitIn * 0.01745)}, ${r4(p.limitOut * 0.01745)});`,
+        `${VR} = ((${VR} ?? 0) + (v.${prefix}rt - (${R} ?? 0)) * ${r4(k)} * v.nkw_dt) * math.pow(${keep}, v.nkw_dt);`,
+        `${R} = math.clamp((${R} ?? 0) + ${VR} * v.nkw_dt, -0.9, 0.9);`
       )
-      anim[b] = { rotation: [`${o} * ${r4(57.3 * cfg.swingAxis)}`, 0, `${rr} * 57.3`] }
+      const pa = i ? ` - v.${prefix}a${i - 1}` : ''
+      const pr = i ? ` - v.${prefix}r${i - 1}` : ''
+      anim[bone] = { rotation: [`(${A}${pa}) * ${r4(57.3 * cfg.swingAxis)}`, 0, `(${R}${pr}) * 57.3`] }
     })
   }
   if (cfg.hairPhysics) chains.forEach((c, i) => spring(`nkw_c${i}`, c.bones, c.hair.side, c.hair.phys))

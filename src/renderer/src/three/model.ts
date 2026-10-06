@@ -227,7 +227,7 @@ export class SkinModel {
     this.applyVisibility()
   }
 
-  /** Grid is drawn only on the shell being painted, so lines sit on the pixels you edit. */
+  /** Grid per shell: Auto shows both, Base / Overlay only the shell being painted. */
   setGrid(on: boolean, dark: boolean, target: 'auto' | 'base' | 'overlay' = this.gridTarget) {
     this.gridOn = on
     this.gridTarget = target
@@ -244,7 +244,8 @@ export class SkinModel {
     this.meshes.forEach((m, i) => {
       m.visible = !this.hidden[(m.userData as MeshInfo).key]
       const kind = (m.userData as MeshInfo).kind
-      this.grids[i].visible = this.gridOn && m.visible && (kind === 'overlay') === (this.gridTarget === 'overlay')
+      // Auto shows both shells (inner and outer layer); Base / Overlay show only that shell
+      this.grids[i].visible = this.gridOn && m.visible && (this.gridTarget === 'auto' || (kind === 'overlay') === (this.gridTarget === 'overlay'))
     })
   }
 

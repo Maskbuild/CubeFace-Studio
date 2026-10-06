@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
 import { toEnglish } from '../../skin/figura'
@@ -6,9 +6,9 @@ import { buildAvatar } from '../../figura/avatar'
 import { buildMcpack } from '../../bedrock/pack'
 import { exportFileName } from '../../lib/project'
 import { imgToDataUrl } from '../../lib/png'
-import { storage } from '../../lib/storage'
+import { storage, type AvatarMeta } from '../../lib/storage'
 import { avatarMeta } from '../figura/FiguraPanel'
-import { MergeWindow } from '../figura/AvatarLibrary'
+import { AttachWindow } from '../figura/AvatarLibrary'
 import { Modal, toast } from '../common/dialogs'
 import { Icon } from '../common/Icon'
 
@@ -24,9 +24,14 @@ export function ExportDialog({ doc, onClose }: { doc: SkinDoc; onClose: () => vo
   const { t } = useTranslation()
   const [kind, setKind] = useState<Kind>('figura')
   const [busy, setBusy] = useState(false)
-  const [withAttached, setWithAttached] = useState(true)
-  const [merging, setMerging] = useState(false)
-  const attachedIds = doc.figura.attached.filter((a) => a.enabled).map((a) => a.id)
+  // Figura to include: starts with the ones shown with this skin; any library avatar can be added
+  const [lib, setLib] = useState<AvatarMeta[]>([])
+  const [include, setInclude] = useState<string[]>(() => doc.figura.attached.filter((a) => a.enabled).map((a) => a.id))
+  const [together, setTogether] = useState<'separate' | 'merge'>('separate')
+  const [picking, setPicking] = useState(false)
+  useEffect(() => {
+    storage.listAvatars().then(setLib)
+  }, [picking])
   const c = doc.figura
   const meta = avatarMeta(doc)
   const nonEnglish = [c.avatarName, c.author, c.description].some((s) => s && toEnglish(s) !== s.trim())
@@ -38,9 +43,16 @@ export function ExportDialog({ doc, onClose }: { doc: SkinDoc; onClose: () => vo
         const p = await storage.savePng(imgToDataUrl(doc.composite), exportFileName(meta.name))
         if (p) toast(t('export.saved', { path: p }))
       } else if (kind === 'figura') {
-        // avatars used with this skin come out next to it, each in its own folder
-        const dir = await storage.exportFigura(meta.name, (await buildAvatar(doc, meta)).files, withAttached ? attachedIds : [])
-        if (dir) toast(t('figura.exported', { dir }))
+        const files = (await buildAvatar(doc, meta)).files
+        if (include.length && together === 'merge') {
+          // one avatar: this skin plus the chosen Figura, clashing file names renamed
+          const r = await storage.mergeAvatars(include, { name: meta.name, files }, meta.name)
+          if (r) toast(t('figura.merged', { n: r.count, dir: r.out, r: r.renamed.length ? r.renamed.map((x) => `${x.from} → ${x.to}`).join(', ') : t('figura.none') }))
+        } else {
+          // the chosen Figura come out next to this one, each in its own folder
+          const dir = await storage.exportFigura(meta.name, files, include)
+          if (dir) toast(t('figura.exported', { dir }))
+        }
       } else {
         const p = await storage.saveFile(buildMcpack(doc, meta), exportFileName(meta.name).replace(/\.png$/, '.mcpack'), 'mcpack', 'Minecraft resource pack')
         if (p) toast(t('export.saved', { path: p }))
@@ -97,17 +109,42 @@ export function ExportDialog({ doc, onClose }: { doc: SkinDoc; onClose: () => vo
               <button className={c.hideVanilla === 'all' ? 'on' : ''} onClick={() => doc.updateFigura({ hideVanilla: 'all' })}>{t('figura.hideAll')}</button>
             </div>
           </div>
-          {attachedIds.length > 0 && (
-            <label className="row">
-              <input type="checkbox" checked={withAttached} onChange={(e) => setWithAttached(e.target.checked)} />
-              {t('export.withAttached', { n: attachedIds.length })}
-            </label>
-          )}
-          <button className="btn" onClick={() => setMerging(true)}><Icon name="merge" />{t('figura.merge')}</button>
+          <div className="field">
+            <div className="section-head">
+              <span className="label">{t('export.includeFigura')}</span>
+              <button className="btn sm-btn" onClick={() => setPicking(true)}><Icon name="plus" size={13} />{t('figura.addFigura')}</button>
+            </div>
+            {include.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t('export.includeNone')}</span>}
+            {include.map((id) => {
+              const a = lib.find((x) => x.id === id)
+              return (
+                <div key={id} className="layer">
+                  {a?.thumb3d || a?.thumb ? <img className="lthumb" src={a.thumb3d ?? a.thumb!} alt="" /> : <span className="lthumb" />}
+                  <span className="lname">{a?.name ?? t('figura.missingAvatar')}</span>
+                  <button className="icon-btn sm" onClick={() => setInclude(include.filter((x) => x !== id))}><Icon name="x" size={13} /></button>
+                </div>
+              )
+            })}
+            {include.length > 0 && (
+              <div className="seg">
+                <button className={together === 'separate' ? 'on' : ''} onClick={() => setTogether('separate')}>{t('export.separate')}</button>
+                <button className={together === 'merge' ? 'on' : ''} onClick={() => setTogether('merge')}>{t('export.mergeOne')}</button>
+              </div>
+            )}
+          </div>
         </>
       )}
       {kind === 'bedrock' && <div className="export-note">{t('export.bedrockNote')}</div>}
-      {merging && <MergeWindow doc={doc} onClose={() => setMerging(false)} />}
+      {picking && (
+        <AttachWindow
+          initial={include}
+          onClose={() => setPicking(false)}
+          onApply={(ids) => {
+            setInclude(ids)
+            setPicking(false)
+          }}
+        />
+      )}
     </Modal>
   )
 }

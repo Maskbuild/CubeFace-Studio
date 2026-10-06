@@ -58,7 +58,8 @@ describe('bedrock pack', () => {
     }
     const anim = parse(f, 'animations/nkw.animation.json').animations['animation.nkw.abc123'].bones
     expect(anim.head).toBeDefined() // smooth head
-    expect(anim.nkw_hair1_1.rotation[0]).toContain('v.nkw_c0o0')
+    expect(anim.nkw_hair1_1.rotation[0]).toContain('v.nkw_c0a0')
+    expect(anim.nkw_hair1_2.rotation[0]).toContain('v.nkw_c0a1 - v.nkw_c0a0') // relative to the parent
     const rc = parse(f, 'render_controllers/nkw.render_controllers.json').render_controllers
     expect(rc['controller.render.player.nkw'].geometry).toBe('Geometry.nkw')
   })

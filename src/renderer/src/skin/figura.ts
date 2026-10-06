@@ -23,6 +23,14 @@ export const FACE_FRAMES: FaceFrame[] = ['base', 'blink', 'talk', ...EXPRESSIONS
 export interface WheelButton {
   title: string
   icon: string // e.g. "minecraft:sunflower" or ":smile:" (emoji only works with the auria wheel)
+  color?: string // "#rrggbb" button colour (Figura wheel)
+  hidden?: boolean // leave this expression off the wheel
+}
+
+/** Extra buttons the wheel can carry besides expressions. */
+export interface WheelExtras {
+  clear: boolean // "back to normal face"
+  physics: boolean // turn hair physics on/off
 }
 
 export const DEFAULT_BUTTONS: Record<Expression, WheelButton> = {
@@ -60,6 +68,10 @@ export interface FiguraConfig {
   wheel: 'figura' | 'auria'
   /** Button title/icon per expression (overrides the defaults). */
   buttons: Partial<Record<ExprKey, WheelButton>>
+  /** Button order on the wheel (expressions not listed go last). */
+  wheelOrder: ExprKey[]
+  wheelTitle: string
+  wheelExtras: WheelExtras
   /** Library avatars added to this skin (previewed together, exported as separate folders). */
   attached: { id: string; enabled: boolean }[]
   avatarName: string // export metadata, English only
@@ -91,6 +103,9 @@ export function figuraDefaults(res: number): FiguraConfig {
     customExpr: [],
     wheel: 'figura',
     buttons: {},
+    wheelOrder: [],
+    wheelTitle: 'Expressions',
+    wheelExtras: { clear: true, physics: false },
     attached: [],
     avatarName: '',
     author: '',
@@ -118,10 +133,16 @@ export function wheelButton(cfg: FiguraConfig, e: ExprKey): WheelButton {
   const own = cfg.buttons[e]
   if (e.startsWith('x_')) {
     const c = cfg.customExpr.find((x) => customKey(x) === e)
-    return { title: own?.title || c?.name || 'Custom', icon: own?.icon || 'minecraft:name_tag' }
+    return { title: own?.title || c?.name || 'Custom', icon: own?.icon || 'minecraft:name_tag', color: own?.color, hidden: own?.hidden }
   }
   const d = DEFAULT_BUTTONS[e as Expression]
-  return { title: own?.title || d.title, icon: own?.icon || d.icon }
+  return { title: own?.title || d.title, icon: own?.icon || d.icon, color: own?.color, hidden: own?.hidden }
+}
+
+/** Expressions in wheel order (custom order first, then any not yet ordered). */
+export function orderedExprs(cfg: FiguraConfig): ExprKey[] {
+  const all = exprKeys(cfg)
+  return [...cfg.wheelOrder.filter((e) => all.includes(e)), ...all.filter((e) => !cfg.wheelOrder.includes(e))]
 }
 
 /** Does this frame hide the open eyes? */
