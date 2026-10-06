@@ -58,6 +58,12 @@ export function Toolbar({ onResetView, onFlipView }: { onResetView: () => void; 
           <Slider label={t('tools.opacity')} value={b.opacity} min={0.05} max={1} step={0.05} fmt={pct} onChange={(v) => s.setBrush({ opacity: v })} />
           <Slider label={t('tools.softness')} value={b.softness} min={0} max={1} step={0.05} fmt={pct} onChange={(v) => s.setBrush({ softness: v })} />
           <Slider label={t('tools.smooth')} value={b.smooth ?? 0} min={0} max={1} step={0.05} fmt={pct} onChange={(v) => s.setBrush({ smooth: v })} />
+          {s.tool === 'brush' && (
+            <div className="seg" title={t('tools.brushMixHint')}>
+              <button className={!b.mix ? 'on' : ''} onClick={() => s.setBrush({ mix: false })}>{t('tools.brushNormal')}</button>
+              <button className={b.mix ? 'on' : ''} onClick={() => s.setBrush({ mix: true })}>{t('tools.brushMix')}</button>
+            </div>
+          )}
           <div className="seg" title={t('tools.shape')}>
             <button className={b.shape === 'square' ? 'on' : ''} onClick={() => s.setBrush({ shape: 'square' })}>{t('tools.square')}</button>
             <button className={b.shape === 'circle' ? 'on' : ''} onClick={() => s.setBrush({ shape: 'circle' })}>{t('tools.circle')}</button>

@@ -148,13 +148,13 @@ describe('action wheel pages', () => {
 
   it('default wheel: main page opens the expressions page and toggles blinking / hair', () => {
     const s = buildScript('T', figuraDefaults(64), info, [hair])
-    expect(s).toContain('P[1] = action_wheel:newPage("Main")')
-    expect(s).toContain('P[1]:newAction():title("Expressions"):item("minecraft:painting"):onLeftClick(function() action_wheel:setPage(P[2]) end)')
+    expect(s).toContain('P[1] = AW:newPage("Main")')
+    expect(s).toContain('P[1]:newAction():title("Expressions"):item("minecraft:painting"):onLeftClick(function() AW:setPage(P[2]) end)')
     expect(s).toContain('title("Blinking"):item("minecraft:ender_eye"):setToggled(true):onToggle(function(on) pings.nkwToggle(1, on) end)')
     expect(s).toContain('title("Hair physics"):item("minecraft:feather"):setToggled(true):onToggle(function(on) pings.nkwToggle(2, on) end)')
     expect(s).toContain('local EXPR = { "happy", "sad" }') // only expressions with frames
     expect(s).toContain('title("Normal face")')
-    expect(s).toContain('P[2]:newAction():title("Back"):item("minecraft:arrow"):onLeftClick(function() action_wheel:setPage(P[1]) end)')
+    expect(s).toContain('P[2]:newAction():title("Back"):item("minecraft:arrow"):onLeftClick(function() AW:setPage(P[1]) end)')
     expect(s).toContain('if not toggles.blink then')
     expect(s).toContain('elseif k == "physics" then phys.setEnabled(on)')
     parse(s)
@@ -246,7 +246,7 @@ describe('action wheel pages', () => {
 
 
 describe('smooth hair, glowing eyes and glow switches', () => {
-  it('keeps a plane one smooth piece (old split planes too) with curve and flutter', () => {
+  it('keeps a plane one smooth piece (old split planes too) with curve, no flutter', () => {
     const h = { ...hair, strands: 3, curl: 30, flutter: 0.5 }
     const { model, info } = buildModel(input({ hair: [h], faceFrames: [] })) as { model: Any; info: any }
     expect(info.hairChains).toHaveLength(1)
@@ -254,7 +254,7 @@ describe('smooth hair, glowing eyes and glow switches', () => {
     expect(model.groups.find((g: Any) => g.name === 's1').rotation[0]).toBeCloseTo(10) // 30° over 3 segments
     const s = buildScript('T', figuraDefaults(64), info, [h])
     expect(s.match(/phys\.chain\(/g)).toHaveLength(1)
-    expect(s).toContain('flutter = 0.5')
+    expect(s).not.toContain('flutter =') // flowing hair was removed
     expect(s).toContain('gravity = 1') // hangs down when bending (default on)
     parse(s)
     expect(buildScript('T', figuraDefaults(64), info, [{ ...h, hang: false }])).toContain('gravity = 0')
@@ -315,5 +315,19 @@ describe('smooth head, switch defaults, size', () => {
     expect(r.texture).toBe(3000)
     expect(r.total).toBe(r.texture + r.scripts + r.model)
     expect(r.scripts).toBeLessThan(40)
+  })
+})
+
+describe('merged avatars with their own wheels', () => {
+  it('catches their setPage while loading and links their pages from the main page', () => {
+    const cfg = figuraDefaults(64)
+    const info = { hairChains: [], faceParts: { blink: 'F_blink', happy: 'F_happy' }, replaces: [], atlas: { w: 64, h: 64, slots: {} } } as any
+    const s = buildScript('T', cfg, info, [])
+    expect(s).toContain('local AW = action_wheel')
+    expect(s).toContain('if loading and k == "setPage" then')
+    expect(s).toContain('events.TICK:register(function()')
+    expect(s).toMatch(/P\[1\]:newAction\(\):title\(\(ok and title/)
+    expect(s).not.toMatch(/\baction_wheel:(newPage|setPage)/)
+    expect(() => luaparse.parse(s, { luaVersion: '5.2' })).not.toThrow()
   })
 })

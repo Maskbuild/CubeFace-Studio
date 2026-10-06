@@ -91,7 +91,7 @@ export function hairDefaults(side: HairSide, length: HairLength): Omit<HairInfo,
 
 /** The hair-specific options with their defaults filled in. */
 export function hairOpts(p: Pick<HairPlane, 'hang' | 'curl' | 'strands' | 'flutter'>) {
-  return { hang: p.hang !== false, curl: p.curl ?? 0, strands: 1 /* planes stay one smooth piece: splitting them made the hair look torn */, flutter: Math.min(1, Math.max(0, p.flutter ?? 0)) }
+  return { hang: p.hang !== false, curl: p.curl ?? 0, strands: 1 /* planes stay one smooth piece: splitting them made the hair look torn */, flutter: 0 /* flowing hair was removed; old planes stop fluttering */ }
 }
 
 /**

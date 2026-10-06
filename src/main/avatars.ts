@@ -299,11 +299,15 @@ export async function mergeAvatars(out: string, sources: MergeSource[]) {
     // scripts that run on load
     const own = Array.isArray(info?.autoScripts) ? (info!.autoScripts as unknown[]).map(String) : null
     if (own) anyAuto = true
-    for (const name of own ?? [...scripts.keys()]) autoScripts.add(scripts.get(name.replace(/\.lua$/i, '').split('/').join('.')) ?? name)
+    const names = own ?? [...scripts.keys()]
+    // the owner's main script first
+    if (sources.indexOf(s) === 0) names.sort((a, b) => Number(b === 'script') - Number(a === 'script'))
+    for (const name of names) autoScripts.add(scripts.get(name.replace(/\.lua$/i, '').split('/').join('.')) ?? name)
   }
   const merged: Record<string, unknown> = { ...(first ?? { name: 'Merged avatar' }), authors: [...authors] }
   delete merged.author
-  if (anyAuto) merged.autoScripts = [...autoScripts]
+  // a fixed order when several avatars are merged (Figura's default order is unspecified)
+  if (anyAuto || sources.length > 1) merged.autoScripts = [...autoScripts]
   else delete merged.autoScripts
   await fs.writeFile(path.join(out, 'avatar.json'), JSON.stringify(merged, null, 2))
   return { out, count: sources.length, renamed }

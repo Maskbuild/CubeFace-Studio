@@ -90,6 +90,8 @@ export function brushKernel({ size, softness, shape }: BrushOpts): { off: number
 export class Stroke {
   mask: Float32Array
   dirty: Rect | null = null
+  /** Smooth brush: soft edges and the colour melts into what is already there. */
+  mix = false
   constructor(
     readonly target: Img,
     readonly snapshot: Img,
@@ -130,7 +132,24 @@ export class Stroke {
         dst[i + 3] = src[i + 3]
         const a = m * this.opacity
         if (this.mode === 'erase') dst[i + 3] = src[i + 3] * (1 - a)
-        else over(dst, i, cr, cg, cb, a * (ca / 255))
+        else if (this.mix && src[i + 3] > 0) {
+          // average of the colours around before the stroke, mixed into the brush colour
+          let r = 0, g = 0, b = 0, n = 0
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const qx = x + dx, qy = y + dy
+              if (qx < 0 || qy < 0 || qx >= w || qy >= this.target.h) continue
+              const q = (qy * w + qx) * 4
+              const wt = src[q + 3] / 255
+              r += src[q] * wt
+              g += src[q + 1] * wt
+              b += src[q + 2] * wt
+              n += wt
+            }
+          const k = n > 0 ? 0.4 : 0
+          const mr = n > 0 ? r / n : cr, mg = n > 0 ? g / n : cg, mb = n > 0 ? b / n : cb
+          over(dst, i, cr * (1 - k) + mr * k, cg * (1 - k) + mg * k, cb * (1 - k) + mb * k, a * (ca / 255))
+        } else over(dst, i, cr, cg, cb, a * (ca / 255))
       }
   }
 }

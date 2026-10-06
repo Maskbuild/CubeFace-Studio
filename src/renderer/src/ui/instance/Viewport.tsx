@@ -229,7 +229,13 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     // ---- picking -----------------------------------------------------------------------
     const ray = new THREE.Raycaster()
     const ndc = new THREE.Vector2()
-    type Hit = { x: number; y: number; clip: Rect; hairId: string | null; face?: boolean }
+    /** px: screen pixels per texel at the hit point (for the brush ring). */
+    type Hit = { x: number; y: number; clip: Rect; hairId: string | null; face?: boolean; px?: number }
+    const pxPer = (dist: number, obj: THREE.Object3D, texel: number) => {
+      const sc = obj.getWorldScale(new THREE.Vector3()).x
+      const h = renderer.domElement.getBoundingClientRect().height
+      return (texel * sc * h) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * dist)
+    }
     const hitTexel = (ev: PointerEvent, only?: 'skin' | 'face' | string): Hit | null => {
       const r = renderer.domElement.getBoundingClientRect()
       ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1)
@@ -248,7 +254,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
           const y = Math.min(h.img.h - 1, Math.max(0, Math.floor(hit.uv!.y * h.img.h)))
           // see through empty hair pixels unless this plane is selected (so blank planes can be painted)
           if (!only && h.id !== doc.hairId && h.img.data[(y * h.img.w + x) * 4 + 3] === 0) continue
-          return { x, y, clip: { x: 0, y: 0, w: h.img.w, h: h.img.h }, hairId: h.id }
+          return { x, y, clip: { x: 0, y: 0, w: h.img.w, h: h.img.h }, hairId: h.id, px: pxPer(hit.distance, hit.object, h.w / h.img.w) }
         }
         const info = hit.object.userData as MeshInfo
         if (editFace) {
@@ -259,7 +265,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
           const r = faceRect(doc.variant, doc.res, { cuboid: info.cuboid, face: fi })
           const x = Math.min(r.w - 1, Math.max(0, Math.floor(hit.uv!.x * doc.res) - r.x))
           const y = Math.min(r.h - 1, Math.max(0, Math.floor(hit.uv!.y * doc.res) - r.y))
-          return { x, y, clip: { x: 0, y: 0, w: r.w, h: r.h }, hairId: null, face: true }
+          return { x, y, clip: { x: 0, y: 0, w: r.w, h: r.h }, hairId: null, face: true, px: pxPer(hit.distance, hit.object, 8 / doc.faceSize()) }
         }
         if (s.target === 'base' && info.kind !== 'base') continue
         if (s.target === 'overlay' && info.kind !== 'overlay') continue
@@ -269,9 +275,31 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
         // In auto mode, see through transparent overlay pixels to the base layer underneath.
         // Auto paints the body (inner layer) first; the outer layer only where the inner part is hidden
         if (s.target === 'auto' && info.kind === 'overlay' && !s.hidden[info.key.replace('overlay', 'base')]) continue
-        return { x, y, clip, hairId: null }
+        return { x, y, clip, hairId: null, px: pxPer(hit.distance, hit.object, 64 / doc.res) }
       }
       return null
+    }
+
+    // brush ring: shows where and how big the brush paints
+    renderer.domElement.parentElement?.querySelector('.brush-ring')?.remove()
+    const ring = document.createElement('div')
+    ring.className = 'brush-ring'
+    renderer.domElement.parentElement?.appendChild(ring)
+    const showRing = (ev: PointerEvent | null) => {
+      const s = useEditor.getState()
+      const b = s.tool === 'eraser' ? s.eraser : s.brush
+      const hit = ev && !posing() && !spaceOrbit && (s.tool === 'brush' || s.tool === 'eraser') ? hitTexel(ev, session.active ? (session.strokeHair ?? (doc.faceFrame ? 'face' : 'skin')) : undefined) : null
+      if (!ev || !hit?.px) {
+        ring.style.display = 'none'
+        return
+      }
+      const box = renderer.domElement.getBoundingClientRect()
+      const d = Math.max(6, b.size * hit.px)
+      ring.style.display = 'block'
+      ring.style.width = ring.style.height = d + 'px'
+      ring.style.left = ev.clientX - box.left - d / 2 + 'px'
+      ring.style.top = ev.clientY - box.top - d / 2 + 'px'
+      ring.style.borderRadius = b.shape === 'circle' || b.size <= 2 ? '50%' : '2px'
     }
 
     const session = new PaintSession(doc)
@@ -308,6 +336,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
       if (session.down(hit.x, hit.y, hit.clip, hit.hairId, !!hit.face)) renderer.domElement.setPointerCapture(ev.pointerId)
     }
     const onMove = (ev: PointerEvent) => {
+      showRing(ev)
       if (!session.active) return
       const hit = hitTexel(ev, session.strokeHair ?? (doc.faceFrame ? 'face' : 'skin'))
       if (hit) session.move(hit.x, hit.y, hit.clip)
@@ -315,6 +344,7 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
     const onUp = () => session.up()
     renderer.domElement.addEventListener('pointerdown', onDown)
     renderer.domElement.addEventListener('pointermove', onMove)
+    renderer.domElement.addEventListener('pointerleave', () => showRing(null))
     renderer.domElement.addEventListener('pointerup', onUp)
     renderer.domElement.addEventListener('pointercancel', onUp)
     renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault())

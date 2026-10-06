@@ -90,6 +90,7 @@ export class PaintSession {
     if (ed.tool !== 'brush' && ed.tool !== 'eraser') return false
     const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
     this.stroke = doc.beginStroke(ed.color, b.opacity, ed.tool === 'eraser' ? 'erase' : 'paint')
+    if (this.stroke) this.stroke.mix = ed.tool === 'brush' && !!ed.brush.mix
     if (!this.stroke) {
       toast(i18n.t('layers.blocked'))
       return false
@@ -122,6 +123,7 @@ export class PaintSession {
     if (ed.tool !== 'brush' && ed.tool !== 'eraser') return false
     const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
     this.stroke = doc.beginHairStroke(id, ed.color, b.opacity, ed.tool === 'eraser' ? 'erase' : 'paint')
+    if (this.stroke) this.stroke.mix = ed.tool === 'brush' && !!ed.brush.mix
     if (!this.stroke) return false
     doc.stamp(this.stroke, x, y, b, clip, false)
     this.last = [x, y]
@@ -147,6 +149,7 @@ export class PaintSession {
     if (ed.tool !== 'brush' && ed.tool !== 'eraser') return false
     const b = ed.tool === 'eraser' ? ed.eraser : ed.brush
     this.stroke = this.doc.beginFaceStroke(f, ed.color, b.opacity, ed.tool === 'eraser' ? 'erase' : 'paint')
+    if (this.stroke) this.stroke.mix = ed.tool === 'brush' && !!ed.brush.mix
     if (!this.stroke) return false
     this.doc.stamp(this.stroke, x, y, b, sel, ed.mirror)
     this.last = [x, y]

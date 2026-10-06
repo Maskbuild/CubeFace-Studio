@@ -549,3 +549,4 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .wheel-ring.auria .auria-hint { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 11px; color: rgba(255, 255, 255, .75); text-shadow: 0 1px 2px #000; pointer-events: none; }
 .avatar-icon-pick { width: 52px; height: 52px; border-radius: 8px; border: 1px solid var(--border); display: grid; place-items: center; padding: 0; cursor: pointer; overflow: hidden; flex: none; }
 .avatar-icon-pick img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.brush-ring { position: absolute; pointer-events: none; display: none; border: 1.5px solid var(--accent); box-shadow: 0 0 0 1px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(0, 0, 0, .35); z-index: 2; }

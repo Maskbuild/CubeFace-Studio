@@ -624,7 +624,8 @@ export class SkinDoc {
 
   /** Stamp a brush at texel (cx, cy). `clip` limits painting to one face (3D painting). */
   stamp(stroke: Stroke, cx: number, cy: number, brush: BrushOpts, clip: Rect | null, mirror: boolean) {
-    const k = brushKernel(brush)
+    // the smooth brush always has soft edges, so strokes fade into each other
+    const k = brushKernel(stroke.mix ? { ...brush, softness: Math.max(brush.softness, 0.6) } : brush)
     let a: Rect | null = null
     let b: Rect | null = null
     for (let y = 0; y < k.n; y++)

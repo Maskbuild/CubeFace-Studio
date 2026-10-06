@@ -99,10 +99,13 @@ export const th: Dict = {
     exclusive: 'สิทธิ์ขาด (เราเป็นเจ้าของ)'
   },
   tools: {
+    brushNormal: "ปกติ",
+    brushMix: "สมูท",
+    brushMixHint: "สมูท: ขอบนุ่ม และสีผสมกับสีที่มีอยู่ ลงแล้วกลืนกัน ไม่แยกเป็นก้อน",
     select: "เลือกพื้นที่ (S)",
     flipView: 'มุมหน้า / มุมหลัง',
     gradient: "ไล่สี (U)",
-    smooth: "สมูท",
+    smooth: "กันมือสั่น",
     gradColors: "สีเริ่มและสีจบ",
     swapColors: "สลับสี",
     gradSteps: "จำนวนขั้น",

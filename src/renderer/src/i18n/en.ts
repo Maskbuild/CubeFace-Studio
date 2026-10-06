@@ -97,10 +97,13 @@ export const en = {
     exclusive: 'Exclusive (I own it)'
   },
   tools: {
+    brushNormal: "Normal",
+    brushMix: "Smooth",
+    brushMixHint: "Smooth: soft edges and the colour blends with what is already painted, so strokes melt together",
     select: "Select (S)",
     flipView: 'Front / back view',
     gradient: "Gradient (U)",
-    smooth: "Smooth",
+    smooth: "Stabilizer",
     gradColors: "Start and end colour",
     swapColors: "Swap colours",
     gradSteps: "Bands",

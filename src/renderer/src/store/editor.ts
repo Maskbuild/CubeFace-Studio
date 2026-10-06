@@ -16,6 +16,8 @@ export type PaintTarget = 'auto' | 'base' | 'overlay'
 interface BrushSettings {
   size: number
   softness: number
+  /** Smooth brush (colours blend) instead of the normal one. */
+  mix?: boolean
   shape: 'circle' | 'square'
   opacity: number
   /** Stroke smoothing 0..1: the brush trails the pointer on a "rope" for steadier lines. */

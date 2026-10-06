@@ -9,6 +9,7 @@ import { Icon } from '../common/Icon'
 import { frameLabel } from './frameLabel'
 import { EFFECTS, effectPreview, stampEffect, type FaceEffect } from '../../skin/faceEffects'
 import { cloneImg } from '../../skin/pixels'
+import { brushOutline } from '../common/brushOutline'
 
 const TOOLS: [Tool, string][] = [
   ['brush', 'brush'],
@@ -70,7 +71,11 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
       raf = 0
       const dpr = window.devicePixelRatio
       const W = Math.round(box.clientWidth * dpr), H = Math.round(box.clientHeight * dpr)
-      if (c.width !== W || c.height !== H) (c.width = W), (c.height = H), (view.scale = 0)
+      if (c.width !== W || c.height !== H) {
+        // keep the zoom and position when the toolbar changes height (Alt, undo, tools…)
+        if (view.scale) (view.ox += (W - c.width) / 2), (view.oy += (H - c.height) / 2)
+        ;(c.width = W), (c.height = H)
+      }
       if (!view.scale) {
         view.scale = (Math.min(W, H) * 0.92) / n
         view.ox = (W - n * view.scale) / 2
@@ -115,9 +120,7 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
       if (hover) {
         const size = e.tool === 'eraser' ? e.eraser.size : e.tool === 'brush' ? e.brush.size : 1
         const o = -Math.floor(size / 2)
-        ctx.strokeStyle = css.getPropertyValue('--accent')
-        ctx.lineWidth = 1.5
-        ctx.strokeRect(ox + (hover[0] + o) * s, oy + (hover[1] + o) * s, size * s, size * s)
+        brushOutline(ctx, ox + (hover[0] + o) * s, oy + (hover[1] + o) * s, size * s, e.tool !== 'picker' && size > 2 && (e.tool === 'eraser' ? e.eraser : e.brush).shape === 'circle', css.getPropertyValue('--accent'))
       }
     }
     const schedule = () => {
@@ -245,6 +248,12 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
               <div style={{ background: toHex(ed.color2, false) }} />
               <input type="color" value={toHex(ed.color2, false)} onChange={(e) => ed.set({ color2: parseHex(e.target.value) ?? ed.color2 })} style={{ opacity: 0, width: '100%', height: '100%', border: 0, padding: 0 }} />
             </label>
+          )}
+          {ed.tool === 'brush' && (
+            <div className="seg" title={t('tools.brushMixHint')}>
+              <button className={!b.mix ? 'on' : ''} onClick={() => ed.setBrush({ mix: false })}>{t('tools.brushNormal')}</button>
+              <button className={b.mix ? 'on' : ''} onClick={() => ed.setBrush({ mix: true })}>{t('tools.brushMix')}</button>
+            </div>
           )}
           {(ed.tool === 'brush' || ed.tool === 'eraser') && (
             <label className="slider">

@@ -200,9 +200,34 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
     } else {
       // pages of 8 with Back / Next buttons (Figura's wheel has no back of its own)
       const screens = wheelScreens(live)
-      add('if host:isHost() then', '  local P = {}')
-      screens.forEach((sc, i) => add(`  P[${i + 1}] = action_wheel:newPage("${str(sc.title, 'Page')}${sc.parts > 1 ? ` ${sc.part + 1}/${sc.parts}` : ''}")`))
-      const go = (to: number) => `:onLeftClick(function() action_wheel:setPage(P[${to + 1}]) end)`
+      // the last part of the main page gets the buttons to other merged avatars' wheels
+      const mainLast = screens.filter((sc) => sc.page === live[0].id).length
+      add(
+        '-- Wheels of other avatars merged into this one: their pages open from a button on the main',
+        '-- page instead of replacing this wheel (this script runs first, so it sees their setPage).',
+        'local AW = action_wheel',
+        'local EXT, loading = {}, true',
+        'action_wheel = setmetatable({}, {',
+        '  __index = function(_, k)',
+        '    local v = AW[k]',
+        '    if type(v) ~= "function" then return v end',
+        '    return function(self, ...)',
+        '      if self == action_wheel then self = AW end',
+        '      if loading and k == "setPage" then',
+        '        local pg = ...',
+        '        if pg ~= nil then EXT[#EXT + 1] = pg end',
+        '        return',
+        '      end',
+        '      return v(self, ...)',
+        '    end',
+        '  end,',
+        '  __newindex = function(_, k, v) AW[k] = v end',
+        '})',
+        'local P = {}',
+        'if host:isHost() then'
+      )
+      screens.forEach((sc, i) => add(`  P[${i + 1}] = AW:newPage("${str(sc.title, 'Page')}${sc.parts > 1 ? ` ${sc.part + 1}/${sc.parts}` : ''}")`))
+      const go = (to: number) => `:onLeftClick(function() AW:setPage(P[${to + 1}]) end)`
       screens.forEach((sc, i) => {
         for (const sl of sc.slots) {
           const head = `  P[${i + 1}]:newAction()`
@@ -219,7 +244,31 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
           }
         }
       })
-      add('  action_wheel:setPage(P[1])', 'end', '')
+      add(
+        '  AW:setPage(P[1])',
+        'end',
+        '-- after every script has loaded: link the other wheels, then show ours',
+        'events.TICK:register(function()',
+        '  events.TICK:remove("nkwWheelLinks")',
+        '  loading = false',
+        '  if not host:isHost() then return end',
+        '  local seen = {}',
+        '  for i, pg in ipairs(EXT) do',
+        '    if type(pg) == "string" then',
+        '      local ok, got = pcall(function() return AW:getPage(pg) end)',
+        '      pg = ok and got or nil',
+        '    end',
+        '    if pg and not seen[pg] then',
+        '      seen[pg] = true',
+        '      local ok, title = pcall(function() return pg:getTitle() end)',
+        `      P[${mainLast}]:newAction():title((ok and title and title ~= "") and title or ("Avatar " .. i)):item("minecraft:armor_stand"):onLeftClick(function() AW:setPage(pg) end)`,
+        `      pcall(function() pg:newAction():title("Back"):item("minecraft:arrow"):onLeftClick(function() AW:setPage(P[${mainLast}]) end) end)`,
+        '    end',
+        '  end',
+        '  AW:setPage(P[1])',
+        'end, "nkwWheelLinks")',
+        ''
+      )
     }
   }
 

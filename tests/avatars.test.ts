@@ -135,3 +135,15 @@ describe('merged avatar icon', () => {
     expect(existsSync(path.join(out, 'avatar_2.png'))).toBe(false)
   })
 })
+
+describe('merged script order', () => {
+  it('runs the owner script first', async () => {
+    const mine = { 'avatar.json': JSON.stringify({ name: 'Mine' }), 'a_lib.lua': '', 'script.lua': '' }
+    const other = avatar('Cat', 'A', { 'main.lua': '' })
+    const out = path.join(tmp(), 'm4')
+    await mergeAvatars(out, [{ files: mine, label: 'Mine' }, { dir: other, label: 'Cat' }])
+    const info = JSON.parse(readFileSync(path.join(out, 'avatar.json'), 'utf8'))
+    expect(info.autoScripts[0]).toBe('script')
+    expect(info.autoScripts).toContain('main')
+  })
+})

@@ -109,13 +109,7 @@ function HairProps({ doc, h }: { doc: SkinDoc; h: HairPlane }) {
         <input type="checkbox" checked={opt.hang} onChange={(e) => up({ hang: e.target.checked })} />
         {t('hair.hang')}
       </label>
-      <PhysSlider label={t('hair.flutter')} value={opt.flutter} min={0} max={1} step={0.05} onChange={(v) => up({ flutter: v })} />
       <PhysSlider label={t('hair.curl')} value={opt.curl} min={-90} max={90} step={5} fmt={(v) => v + '°'} onChange={(v) => up({ curl: v })} />
-      <span className="muted" style={{ fontSize: 11 }}>{t('hair.flowyHint')}</span>
-      <button className="btn sm-btn" onClick={() => up({ flutter: 0.5, strands: 1, hang: true, segments: Math.max(h.segments, Math.min(10, Math.round(h.h / 1.5))), phys: physFromFlow(Math.max(flow, 0.7), h.length) })}>
-        <Icon name="sparkle" size={12} />
-        {t('hair.flowyPreset')}
-      </button>
     </div>
   )
 }

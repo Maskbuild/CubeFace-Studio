@@ -11,6 +11,7 @@ import { PaintSession } from '../../lib/paint'
 import { useEditor } from '../../store/editor'
 import { confirmBox } from '../common/dialogs'
 import { Icon } from '../common/Icon'
+import { brushOutline } from '../common/brushOutline'
 
 export function UVPanel({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
@@ -205,9 +206,10 @@ export function UVPanel({ doc }: { doc: SkinDoc }) {
       if (hover && ed.tool !== 'orbit' && ed.tool !== 'select') {
         const n = ed.tool === 'brush' ? ed.brush.size : ed.tool === 'eraser' ? ed.eraser.size : 1
         const o = -Math.floor(n / 2)
+        const round = n > 2 && (ed.tool === 'brush' || ed.tool === 'eraser') && (ed.tool === 'eraser' ? ed.eraser : ed.brush).shape === 'circle'
+        brushOutline(ctx, ox + (hover[0] + o) * s, oy + (hover[1] + o) * s, n * s, round, css.getPropertyValue('--accent'))
         ctx.strokeStyle = css.getPropertyValue('--accent')
         ctx.lineWidth = 1.5
-        ctx.strokeRect(ox + (hover[0] + o) * s, oy + (hover[1] + o) * s, n * s, n * s)
         const m = ed.mirror && isSkin ? mirrorTexel(doc.variant, doc.res, hover[0], hover[1]) : null
         if (m) {
           ctx.setLineDash([3, 2])
