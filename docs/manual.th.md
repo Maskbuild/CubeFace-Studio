@@ -267,4 +267,4 @@ CubeFace Studio คือโปรแกรมวาดสกิน Minecraft �
   ให้ส่งออกแบบแยกโฟลเดอร์แทน
 - **ข้อมูลของคุณ** เก็บอยู่ที่ `%APPDATA%\nkw-skin-figura` (สกินและคลังต่างๆ) สำรองโฟลเดอร์นี้
   ไว้เพื่อเก็บทุกอย่าง
-- เจอบั๊ก? แจ้งได้ที่ [GitHub](https://github.com/Maskbuild/Nkw-Custom-Skin/issues)
+- เจอบั๊ก? แจ้งได้ที่ [GitHub](https://github.com/Maskbuild/CubeFace-Studio/issues)

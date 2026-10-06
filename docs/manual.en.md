@@ -285,4 +285,4 @@ Press **F1** in the editor for the full list. Shortcuts work with a Thai keyboar
 - **Your data** is stored in `%APPDATA%\nkw-skin-figura` (skins, libraries). Back up this
   folder to keep everything.
 - Found a bug? Open an issue on
-  [GitHub](https://github.com/Maskbuild/Nkw-Custom-Skin/issues).
+  [GitHub](https://github.com/Maskbuild/CubeFace-Studio/issues).

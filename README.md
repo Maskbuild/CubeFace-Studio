@@ -82,7 +82,7 @@ In short:
 
 ## Download
 
-Get the latest version from **[Releases](https://github.com/Maskbuild/Nkw-Custom-Skin/releases/latest)** (Windows 10/11, 64-bit):
+Get the latest version from **[Releases](https://github.com/Maskbuild/CubeFace-Studio/releases/latest)** (Windows 10/11, 64-bit):
 
 - **CubeFace-Studio-Setup-1.0.1.exe**: installer (choose the folder, adds Start menu and desktop shortcuts).
 - **CubeFace-Studio-1.0.1-win-x64-portable.zip**: no install; unzip anywhere and run `CubeFace Studio.exe`.
@@ -94,8 +94,8 @@ The app is not code-signed, so Windows SmartScreen may warn the first time: clic
 You need **[Node.js](https://nodejs.org) 22 LTS or newer** and **Git**.
 
 ```bash
-git clone https://github.com/Maskbuild/Nkw-Custom-Skin.git
-cd Nkw-Custom-Skin
+git clone https://github.com/Maskbuild/CubeFace-Studio.git
+cd CubeFace-Studio
 npm install
 ```
 
