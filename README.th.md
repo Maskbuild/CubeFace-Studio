@@ -78,8 +78,8 @@ CubeFace Studio เป็นโปรแกรมบนเครื่อง (Wi
 
 โหลดเวอร์ชันล่าสุดได้ที่ **[Releases](https://github.com/Maskbuild/CubeFace-Studio/releases/latest)** (Windows 10/11, 64-bit)
 
-- **CubeFace-Studio-Setup-1.0.1.exe**: ตัวติดตั้ง (เลือกโฟลเดอร์ได้ สร้างทางลัดใน Start menu และหน้าจอ)
-- **CubeFace-Studio-1.0.1-win-x64-portable.zip**: ไม่ต้องติดตั้ง แตกไฟล์ไว้ที่ไหนก็ได้แล้วเปิด `CubeFace Studio.exe`
+- **CubeFace-Studio-Setup-1.0.2.exe**: ตัวติดตั้ง (เลือกโฟลเดอร์ได้ สร้างทางลัดใน Start menu และหน้าจอ)
+- **CubeFace-Studio-1.0.2-win-x64-portable.zip**: ไม่ต้องติดตั้ง แตกไฟล์ไว้ที่ไหนก็ได้แล้วเปิด `CubeFace Studio.exe`
 
 โปรแกรมยังไม่ได้เซ็นรับรอง (code signing) ครั้งแรก Windows SmartScreen อาจเตือน ให้กด *More info (ข้อมูลเพิ่มเติม) → Run anyway (เรียกใช้)*
 
