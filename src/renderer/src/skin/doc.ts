@@ -1,5 +1,5 @@
 import { faceAt, faceRect, type Rect, type Variant } from './layout'
-import { faceOrigin, figuraDefaults, generateFrames, scaleConfig, type FaceFrame, type FiguraConfig } from './figura'
+import { faceOrigin, figuraDefaults, generateFrames, migrateWheel, scaleConfig, type FaceFrame, type FiguraConfig } from './figura'
 import { hairDefaults, hairTexSize, rescale, type HairInfo, type HairLength, type HairPlane, type HairSide } from './hair'
 import { mirrorTexel } from './mirror'
 import {
@@ -461,7 +461,7 @@ export class SkinDoc {
 
   /** Initial Figura data (no history). */
   initFigura(cfg: FiguraConfig | undefined, faces: Partial<Record<FaceFrame, Img>>) {
-    if (cfg) this.figura = { ...figuraDefaults(this.res), ...cfg }
+    if (cfg) this.figura = { ...figuraDefaults(this.res), ...migrateWheel(cfg as FiguraConfig & Record<string, unknown>) }
     this.faces = faces
     this.emit({ type: 'structure' })
   }

@@ -19,21 +19,56 @@ export type FaceFrame = Expression | 'base' | 'blink' | 'talk' | CustomFrame
 export type ExprKey = Expression | CustomFrame
 export const FACE_FRAMES: FaceFrame[] = ['base', 'blink', 'talk', ...EXPRESSIONS]
 
-/** How an expression's action-wheel button looks: an item id or an emoji (auria wheel). */
-export interface WheelButton {
+// ---- action wheel ---------------------------------------------------------------------------
+
+export type IconSize = 16 | 32 | 64
+/** Uploaded icons are scaled to fit one of these squares (Figura draws icons 16 GUI px wide). */
+export const ICON_SIZES: IconSize[] = [16, 32, 64]
+export type WheelIcon =
+  | { kind: 'item'; id: string } // any Minecraft item, e.g. "minecraft:sunflower"
+  | { kind: 'emoji'; text: string } // ":smile:" (auria wheel only)
+  | { kind: 'image'; src: string; size: IconSize } // uploaded picture (PNG data URL), packed into the atlas
+  | { kind: 'face'; frame: FaceFrame } // the expression's own face frame (already in the atlas)
+
+/** Things a wheel toggle can switch on/off in game. */
+export type WheelToggle = 'blink' | 'physics' | 'smoothHead' | 'talk'
+export const WHEEL_TOGGLES: WheelToggle[] = ['blink', 'physics', 'smoothHead', 'talk']
+
+export interface WheelItem {
+  id: string
+  /** expr: show an expression · page: open another page · toggle: switch a feature · clear: normal face */
+  type: 'expr' | 'page' | 'toggle' | 'clear'
+  title: string // '' = default title (English only in game)
+  icon?: WheelIcon // undefined = default icon
+  color?: string // "#rrggbb" (Figura wheel)
+  hidden?: boolean
+  expr?: ExprKey
+  page?: string // target page id
+  toggle?: WheelToggle
+}
+
+export interface WheelPage {
+  id: string
   title: string
-  icon: string // e.g. "minecraft:sunflower" or ":smile:" (emoji only works with the auria wheel)
-  color?: string // "#rrggbb" button colour (Figura wheel)
-  hidden?: boolean // leave this expression off the wheel
+  items: WheelItem[]
+  /** New expressions are added to this page automatically. */
+  auto?: boolean
+  /** Buttons per ring before paging (auria wheel); empty = all on one ring. */
+  groupSize?: number
 }
 
-/** Extra buttons the wheel can carry besides expressions. */
-export interface WheelExtras {
-  clear: boolean // "back to normal face"
-  physics: boolean // turn hair physics on/off
+/** Look and feel of the auria wheel (written to its conf.lua). */
+export interface AuriaStyle {
+  overlay: string // "#rrggbb" screen tint behind the wheel
+  overlayAlpha: number // 0..1
+  blur: boolean
+  mode: 'HOLD' | 'MIXED' | 'TOGGLE' // how the wheel key opens it
+  holdTime: number // ms before a press counts as "held" (MIXED)
+  animationSpeed: number // 0..1
+  animations: boolean
 }
 
-export const DEFAULT_BUTTONS: Record<Expression, WheelButton> = {
+export const DEFAULT_EXPR: Record<Expression, { title: string; icon: string }> = {
   angry: { title: 'Angry', icon: 'minecraft:blaze_powder' },
   happy: { title: 'Happy', icon: 'minecraft:sunflower' },
   shy: { title: 'Shy', icon: 'minecraft:pink_tulip' },
@@ -41,6 +76,32 @@ export const DEFAULT_BUTTONS: Record<Expression, WheelButton> = {
   surprised: { title: 'Surprised', icon: 'minecraft:firework_rocket' },
   crying: { title: 'Crying', icon: 'minecraft:water_bucket' },
   sad: { title: 'Sad', icon: 'minecraft:blue_orchid' }
+}
+export const DEFAULT_TOGGLE: Record<WheelToggle, { title: string; icon: string }> = {
+  blink: { title: 'Blinking', icon: 'minecraft:ender_eye' },
+  physics: { title: 'Hair physics', icon: 'minecraft:feather' },
+  smoothHead: { title: 'Smooth head', icon: 'minecraft:armor_stand' },
+  talk: { title: 'Talking mouth', icon: 'minecraft:note_block' }
+}
+export const DEFAULT_AURIA: AuriaStyle = { overlay: '#33383f', overlayAlpha: 0.5, blur: true, mode: 'MIXED', holdTime: 250, animationSpeed: 0.5, animations: true }
+
+let wid = 0
+export const wheelId = () => Date.now().toString(36) + (wid++).toString(36)
+
+/** Main page: open the expressions page, toggle blinking, toggle hair physics. */
+export function defaultWheel(): WheelPage[] {
+  return [
+    {
+      id: 'main',
+      title: 'Main',
+      items: [
+        { id: 'go_faces', type: 'page', page: 'faces', title: 'Expressions', icon: { kind: 'item', id: 'minecraft:painting' } },
+        { id: 't_blink', type: 'toggle', toggle: 'blink', title: '' },
+        { id: 't_physics', type: 'toggle', toggle: 'physics', title: '' }
+      ]
+    },
+    { id: 'faces', title: 'Expressions', auto: true, items: [{ id: 'clear', type: 'clear', title: 'Normal face', icon: { kind: 'item', id: 'minecraft:barrier' } }] }
+  ]
 }
 
 /**
@@ -66,12 +127,16 @@ export interface FiguraConfig {
   customExpr: CustomExpr[]
   /** Action wheel: Figura's built-in one, or the bundled auria wheel (MIT, by AuriaFoxGirl). */
   wheel: 'figura' | 'auria'
-  /** Button title/icon per expression (overrides the defaults). */
-  buttons: Partial<Record<ExprKey, WheelButton>>
-  /** Button order on the wheel (expressions not listed go last). */
-  wheelOrder: ExprKey[]
-  wheelTitle: string
-  wheelExtras: WheelExtras
+  /** Pages of the wheel; the first one opens first. */
+  wheelPages: WheelPage[]
+  auriaStyle: AuriaStyle
+  /** Minecraft version used for item icons in the app (the game draws its own). */
+  iconVersion: '1.20.1' | '1.21.1' | '1.21.4'
+  /**
+   * Skin parts inside the avatar. "needed": only what Figura must draw itself (the head when the
+   * smooth head is on); the rest is the player's normal skin. "all": every painted part.
+   */
+  skinParts: 'needed' | 'all'
   /** Library avatars added to this skin (previewed together, exported as separate folders). */
   attached: { id: string; enabled: boolean }[]
   avatarName: string // export metadata, English only
@@ -102,10 +167,10 @@ export function figuraDefaults(res: number): FiguraConfig {
     talkThreshold: 0.05,
     customExpr: [],
     wheel: 'figura',
-    buttons: {},
-    wheelOrder: [],
-    wheelTitle: 'Expressions',
-    wheelExtras: { clear: true, physics: false },
+    wheelPages: defaultWheel(),
+    auriaStyle: { ...DEFAULT_AURIA },
+    iconVersion: '1.21.4',
+    skinParts: 'needed',
     attached: [],
     avatarName: '',
     author: '',
@@ -128,21 +193,111 @@ export const exprKeys = (cfg: FiguraConfig): ExprKey[] => [...EXPRESSIONS, ...cf
 /** All face frames for a config, back to front (base, blink, talk, built-ins, custom). */
 export const allFrames = (cfg: FiguraConfig): FaceFrame[] => [...FACE_FRAMES, ...cfg.customExpr.map(customKey)]
 
-/** The button for an expression: user override, built-in default, or the custom name. */
-export function wheelButton(cfg: FiguraConfig, e: ExprKey): WheelButton {
-  const own = cfg.buttons[e]
-  if (e.startsWith('x_')) {
-    const c = cfg.customExpr.find((x) => customKey(x) === e)
-    return { title: own?.title || c?.name || 'Custom', icon: own?.icon || 'minecraft:name_tag', color: own?.color, hidden: own?.hidden }
+/** Parse the old one-string icons ("minecraft:x" / ":emoji:"). */
+export const parseIcon = (s: string): WheelIcon => (/^:[\w@+-]+:$/.test(s.trim()) ? { kind: 'emoji', text: s.trim() } : { kind: 'item', id: s.trim() || 'minecraft:name_tag' })
+
+/** Title, icon and colour of a wheel item with defaults filled in. */
+export function itemView(cfg: FiguraConfig, it: WheelItem): { title: string; icon: WheelIcon; color?: string } {
+  let title = it.title
+  let icon = it.icon
+  if (it.type === 'expr' && it.expr) {
+    const d = it.expr.startsWith('x_') ? undefined : DEFAULT_EXPR[it.expr as Expression]
+    title ||= d?.title ?? cfg.customExpr.find((c) => customKey(c) === it.expr)?.name ?? 'Custom'
+    icon ??= d ? parseIcon(d.icon) : { kind: 'face', frame: it.expr }
+  } else if (it.type === 'toggle' && it.toggle) {
+    title ||= DEFAULT_TOGGLE[it.toggle].title
+    icon ??= parseIcon(DEFAULT_TOGGLE[it.toggle].icon)
+  } else if (it.type === 'page') {
+    title ||= cfg.wheelPages.find((p) => p.id === it.page)?.title || 'Page'
+    icon ??= { kind: 'item', id: 'minecraft:book' }
+  } else if (it.type === 'clear') {
+    title ||= 'Normal face'
+    icon ??= { kind: 'item', id: 'minecraft:barrier' }
   }
-  const d = DEFAULT_BUTTONS[e as Expression]
-  return { title: own?.title || d.title, icon: own?.icon || d.icon, color: own?.color, hidden: own?.hidden }
+  return { title: toEnglish(title) || 'Action', icon: icon ?? { kind: 'item', id: 'minecraft:name_tag' }, color: it.color }
 }
 
-/** Expressions in wheel order (custom order first, then any not yet ordered). */
-export function orderedExprs(cfg: FiguraConfig): ExprKey[] {
-  const all = exprKeys(cfg)
-  return [...cfg.wheelOrder.filter((e) => all.includes(e)), ...all.filter((e) => !cfg.wheelOrder.includes(e))]
+/**
+ * Pages with every expression placed exactly once (new ones go to the "auto" page, deleted
+ * custom ones are dropped) and links to deleted pages removed.
+ */
+export function syncWheel(cfg: FiguraConfig): WheelPage[] {
+  let pages = cfg.wheelPages?.length ? cfg.wheelPages : defaultWheel()
+  const exprs = exprKeys(cfg)
+  const ids = new Set(pages.map((p) => p.id))
+  const seen = new Set<string>()
+  pages = pages.map((p) => ({
+    ...p,
+    items: p.items.filter((it) => {
+      if (it.type === 'page') return !!it.page && ids.has(it.page) && it.page !== p.id
+      if (it.type !== 'expr') return true
+      if (!it.expr || !exprs.includes(it.expr) || seen.has(it.expr)) return false
+      seen.add(it.expr)
+      return true
+    })
+  }))
+  const missing = exprs.filter((e) => !seen.has(e))
+  if (missing.length) {
+    const i = Math.max(0, pages.findIndex((p) => p.auto))
+    const page = pages[i]
+    const add = missing.map((e): WheelItem => ({ id: 'e_' + e, type: 'expr', expr: e, title: '' }))
+    // keep a trailing "normal face" button last
+    const at = page.items.length && page.items[page.items.length - 1].type === 'clear' ? page.items.length - 1 : page.items.length
+    pages[i] = { ...page, items: [...page.items.slice(0, at), ...add, ...page.items.slice(at)] }
+  }
+  return pages
+}
+
+/** What the exported avatar can actually do, to drop buttons that would do nothing. */
+export interface WheelContext {
+  frames: (f: FaceFrame) => boolean // face frame exported
+  physics: boolean // hair chains exported with physics
+}
+
+/** Visible, working wheel: hidden/inactive items removed, empty pages and links to them dropped. */
+export function liveWheel(cfg: FiguraConfig, ctx: WheelContext): WheelPage[] {
+  const works = (it: WheelItem) => {
+    if (it.hidden) return false
+    if (it.type === 'expr') return cfg.expressions && !!it.expr && ctx.frames(it.expr)
+    if (it.type === 'clear') return cfg.expressions
+    if (it.type === 'toggle')
+      return it.toggle === 'physics' ? ctx.physics : it.toggle === 'blink' ? cfg.blink && ctx.frames('blink') : it.toggle === 'talk' ? cfg.talk && ctx.frames('talk') : cfg.smoothHead
+    return true
+  }
+  let pages = syncWheel(cfg).map((p) => ({ ...p, items: p.items.filter(works) }))
+  // "normal face" only makes sense next to expressions
+  const anyExpr = pages.some((p) => p.items.some((i) => i.type === 'expr'))
+  if (!anyExpr) pages = pages.map((p) => ({ ...p, items: p.items.filter((i) => i.type !== 'clear') }))
+  // drop links to empty pages until stable (a page holding only dead links is empty too)
+  for (let n = 0; n < 8; n++) {
+    const empty = new Set(pages.filter((p, i) => i > 0 && !p.items.length).map((p) => p.id))
+    const next = pages.map((p) => ({ ...p, items: p.items.filter((it) => it.type !== 'page' || !empty.has(it.page!)) }))
+    if (next.every((p, i) => p.items.length === pages[i].items.length)) break
+    pages = next
+  }
+  return pages
+}
+
+/** Convert a config saved before wheel pages existed. */
+export function migrateWheel(cfg: Partial<FiguraConfig> & Record<string, unknown>): Partial<FiguraConfig> {
+  if (cfg.wheelPages) return cfg
+  const old = (cfg.buttons ?? {}) as Partial<Record<ExprKey, { title?: string; icon?: string; color?: string; hidden?: boolean }>>
+  const order = (cfg.wheelOrder ?? []) as ExprKey[]
+  const pages = defaultWheel()
+  const faces = pages[1]
+  const keys = [...order, ...(Object.keys(old) as ExprKey[]).filter((k) => !order.includes(k))]
+  faces.items = [
+    ...keys.map((e): WheelItem => {
+      const b = old[e] ?? {}
+      return { id: 'e_' + e, type: 'expr', expr: e, title: b.title ?? '', icon: b.icon ? parseIcon(b.icon) : undefined, color: b.color, hidden: b.hidden }
+    }),
+    ...faces.items
+  ]
+  if (typeof cfg.wheelTitle === 'string' && cfg.wheelTitle) faces.title = cfg.wheelTitle
+  const extras = cfg.wheelExtras as { clear?: boolean } | undefined
+  if (extras && extras.clear === false) faces.items = faces.items.filter((i) => i.type !== 'clear')
+  const { buttons: _b, wheelOrder: _o, wheelTitle: _t, wheelExtras: _e, ...rest } = cfg
+  return { ...rest, wheelPages: pages }
 }
 
 /** Does this frame hide the open eyes? */

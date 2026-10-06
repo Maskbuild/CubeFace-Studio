@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('nkw', {
   setZoom: (factor: number) => webFrame.setZoomFactor(factor),
   // full path of a dropped file/folder (Electron only)
   pathForFile: (file: File) => webUtils.getPathForFile(file),
+  mcFind: (v: string) => ipcRenderer.invoke('mc:find', v),
+  mcRead: (v: string) => ipcRenderer.invoke('mc:read', v),
+  mcDownload: (v: string) => ipcRenderer.invoke('mc:download', v),
   openImage: () => ipcRenderer.invoke('dialog:openImage'),
   saveFile: (data: Uint8Array, name: string, ext: string, label: string) => ipcRenderer.invoke('dialog:saveFile', data, name, ext, label),
   savePng: (dataUrl: string, name: string) => ipcRenderer.invoke('dialog:savePng', dataUrl, name)

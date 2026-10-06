@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { AvatarLibrary, mergeAvatars, type MergeSource } from './avatars'
+import { checkVersion, downloadJar, findJar } from './minecraft'
 
 const ROOT = path.join(app.getPath('appData'), 'nkw-skin-figura')
 const SKINS = path.join(ROOT, 'skins')
@@ -34,6 +35,14 @@ async function readPng(file: string): Promise<string | null> {
 
 function registerIpc() {
   const avatars = new AvatarLibrary(path.join(GLOBAL, 'avatars'))
+  // Minecraft client jars (read locally for item icons; downloaded from Mojang only on request)
+  const MC_CACHE = path.join(ROOT, 'cache', 'minecraft')
+  ipcMain.handle('mc:find', async (_e, v) => (await findJar(checkVersion(v), MC_CACHE))?.source ?? null)
+  ipcMain.handle('mc:read', async (_e, v) => {
+    const found = await findJar(checkVersion(v), MC_CACHE)
+    return found ? new Uint8Array(await fs.readFile(found.file)) : null
+  })
+  ipcMain.handle('mc:download', async (_e, v) => new Uint8Array(await fs.readFile(await downloadJar(checkVersion(v), MC_CACHE))))
   ipcMain.handle('lib:list', async () => {
     await fs.mkdir(SKINS, { recursive: true })
     const out = []

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
-import { exprKeys, orderedExprs, toEnglish, wheelButton, type FiguraConfig } from '../../skin/figura'
+import { exprKeys, liveWheel, toEnglish, type FiguraConfig } from '../../skin/figura'
 import { frameLabel } from './frameLabel'
 import { buildAvatar, type AvatarFiles } from '../../figura/avatar'
 import { storage, type AvatarMeta } from '../../lib/storage'
@@ -66,6 +66,17 @@ function SizeMeter({ doc }: { doc: SkinDoc }) {
       </div>
       <div className="size-bar"><div style={{ width: `${Math.min(100, ((res?.size ?? 0) / LIMIT) * 100)}%` }} className={over ? 'over' : ''} /></div>
       {res && <span className="muted" style={{ fontSize: 11 }}>{t('figura.breakdown', { t: kb(res.breakdown.texture), s: kb(res.breakdown.scripts), m: kb(res.breakdown.model) })}</span>}
+      <div className="field">
+        <span className="muted" style={{ fontSize: 12 }}>{t('figura.skinParts')}</span>
+        <div className="seg">
+          <button className={doc.figura.skinParts === 'needed' ? 'on' : ''} onClick={() => doc.updateFigura({ skinParts: 'needed' })}>{t('figura.partsNeeded')}</button>
+          <button className={doc.figura.skinParts === 'all' ? 'on' : ''} onClick={() => doc.updateFigura({ skinParts: 'all' })}>{t('figura.partsAll')}</button>
+        </div>
+        <span className="muted" style={{ fontSize: 11 }}>
+          {doc.figura.skinParts === 'needed' ? (doc.figura.smoothHead ? t('figura.partsNeededHead') : t('figura.partsNeededNone')) : t('figura.partsAllHint')}
+          {doc.figura.skinParts === 'needed' && doc.res > 64 ? ' ' + t('figura.partsHdNote') : ''}
+        </span>
+      </div>
       {res && (over ? (
         <div className="size-warn">
           <Icon name="warn" size={14} />
@@ -86,10 +97,11 @@ function WheelSummary({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const c = doc.figura
-  const count = orderedExprs(c).filter((e) => doc.faces[e] && !wheelButton(c, e).hidden).length
+  const pages = liveWheel(c, { frames: (f) => !!doc.faces[f], physics: c.hairPhysics && doc.hair.some((h) => h.visible) })
+  const count = pages.reduce((n, p) => n + p.items.length, 0)
   return (
     <div className="wheel-edit">
-      <span className="muted" style={{ fontSize: 12 }}>{t('wheel.summary', { style: c.wheel === 'auria' ? t('figura.wheelAuria') : t('figura.wheelFigura'), n: count })}</span>
+      <span className="muted" style={{ fontSize: 12 }}>{t('wheel.summary', { style: c.wheel === 'auria' ? t('figura.wheelAuria') : t('figura.wheelFigura'), n: count, p: pages.length })}</span>
       <button className="btn" onClick={() => setOpen(true)}><Icon name="settings" />{t('wheel.open')}</button>
       {open && <WheelWindow doc={doc} onClose={() => setOpen(false)} />}
     </div>

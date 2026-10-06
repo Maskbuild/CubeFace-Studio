@@ -51,6 +51,8 @@ export interface ModelInfo {
   faceParts: Partial<Record<FaceFrame, string>>
   /** Vanilla parts this avatar replaces (Figura vanilla_model names). */
   replaces: string[]
+  /** Atlas size and slots (wheel icons drawn from the avatar texture). */
+  atlas: { w: number; h: number; slots: Record<string, AtlasSlot> }
 }
 
 export interface ModelInput {
@@ -94,7 +96,7 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
   const k = 64 / inp.atlasW // atlas pixels -> UV units (UV space is 64 wide)
   const elements: BBCube[] = []
   const groups: BBGroup[] = []
-  const info: ModelInfo = { hairChains: [], faceParts: {}, replaces: [] }
+  const info: ModelInfo = { hairChains: [], faceParts: {}, replaces: [], atlas: { w: inp.atlasW, h: inp.atlasH, slots: inp.slots } }
 
   const group = (name: string, origin: V3, rotation: V3 = [0, 0, 0]): BBGroup => {
     const g = { name, uuid: uid(), origin, rotation, visibility: true, export: true, children: [] }

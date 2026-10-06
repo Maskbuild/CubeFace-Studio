@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import luaparse from 'luaparse'
 import { readFileSync } from 'node:fs'
 import { buildModel, toBBRotation, type ModelInput } from '../src/renderer/src/figura/bbmodel'
-import { buildScript } from '../src/renderer/src/figura/script'
+import { auriaConf, buildScript } from '../src/renderer/src/figura/script'
 import { buildAtlas } from '../src/renderer/src/figura/atlas'
-import { figuraDefaults, FACE_FRAMES } from '../src/renderer/src/skin/figura'
+import { DEFAULT_AURIA, figuraDefaults, FACE_FRAMES, itemView, liveWheel, migrateWheel, syncWheel } from '../src/renderer/src/skin/figura'
 import { hairDefaults } from '../src/renderer/src/skin/hair'
 import { createImg } from '../src/renderer/src/skin/pixels'
 
@@ -134,57 +134,106 @@ describe('head-only avatars', () => {
     expect(s).toContain('vanilla_model.HEAD:setVisible(false)')
     expect(s).not.toContain('vanilla_model.PLAYER')
     expect(s).not.toContain('BODY')
-    expect(buildScript('T', { ...figuraDefaults(64), hideVanilla: 'all' }, info, [])).toContain('vanilla_model.PLAYER:setVisible(false)')
+    expect(buildScript('T', { ...figuraDefaults(64), hideVanilla: 'all', skinParts: 'all' }, info, [])).toContain('vanilla_model.PLAYER:setVisible(false)')
+    // with only the needed parts shipped, the rest of the vanilla player has to stay visible
+    expect(buildScript('T', { ...figuraDefaults(64), hideVanilla: 'all' }, info, [])).not.toContain('vanilla_model.PLAYER')
   })
 })
 
-describe('action wheel', () => {
-  const frames = ['happy', 'sad'] as const
-  const info = { hairChains: [], faceParts: { happy: 'F_happy', sad: 'F_sad' }, replaces: [] }
-  it('uses custom titles/icons on the Figura wheel (emoji falls back to an item)', () => {
-    const cfg = { ...figuraDefaults(64), buttons: { happy: { title: 'Yay', icon: 'minecraft:cake' }, sad: { title: '', icon: ':cry:' } } }
-    const s = buildScript('T', cfg, info, [])
-    expect(s).toContain('title("Yay"):item("minecraft:cake")')
-    expect(s).toContain('title("Sad"):item("minecraft:name_tag")')
-    expect(s).not.toContain('auria_wheel')
-    expect(() => luaparse.parse(s, { luaVersion: '5.2' })).not.toThrow()
-    expect(frames).toHaveLength(2)
+const ATLAS = { w: 64, h: 96, slots: { face_happy: { x: 16, y: 64, w: 8, h: 8 }, icon_img1: { x: 32, y: 64, w: 32, h: 32 } } }
+const parse = (src: string) => expect(() => luaparse.parse(src, { luaVersion: '5.2' })).not.toThrow()
+
+describe('action wheel pages', () => {
+  const info = { hairChains: [{ path: ['Hair1', 's1'], id: 'h1' }], faceParts: { happy: 'F_happy', sad: 'F_sad', blink: 'F_blink' }, replaces: [], atlas: ATLAS }
+
+  it('default wheel: main page opens the expressions page and toggles blinking / hair', () => {
+    const s = buildScript('T', figuraDefaults(64), info, [hair])
+    expect(s).toContain('P[1] = action_wheel:newPage("Main")')
+    expect(s).toContain('P[1]:newAction():title("Expressions"):item("minecraft:painting"):onLeftClick(function() action_wheel:setPage(P[2]) end)')
+    expect(s).toContain('title("Blinking"):item("minecraft:ender_eye"):setToggled(true):onToggle(function(on) pings.nkwToggle(1, on) end)')
+    expect(s).toContain('title("Hair physics"):item("minecraft:feather"):setToggled(true):onToggle(function(on) pings.nkwToggle(2, on) end)')
+    expect(s).toContain('local EXPR = { "happy", "sad" }') // only expressions with frames
+    expect(s).toContain('title("Normal face")')
+    expect(s).toContain('P[2]:newAction():title("Back"):item("minecraft:arrow"):onLeftClick(function() action_wheel:setPage(P[1]) end)')
+    expect(s).toContain('if not toggles.blink then')
+    expect(s).toContain('elseif k == "physics" then phys.setEnabled(on)')
+    parse(s)
   })
-  it('generates the auria wheel with emoji and item icons', () => {
-    const cfg = { ...figuraDefaults(64), wheel: 'auria' as const, buttons: { sad: { title: 'Tears', icon: ':cry:' } } }
-    const s = buildScript('T', cfg, info, [])
-    expect(s).toContain('require("auria_wheel.main")')
-    expect(s).toContain('setTitle("Happy"):setIconItem("minecraft:sunflower")')
-    expect(s).toContain('setTitle("Tears"):setIconEmoji(":cry:")')
-    expect(() => luaparse.parse(s, { luaVersion: '5.2' })).not.toThrow()
+
+  it('auria wheel: sub-pages, toggles, emoji and its own settings file', () => {
+    const cfg = figuraDefaults(64)
+    cfg.wheel = 'auria'
+    cfg.wheelPages = syncWheel(cfg)
+    cfg.wheelPages[1].items = cfg.wheelPages[1].items.map((it) => (it.expr === 'sad' ? { ...it, icon: { kind: 'emoji', text: ':cry:' } } : it))
+    cfg.wheelPages[1].groupSize = 4
+    const s = buildScript('T', cfg, info, [hair])
+    expect(s).toContain('P[1] = wheel.newPage():setTitle("Main")')
+    expect(s).toContain('P[2] = wheel.newPage():setTitle("Expressions"):setGroupSize(4)')
+    expect(s).toContain('P[1]:newAction():setTitle("Expressions"):setIconItem("minecraft:painting"):setPage(P[2])')
+    expect(s).toContain('P[1]:newToggle():setTitle("Blinking")')
+    expect(s).toContain('setIconEmoji(":cry:")')
+    expect(s).not.toContain('"Back"') // auria goes back with right click
+    parse(s)
+    const conf = auriaConf({ ...cfg, auriaStyle: { ...DEFAULT_AURIA, overlay: '#ff0000', overlayAlpha: 0.3, blur: false, mode: 'TOGGLE', animations: false } })
+    expect(conf).toContain('overlayColor = vec(1, 0, 0, 0.3)')
+    expect(conf).toContain('postEffect = nil')
+    expect(conf).toContain('mode = "TOGGLE"')
+    expect(conf).toContain('noAnimations = true')
+    parse(conf)
   })
+
+  it('draws uploaded pictures and face frames from the avatar texture', () => {
+    const cfg = figuraDefaults(64)
+    cfg.wheelPages = syncWheel(cfg)
+    cfg.wheelPages[1].items = cfg.wheelPages[1].items.map((it) =>
+      it.expr === 'happy' ? { ...it, id: 'img1', icon: { kind: 'image', src: 'data:', size: 32 } } : it.expr === 'sad' ? { ...it, icon: { kind: 'face', frame: 'happy' } } : it
+    )
+    const s = buildScript('T', cfg, info, [hair])
+    expect(s).toContain('local TEX = textures["model.skin"] or textures:getTextures()[1]')
+    expect(s).toContain('title("Happy"):texture(TEX, 32, 64, 32, 32, 0.5)')
+    expect(s).toContain('title("Sad"):texture(TEX, 16, 64, 8, 8, 2)')
+    const a = buildScript('T', { ...cfg, wheel: 'auria' }, info, [hair])
+    expect(a).toContain(':setIconTexture(TEX, vec(32, 64), vec(32, 32))')
+    parse(s)
+    parse(a)
+  })
+
+  it('drops buttons that would do nothing, and pages left empty', () => {
+    const cfg = figuraDefaults(64)
+    cfg.wheelPages = syncWheel(cfg)
+    cfg.wheelPages[1].items = cfg.wheelPages[1].items.map((it) => (it.expr === 'happy' ? { ...it, hidden: true } : it))
+    const pages = liveWheel(cfg, { frames: (f) => f === 'happy', physics: false })
+    // happy hidden, others have no frame -> no expressions, so no "normal face" and no expressions page
+    expect(pages[0].items.map((i) => i.toggle ?? i.type)).toEqual([])
+    const s = buildScript('T', cfg, { ...info, hairChains: [], faceParts: { happy: 'F_happy' } }, [])
+    expect(s).not.toContain('action_wheel')
+    parse(s)
+  })
+
+  it('places new custom expressions and forgets deleted ones', () => {
+    const cfg = figuraDefaults(64)
+    cfg.customExpr = [{ id: 'a', name: 'Smirk', coversEyes: false }]
+    const pages = syncWheel(cfg)
+    const faces = pages[1].items
+    expect(faces.at(-1)?.type).toBe('clear') // stays last
+    expect(faces.some((i) => i.expr === 'x_a')).toBe(true)
+    expect(itemView(cfg, faces.find((i) => i.expr === 'x_a')!)).toMatchObject({ title: 'Smirk', icon: { kind: 'face', frame: 'x_a' } })
+    cfg.wheelPages = pages
+    cfg.customExpr = []
+    expect(syncWheel(cfg)[1].items.some((i) => i.expr === 'x_a')).toBe(false)
+  })
+
+  it('converts the old single-page wheel settings', () => {
+    const old = { ...figuraDefaults(64), wheelPages: undefined, wheelOrder: ['sad'], wheelTitle: 'Faces', buttons: { happy: { title: 'Yay', icon: ':smile:', color: '#ff0000' } } } as never
+    const cfg = { ...figuraDefaults(64), ...migrateWheel(old) }
+    expect(cfg.wheelPages[1].title).toBe('Faces')
+    expect(cfg.wheelPages[1].items.map((i) => i.expr ?? i.type).slice(0, 2)).toEqual(['sad', 'happy'])
+    expect(cfg.wheelPages[1].items[1]).toMatchObject({ title: 'Yay', icon: { kind: 'emoji', text: ':smile:' }, color: '#ff0000' })
+    expect('buttons' in cfg).toBe(false)
+  })
+
   it('keeps the bundled auria wheel parseable', () => {
     for (const f of ['core.lua', 'init.lua', 'main.lua', 'conf.lua', 'color_picker.lua', 'action/toggle.lua', 'action/slider.lua', 'action/dropdown.lua'])
       expect(() => luaparse.parse(readFileSync('src/figura/auria_wheel/' + f, 'utf8'), { luaVersion: '5.2' }), f).not.toThrow()
-  })
-})
-
-describe('detailed wheel settings', () => {
-  const info = { hairChains: [{ path: ['Hair1', 's1'], id: 'h1' }], faceParts: { happy: 'F_happy', sad: 'F_sad', angry: 'F_angry' }, replaces: [] }
-  it('follows order, hides buttons, colours them and adds extra buttons', () => {
-    const cfg = {
-      ...figuraDefaults(64),
-      wheelOrder: ['sad', 'happy'] as ('sad' | 'happy')[],
-      wheelTitle: 'Faces',
-      wheelExtras: { clear: true, physics: true },
-      buttons: { angry: { title: '', icon: '', hidden: true }, happy: { title: 'Yay', icon: 'minecraft:cake', color: '#ff8000' } }
-    }
-    const s = buildScript('T', cfg, info, [hair])
-    expect(s).toContain('local EXPR = { "sad", "happy" }')
-    expect(s).toContain('newPage("Faces")')
-    expect(s).toContain(':setColor(vec(1, 0.502, 0))')
-    expect(s).toContain('title("Normal face")')
-    expect(s).toContain('pings.nkwPhys(physOn)')
-    expect(s).not.toContain('"angry"')
-    expect(() => luaparse.parse(s, { luaVersion: '5.2' })).not.toThrow()
-    const auria = buildScript('T', { ...cfg, wheel: 'auria' }, info, [hair])
-    expect(auria).toContain('page:setTitle("Faces")')
-    expect(auria).toContain('newToggle():setTitle("Hair physics")')
-    expect(() => luaparse.parse(auria, { luaVersion: '5.2' })).not.toThrow()
   })
 })

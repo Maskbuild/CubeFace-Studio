@@ -48,6 +48,10 @@ export interface Storage {
   readAvatarFile(id: string, rel: string): Promise<string | null>
   deleteAvatar(id: string): Promise<boolean>
   mergeAvatars(ids: string[], current: { name: string; files: Record<string, string | Uint8Array> } | null, outName: string): Promise<MergeResult | null>
+  /** Where the Minecraft client jar for a version was found (launcher name), or null. */
+  mcFind(version: string): Promise<string | null>
+  mcRead(version: string): Promise<Uint8Array | null>
+  mcDownload(version: string): Promise<Uint8Array>
   pathForFile?(file: File): string
   setZoom?(factor: number): void
   openImage(): Promise<{ name: string; dataUrl: string } | null>
@@ -164,6 +168,18 @@ const webStorage: Storage = {
   },
   async mergeAvatars() {
     return null
+  },
+  // dev server only: vite.web.config serves jars found on this computer at /__mc/<version>
+  async mcFind(v) {
+    const r = await fetch('/__mc/' + v, { method: 'HEAD' }).catch(() => null)
+    return r?.ok ? 'dev server' : null
+  },
+  async mcRead(v) {
+    const r = await fetch('/__mc/' + v).catch(() => null)
+    return r?.ok ? new Uint8Array(await r.arrayBuffer()) : null
+  },
+  async mcDownload() {
+    throw new Error('download needs the desktop app')
   },
   openImage: pickFile,
   async saveFile(data, name) {

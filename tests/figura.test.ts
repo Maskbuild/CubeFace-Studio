@@ -67,9 +67,10 @@ describe('custom expressions', () => {
     const key = `x_${c.id}` as const
     expect(doc.faces[key]?.w).toBe(8)
     expect(doc.faceFrame).toBe(key)
-    const info = { hairChains: [], faceParts: { [key]: 'F_' + key }, replaces: [] }
+    const info = { hairChains: [], faceParts: { [key]: 'F_' + key }, replaces: [], atlas: { w: 64, h: 64, slots: {} } }
     const s = buildScript('T', doc.figura, info, [])
     expect(s).toContain('title("Smirk")')
+    expect(s).toContain('title("Expressions")') // reached from the main page
     expect(s).toContain(`${key} = true`) // covers eyes
     expect(() => luaparse.parse(s, { luaVersion: '5.2' })).not.toThrow()
     doc.undo()
@@ -87,5 +88,22 @@ describe('base face frame', () => {
     expect(doc.faceFrame).toBe('base')
     doc.createBlankFace('happy')
     expect(doc.faces.happy!.data.every((v, i) => i % 4 !== 3 || v === 0)).toBe(true)
+  })
+})
+
+import { prepareAtlas, shippedCuboids } from '../src/renderer/src/figura/avatar'
+import { cuboids } from '../src/renderer/src/skin/layout'
+
+describe('skin parts inside the avatar', () => {
+  const partsOf = (doc: SkinDoc, t: 'figura' | 'bedrock') => [...new Set(cuboids('wide').filter((_, i) => shippedCuboids(doc, t)[i]).map((c) => c.part))]
+  it('ships only the head, and only for the smooth head; Bedrock keeps everything', () => {
+    const doc = make(64)
+    expect(partsOf(doc, 'figura')).toEqual(['head'])
+    doc.updateFigura({ smoothHead: false })
+    expect(partsOf(doc, 'figura')).toEqual([]) // face frames ride on the vanilla head
+    expect(prepareAtlas(doc, 'figura').atlas.img.h).toBeLessThan(64)
+    expect(partsOf(doc, 'bedrock')).toHaveLength(6)
+    doc.updateFigura({ skinParts: 'all' })
+    expect(partsOf(doc, 'figura')).toHaveLength(6)
   })
 })

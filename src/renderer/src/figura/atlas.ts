@@ -31,7 +31,7 @@ export function buildAtlas(skin: Img, extras: Record<string, Img>): { img: Img; 
     x += e.w
     rowH = Math.max(rowH, e.h)
   }
-  const out = createImg(W, y + rowH)
+  const out = createImg(W, Math.max(1, y + rowH))
   out.data.set(skin.data)
   for (const k of keys) writeRect(out, { x: slots[k].x, y: slots[k].y, w: extras[k].w, h: extras[k].h }, extras[k].data)
   return { img: out, slots }

@@ -23,8 +23,8 @@ export function usedParts(img: Img, variant: Variant): Set<PartId> {
  * Rows of the skin texture actually referenced by used faces (from the top), so a head-only
  * skin can ship a quarter-height texture. Returned in texels, rounded up to a multiple of 4 base px.
  */
-export function usedHeight(img: Img, variant: Variant): number {
-  const used = usedCuboids(img, variant)
+export function usedHeight(img: Img, variant: Variant, used = usedCuboids(img, variant)): number {
+  if (!used.some(Boolean)) return 0
   let maxY = 0
   cuboids(variant).forEach((c, i) => {
     if (!used[i]) return

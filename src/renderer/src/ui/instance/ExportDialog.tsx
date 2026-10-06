@@ -102,13 +102,13 @@ export function ExportDialog({ doc, onClose }: { doc: SkinDoc; onClose: () => vo
       )}
       {kind === 'figura' && (
         <>
-          <div className="field">
+          {c.skinParts === 'all' && <div className="field">
             <span className="label">{t('figura.hideVanilla')}</span>
             <div className="seg">
               <button className={c.hideVanilla === 'used' ? 'on' : ''} onClick={() => doc.updateFigura({ hideVanilla: 'used' })}>{t('figura.hideUsed')}</button>
               <button className={c.hideVanilla === 'all' ? 'on' : ''} onClick={() => doc.updateFigura({ hideVanilla: 'all' })}>{t('figura.hideAll')}</button>
             </div>
-          </div>
+          </div>}
           <div className="field">
             <div className="section-head">
               <span className="label">{t('export.includeFigura')}</span>
