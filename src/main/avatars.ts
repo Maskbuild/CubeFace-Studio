@@ -1,6 +1,8 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
+import os from 'node:os'
+import zlib from 'node:zlib'
 
 /** A Figura avatar folder kept in the app's avatar library (global/avatars/<id>/files). */
 export interface AvatarMeta {
@@ -71,7 +73,46 @@ export class AvatarLibrary {
   }
 
   /** Copy an avatar folder into the library. Returns null if it doesn't look like an avatar. */
-  async import(src: string): Promise<AvatarMeta | null> {
+  /**
+   * Import whatever was dropped or picked: an avatar folder, a folder holding several avatar
+   * folders, or a .zip of an avatar (as shared online). Returns every avatar added.
+   */
+  async importAny(src: string): Promise<AvatarMeta[]> {
+    const st = await fs.stat(src).catch(() => null)
+    if (!st) return []
+    if (st.isFile() && /\.zip$/i.test(src)) {
+      const tmp = path.join(os.tmpdir(), 'nkw-avatar-' + randomUUID())
+      try {
+        await extractZip(await fs.readFile(src), tmp)
+        const roots = await findAvatarRoots(tmp)
+        const out: AvatarMeta[] = []
+        for (const r of roots) {
+          const m = await this.import(r, roots.length === 1 && r === tmp ? path.basename(src, path.extname(src)) : undefined)
+          if (m) out.push(m)
+        }
+        return out
+      } finally {
+        await fs.rm(tmp, { recursive: true, force: true }).catch(() => {})
+      }
+    }
+    if (!st.isDirectory()) return []
+    if (await isAvatarDir(src)) {
+      const m = await this.import(src)
+      return m ? [m] : []
+    }
+    // a folder of avatars (e.g. Figura's own avatars folder)
+    const out: AvatarMeta[] = []
+    for (const ent of await fs.readdir(src, { withFileTypes: true })) {
+      const p = path.join(src, ent.name)
+      if (ent.isDirectory() && (await isAvatarDir(p))) {
+        const m = await this.import(p)
+        if (m) out.push(m)
+      } else if (ent.isFile() && /\.zip$/i.test(ent.name)) out.push(...(await this.importAny(p)))
+    }
+    return out
+  }
+
+  async import(src: string, fallbackName?: string): Promise<AvatarMeta | null> {
     const st = await fs.stat(src).catch(() => null)
     if (!st?.isDirectory()) return null
     const files = await listFiles(src)
@@ -86,7 +127,7 @@ export class AvatarLibrary {
     for (const f of files) bytes += (await fs.stat(path.join(dest, f))).size
     const meta: AvatarMeta = {
       id,
-      name: typeof info.name === 'string' && info.name ? info.name : path.basename(src),
+      name: typeof info.name === 'string' && info.name ? info.name : (fallbackName ?? path.basename(src)),
       authors: (Array.isArray(a) ? a : a ? [a] : []).map(String),
       description: typeof info.description === 'string' ? info.description : '',
       files: files.length,
@@ -149,11 +190,15 @@ export class AvatarLibrary {
   }
 }
 
+/** How an included avatar is credited in avatar.json: "<authors> - <avatar name>". */
+export const creditLine = (authors: string[], name: string) => `${authors.filter(Boolean).join(', ') || 'Unknown'} - ${name}`
+
 export type MergeSource = { dir: string; label: string } | { files: Record<string, string | Uint8Array>; label: string }
 
 /**
  * Merge avatars into `out`. Every file keeps its relative path; a clash gets "_2", "_3"…
- * avatar.json files are combined (first name kept, authors joined).
+ * avatar.json files are combined: the first source's name and authors are kept (the owner),
+ * then every other avatar is credited as "<authors> - <avatar name>".
  */
 export async function mergeAvatars(out: string, sources: MergeSource[]) {
   await fs.mkdir(out, { recursive: true })
@@ -171,27 +216,82 @@ export async function mergeAvatars(out: string, sources: MergeSource[]) {
     await fs.mkdir(path.dirname(path.join(out, target)), { recursive: true })
     await write(path.join(out, target))
   }
-  const takeInfo = (j: Record<string, unknown> | null) => {
-    if (!j) return
-    first ??= j
-    const a = j.authors ?? j.author
-    for (const x of Array.isArray(a) ? a : a ? [a] : []) authors.add(String(x))
+  const takeInfo = (j: Record<string, unknown> | null, label: string) => {
+    const a = j?.authors ?? j?.author
+    const list = (Array.isArray(a) ? a : a ? [a] : []).map(String).filter(Boolean)
+    if (!first) {
+      first = j ?? { name: label }
+      for (const x of list) authors.add(x)
+    } else authors.add(creditLine(list, typeof j?.name === 'string' && j.name ? j.name : label))
   }
   for (const s of sources) {
+    let info = false
     if ('dir' in s) {
       for (const rel of await listFiles(s.dir)) {
-        if (rel.toLowerCase() === 'avatar.json') takeInfo(await readJson(path.join(s.dir, rel)))
+        if (rel.toLowerCase() === 'avatar.json') (takeInfo(await readJson(path.join(s.dir, rel)), s.label), (info = true))
         else await place(s.label, rel, (t) => fs.copyFile(path.join(s.dir, rel), t))
       }
     } else {
       for (const [rel, data] of Object.entries(s.files)) {
-        if (rel.toLowerCase() === 'avatar.json') takeInfo(JSON.parse(typeof data === 'string' ? data : Buffer.from(data).toString('utf8')))
+        if (rel.toLowerCase() === 'avatar.json') (takeInfo(JSON.parse(typeof data === 'string' ? data : Buffer.from(data).toString('utf8')), s.label), (info = true))
         else await place(s.label, rel, (t) => fs.writeFile(t, typeof data === 'string' ? data : Buffer.from(data)))
       }
     }
+    if (!info) takeInfo(null, s.label) // still credit avatars without an avatar.json
   }
   const merged: Record<string, unknown> = { ...(first ?? { name: 'Merged avatar' }), authors: [...authors] }
   delete merged.author
   await fs.writeFile(path.join(out, 'avatar.json'), JSON.stringify(merged, null, 2))
   return { out, count: sources.length, renamed }
+}
+
+/** A folder Figura would load as an avatar. */
+async function isAvatarDir(dir: string): Promise<boolean> {
+  const names = await fs.readdir(dir).catch(() => [] as string[])
+  return names.some((n) => n.toLowerCase() === 'avatar.json')
+}
+
+/** Folders inside an extracted zip that hold an avatar (the zip root itself, or one level down). */
+async function findAvatarRoots(root: string): Promise<string[]> {
+  if (await isAvatarDir(root)) return [root]
+  const out: string[] = []
+  for (const ent of await fs.readdir(root, { withFileTypes: true })) {
+    if (!ent.isDirectory()) continue
+    const p = path.join(root, ent.name)
+    if (await isAvatarDir(p)) out.push(p)
+    else for (const sub of await fs.readdir(p, { withFileTypes: true })) if (sub.isDirectory() && (await isAvatarDir(path.join(p, sub.name)))) out.push(path.join(p, sub.name))
+  }
+  if (!out.length) {
+    // no avatar.json: accept a zip whose files are models/scripts
+    const files = await listFiles(root)
+    if (files.some((f) => /\.(bbmodel|lua)$/i.test(f))) return [root]
+  }
+  return out
+}
+
+/** Minimal zip reader (stored / deflate) that refuses paths escaping the target folder. */
+export async function extractZip(buf: Buffer, dest: string) {
+  let e = buf.length - 22
+  while (e >= 0 && buf.readUInt32LE(e) !== 0x06054b50) e--
+  if (e < 0) throw new Error('not a zip file')
+  const count = buf.readUInt16LE(e + 10)
+  let p = buf.readUInt32LE(e + 16)
+  const root = path.resolve(dest)
+  for (let i = 0; i < count; i++) {
+    const method = buf.readUInt16LE(p + 10)
+    const csize = buf.readUInt32LE(p + 20)
+    const nl = buf.readUInt16LE(p + 28), xl = buf.readUInt16LE(p + 30), cl = buf.readUInt16LE(p + 32)
+    const lo = buf.readUInt32LE(p + 42)
+    const name = buf.toString('utf8', p + 46, p + 46 + nl).replace(/\\/g, '/')
+    p += 46 + nl + xl + cl
+    if (name.endsWith('/') || name.startsWith('__MACOSX/')) continue
+    const out = path.resolve(root, name)
+    if (!out.startsWith(root + path.sep)) continue // zip-slip guard
+    const start = lo + 30 + buf.readUInt16LE(lo + 26) + buf.readUInt16LE(lo + 28)
+    const raw = buf.subarray(start, start + csize)
+    const data = method === 0 ? raw : method === 8 ? zlib.inflateRawSync(raw) : null
+    if (!data) continue
+    await fs.mkdir(path.dirname(out), { recursive: true })
+    await fs.writeFile(out, data)
+  }
 }

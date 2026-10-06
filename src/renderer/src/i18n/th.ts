@@ -98,6 +98,13 @@ export const th: Dict = {
     exclusive: 'สิทธิ์ขาด (เราเป็นเจ้าของ)'
   },
   tools: {
+    gradient: "ไล่สี (U)",
+    smooth: "สมูท",
+    gradColors: "สีเริ่มและสีจบ",
+    swapColors: "สลับสี",
+    gradSteps: "จำนวนขั้น",
+    gradSmooth: "เนียน",
+    gradHint: "ลากผ่านหน้าที่ต้องการเพื่อเติมสีไล่ระดับ",
     brush: 'แปรง (B)',
     eraser: 'ยางลบ (E)',
     bucket: 'ถังสี (G)',
@@ -121,7 +128,7 @@ export const th: Dict = {
     resetView: 'รีเซ็ตมุมมอง',
     hint: 'คลิกซ้าย วาด · คลิกขวา หมุน · คลิกกลาง เลื่อน · ล้อเมาส์ ซูม · Space+คลิกซ้าย หมุน'
   },
-  color: { title: 'สี', hex: 'โค้ดสี', history: 'สีที่ใช้ล่าสุด', palette: 'Palette', addToPalette: 'เพิ่มสีปัจจุบัน', importPalette: 'สร้าง Palette จากภาพ', newPalette: 'Palette ใหม่', paletteName: 'ชื่อ Palette', colors: 'จำนวนสี', removeHint: 'คลิกขวาที่ช่องสีเพื่อลบ' },
+  color: { dropHere: 'วางภาพเพื่อสร้าง palette จากสีในภาพ', title: 'สี', hex: 'โค้ดสี', history: 'สีที่ใช้ล่าสุด', palette: 'Palette', addToPalette: 'เพิ่มสีปัจจุบัน', importPalette: 'สร้าง Palette จากภาพ', newPalette: 'Palette ใหม่', paletteName: 'ชื่อ Palette', colors: 'จำนวนสี', removeHint: 'คลิกขวาที่ช่องสีเพื่อลบ' },
   parts: {
     title: 'โมเดล',
     head: 'หัว',
@@ -135,6 +142,17 @@ export const th: Dict = {
     allOverlay: 'ชั้นนอกทั้งหมด'
   },
   hair: {
+    texture: "เท็กซ์เจอร์",
+    textureImport: "นำเข้าภาพ…",
+    textureMove: "ย้ายเท็กซ์เจอร์ (UV) / กลับด้าน",
+    flipX: "กลับซ้าย-ขวา",
+    flipY: "กลับบน-ล่าง",
+    textureTitle: "ภาพสำหรับ {{name}}",
+    textureOther: "เลือกภาพอื่น…",
+    textureApply: "ใช้ภาพนี้",
+    texturePick: "เลือกภาพ",
+    texturePreview: "บนแผ่นผม",
+    textureHint: "ลากกรอบเพื่อย้าย UV ลากมุมหรือหมุนล้อเมาส์เพื่อปรับขนาด เท็กซ์เจอร์ของแผ่นนี้ {{w}}×{{h}} px",
     flow: 'ความสมูท',
     flowHint: 'ซ้าย = กระชับ, ขวา = พลิ้วช้าๆ',
     resetPhys: 'ค่าเริ่มต้น',
@@ -181,7 +199,7 @@ export const th: Dict = {
     upload: 'อัปโหลดไอเทม',
     editItem: 'แก้ไขไอเทม',
     all: 'ทั้งหมด',
-    cat: { outfit: 'ชุดทั้งตัว', top: 'เสื้อ', bottom: 'กางเกง', skin: 'สีผิว', hair: 'ผม', eyes: 'ดวงตา', mouth: 'ปาก' },
+    cat: { outfit: 'ชุดทั้งตัว', top: 'เสื้อ', bottom: 'กางเกง', skin: 'สีผิว', head: 'หัว (ผม ตา ปาก)' },
     empty: 'ยังไม่มีไอเทม อัปโหลดไฟล์ PNG แบบสกิน (ใช้เฉพาะส่วนที่วาดไว้)',
     selected: 'กำลังใส่',
     noneSelected: 'คลิกไอเทมเพื่อลองใส่ หมวดละ 1 ชิ้น',
@@ -290,6 +308,7 @@ export const th: Dict = {
     previewOff: 'เปิด Preview (ปุ่มประกายในหัวข้อแผ่นผม) เพื่อดูในหน้า 3D'
   },
   keys: {
+    gradient: "ไล่สี",
     title: 'ปุ่มลัด',
     groups: { general: 'ทั่วไป', tools: 'เครื่องมือ', layers: 'เลเยอร์' },
     undo: 'ย้อนกลับ', redo: 'ทำซ้ำ', save: 'บันทึก', exportPng: 'ส่งออก PNG', mode: 'สลับโหมดสกิน / Figura', help: 'ดูปุ่มลัด', deselect: 'ยกเลิกเลือกแผ่นผม / เฟรมหน้า',
@@ -311,7 +330,7 @@ export const th: Dict = {
     scripts: 'สคริปต์',
     add: 'เพิ่มโฟลเดอร์ avatar…',
     hint: 'โฟลเดอร์ avatar ของ Figura จะถูกคัดลอกเก็บในคลัง เพื่อนำไปรวมกับสกินไหนก็ได้',
-    dropHere: 'วางโฟลเดอร์ avatar ที่นี่',
+    dropHere: 'วางโฟลเดอร์ avatar หรือไฟล์ .zip ได้เลย (โฟลเดอร์ที่มีหลาย avatar ก็ได้)',
     empty: 'ยังไม่มี avatar กดเพิ่มหรือลากโฟลเดอร์ avatar ของ Figura มาวาง',
     imported: 'เพิ่ม avatar {{n}} อันแล้ว',
     notAvatar: 'ไม่ใช่โฟลเดอร์ avatar ของ Figura: {{names}}',
@@ -484,6 +503,14 @@ export const th: Dict = {
       zombie: "เดินแบบซอมบี้",
       dance: "เต้น",
     },
+  },
+  glow: {
+    toggle: "เรืองแสงในที่มืด (Figura)",
+    on: "ทำให้เรืองแสง (Figura)",
+    off: "เลิกเรืองแสง",
+    hair: "เรืองแสงในที่มืด (Figura)",
+    frame: "เฟรมนี้เรืองแสงในที่มืด (Figura) เช่น ตาเรืองแสง",
+    hint: "ส่งออกเป็นเท็กซ์เจอร์เรืองแสงของ Figura: พิกเซลเหล่านี้จะสว่างแม้ตอนกลางคืน",
   },
   icons: {
     title: "เลือกไอคอน",

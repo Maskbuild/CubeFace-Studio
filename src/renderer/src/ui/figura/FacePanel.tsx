@@ -204,6 +204,17 @@ export function FacePanel({ doc }: { doc: SkinDoc }) {
               <div key={f} className={'layer' + (doc.faceFrame === f ? ' on' : '')} onClick={() => doc.selectFace(doc.faceFrame === f ? null : f)} onDoubleClick={() => setPainting(f)}>
                 <Icon name="brush" size={13} />
                 <span className="lname">{frameLabel(t, doc.figura, f)}</span>
+                <button
+                  className={'icon-btn sm glow-btn' + (doc.figura.glowFrames?.includes(f) ? ' on' : '')}
+                  title={t('glow.frame')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const g = doc.figura.glowFrames ?? []
+                    doc.updateFigura({ glowFrames: g.includes(f) ? g.filter((x) => x !== f) : [...g, f] })
+                  }}
+                >
+                  <Icon name="sun" size={13} />
+                </button>
                 {custom(f) && (
                   <label className="row muted" style={{ fontSize: 11, gap: 3 }} title={t('figura.coversEyesHint')} onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={custom(f)!.coversEyes} onChange={(e) => doc.updateCustomExpr(custom(f)!.id, { coversEyes: e.target.checked })} />

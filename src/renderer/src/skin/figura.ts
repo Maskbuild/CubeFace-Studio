@@ -137,6 +137,8 @@ export interface FiguraConfig {
    * smooth head is on); the rest is the player's normal skin. "all": every painted part.
    */
   skinParts: 'needed' | 'all'
+  /** Face frames that glow in the dark (e.g. the base face for glowing eyes). */
+  glowFrames: FaceFrame[]
   /** Library avatars added to this skin (previewed together, exported as separate folders). */
   attached: { id: string; enabled: boolean }[]
   avatarName: string // export metadata, English only
@@ -171,6 +173,7 @@ export function figuraDefaults(res: number): FiguraConfig {
     auriaStyle: { ...DEFAULT_AURIA },
     iconVersion: '1.21.4',
     skinParts: 'needed',
+    glowFrames: [],
     attached: [],
     avatarName: '',
     author: '',

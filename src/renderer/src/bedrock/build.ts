@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import vanillaEntity from '../../../bedrock/player.entity.json'
 import vanillaRc from '../../../bedrock/player.render_controllers.json'
 import { cuboids, type PartId, type Variant } from '../skin/layout'
-import { criticalKeep, LAG, type HairInfo, type HairPhys } from '../skin/hair'
+import { criticalKeep, LAG, rootWeight, type HairInfo, type HairPhys } from '../skin/hair'
 import { coversEyes, type FaceFrame, type FiguraConfig } from '../skin/figura'
 import type { AtlasSlot } from '../figura/atlas'
 
@@ -184,9 +184,12 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
         `${VR} = ((${VR} ?? 0) + (v.${prefix}rt - (${R} ?? 0)) * ${r4(k)} * v.nkw_dt) * math.pow(${keep}, v.nkw_dt);`,
         `${R} = math.clamp((${R} ?? 0) + ${VR} * v.nkw_dt, -0.9, 0.9);`
       )
-      const pa = i ? ` - v.${prefix}a${i - 1}` : ''
-      const pr = i ? ` - v.${prefix}r${i - 1}` : ''
-      anim[bone] = { rotation: [`(${A}${pa}) * ${r4(57.3 * cfg.swingAxis)}`, 0, `(${R}${pr}) * 57.3`] }
+      const n = bonesList.length
+      const w = r4(rootWeight(i, n))
+      const pw = i ? r4(rootWeight(i - 1, n)) : 0
+      const pa = i ? ` - v.${prefix}a${i - 1} * ${pw}` : ''
+      const pr = i ? ` - v.${prefix}r${i - 1} * ${pw}` : ''
+      anim[bone] = { rotation: [`(${A} * ${w}${pa}) * ${r4(57.3 * cfg.swingAxis)}`, 0, `(${R} * ${w}${pr}) * 57.3`] }
     })
   }
   if (cfg.hairPhysics) chains.forEach((c, i) => spring(`nkw_c${i}`, c.bones, c.hair.side, c.hair.phys))

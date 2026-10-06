@@ -3,10 +3,13 @@ import type { Variant } from './layout'
 import { resample, type Img } from './pixels'
 import { applyAdjust, type Adjust } from './recolor'
 
-export type WardrobeCategory = 'outfit' | 'top' | 'bottom' | 'skin' | 'hair' | 'eyes' | 'mouth'
-export const CATEGORIES: WardrobeCategory[] = ['outfit', 'top', 'bottom', 'skin', 'hair', 'eyes', 'mouth']
-/** Layer order when applied, bottom first: clothes over skin, hair on top. */
-export const STACK: WardrobeCategory[] = ['skin', 'eyes', 'mouth', 'bottom', 'top', 'outfit', 'hair']
+export type WardrobeCategory = 'outfit' | 'top' | 'bottom' | 'skin' | 'head'
+export const CATEGORIES: WardrobeCategory[] = ['outfit', 'top', 'bottom', 'skin', 'head']
+/** Layer order when applied, bottom first: clothes over skin, the head (hair, face) on top. */
+export const STACK: WardrobeCategory[] = ['skin', 'bottom', 'top', 'outfit', 'head']
+
+/** Items saved before the head category existed (hair, eyes, mouth) now belong to "head". */
+export const normCategory = (c: string): WardrobeCategory => (CATEGORIES.includes(c as WardrobeCategory) ? (c as WardrobeCategory) : 'head')
 
 export interface WardrobeItem {
   id: string
@@ -17,7 +20,6 @@ export interface WardrobeItem {
   credit: string
   license: License
   modifyPercent: number
-  figuraPresetId?: string // hair items can bring a Figura hair preset along
   createdAt: number
   thumb: string // small 3D render (data URL)
 }

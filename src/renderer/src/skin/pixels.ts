@@ -43,7 +43,7 @@ export function writeRect(img: Img, r: Rect, src: Uint8ClampedArray) {
 }
 
 /** Non-premultiplied source-over of colour (r,g,b) with alpha `a` (0..1) onto pixel i. */
-function over(d: Uint8ClampedArray, i: number, r: number, g: number, b: number, a: number) {
+export function over(d: Uint8ClampedArray, i: number, r: number, g: number, b: number, a: number) {
   const da = d[i + 3] / 255
   const oa = a + da * (1 - a)
   if (oa <= 0) {
@@ -208,6 +208,49 @@ export function resample(img: Img, size: number): Img {
         out.data[o + 2] = b / a
       }
       out.data[o + 3] = a / (k * k)
+    }
+  return out
+}
+
+/**
+ * Linear gradient from c0 at p0 to c1 at p1 over `rect` (texel centres projected on the line),
+ * blended over what is there. `steps` > 1 gives flat bands, nicer for pixel art.
+ */
+export function drawGradient(img: Img, rect: Rect, p0: [number, number], p1: [number, number], c0: RGBA, c1: RGBA, opacity: number, steps = 0) {
+  const r = clipRect(rect, img.w, img.h)
+  if (!r) return
+  const dx = p1[0] - p0[0], dy = p1[1] - p0[1]
+  const len2 = dx * dx + dy * dy || 1
+  for (let y = r.y; y < r.y + r.h; y++)
+    for (let x = r.x; x < r.x + r.w; x++) {
+      let t = Math.min(1, Math.max(0, ((x + 0.5 - p0[0]) * dx + (y + 0.5 - p0[1]) * dy) / len2))
+      if (steps > 1) t = Math.min(steps - 1, Math.floor(t * steps)) / (steps - 1)
+      const a = ((c0[3] + (c1[3] - c0[3]) * t) / 255) * opacity
+      if (a <= 0) continue
+      over(img.data, (y * img.w + x) * 4, c0[0] + (c1[0] - c0[0]) * t, c0[1] + (c1[1] - c0[1]) * t, c0[2] + (c1[2] - c0[2]) * t, a)
+    }
+}
+
+/** Move the picture by (dx, dy) texels, wrapping around the edges (shifting a texture's UV). */
+export function shiftImg(img: Img, dx: number, dy: number): Img {
+  const out = createImg(img.w, img.h)
+  for (let y = 0; y < img.h; y++)
+    for (let x = 0; x < img.w; x++) {
+      const sx = (((x - dx) % img.w) + img.w) % img.w
+      const sy = (((y - dy) % img.h) + img.h) % img.h
+      out.data.set(img.data.subarray((sy * img.w + sx) * 4, (sy * img.w + sx) * 4 + 4), (y * img.w + x) * 4)
+    }
+  return out
+}
+
+/** Mirror the picture left-right ('x') or top-bottom ('y'). */
+export function flipImg(img: Img, axis: 'x' | 'y'): Img {
+  const out = createImg(img.w, img.h)
+  for (let y = 0; y < img.h; y++)
+    for (let x = 0; x < img.w; x++) {
+      const sx = axis === 'x' ? img.w - 1 - x : x
+      const sy = axis === 'y' ? img.h - 1 - y : y
+      out.data.set(img.data.subarray((sy * img.w + sx) * 4, (sy * img.w + sx) * 4 + 4), (y * img.w + x) * 4)
     }
   return out
 }

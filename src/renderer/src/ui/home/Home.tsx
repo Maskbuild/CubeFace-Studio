@@ -9,13 +9,12 @@ import { Icon } from '../common/Icon'
 import { NewSkinDialog } from './NewSkinDialog'
 import { SettingsDialog } from './SettingsDialog'
 import { PaletteManager } from './PaletteManager'
-import { PresetList } from '../common/FiguraPresets'
 import { readDroppedImages } from '../../lib/files'
 import { useLibrary, WardrobeLibrary, WardrobeWindow } from '../wardrobe/Wardrobe'
 import { AvatarLibraryTab } from '../figura/AvatarLibrary'
 import { EmoteLibraryTab } from './EmoteLibrary'
 
-type Tab = 'skins' | 'palettes' | 'figura' | 'emotes' | 'wardrobe' | 'avatars'
+type Tab = 'skins' | 'palettes' | 'emotes' | 'wardrobe' | 'avatars'
 
 function WardrobeTab() {
   const lib = useLibrary()
@@ -103,7 +102,6 @@ export function Home() {
         <button className={tab === 'palettes' ? 'on' : ''} onClick={() => setTab('palettes')}>{t('home.tabPalettes')}</button>
         <button className={tab === 'wardrobe' ? 'on' : ''} onClick={() => setTab('wardrobe')}>{t('home.tabWardrobe')}</button>
         <button className={tab === 'avatars' ? 'on' : ''} onClick={() => setTab('avatars')}>{t('home.tabAvatars')}</button>
-        <button className={tab === 'figura' ? 'on' : ''} onClick={() => setTab('figura')}>{t('home.tabFigura')}</button>
         <button className={tab === 'emotes' ? 'on' : ''} onClick={() => setTab('emotes')}>{t('home.tabEmotes')}</button>
       </nav>
 
@@ -121,12 +119,6 @@ export function Home() {
         {tab === 'wardrobe' && <WardrobeTab />}
         {tab === 'avatars' && <AvatarLibraryTab />}
         {tab === 'emotes' && <EmoteLibraryTab />}
-        {tab === 'figura' && (
-          <div style={{ maxWidth: 760 }}>
-            <p className="muted">{t('presets.help')}</p>
-            <PresetList />
-          </div>
-        )}
         {tab === 'skins' && skins && shown.length === 0 && <div className="empty">{t('home.empty')}</div>}
         {tab === 'skins' && (
           <div className="skin-grid">

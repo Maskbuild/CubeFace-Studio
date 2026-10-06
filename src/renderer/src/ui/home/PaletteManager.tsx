@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
-import { paletteFromImage } from '../../lib/paletteImport'
+import { useState } from 'react'
+import { paletteFromDataUrl, paletteFromImage } from '../../lib/paletteImport'
+import { readDroppedImages } from '../../lib/files'
 import { newId } from '../../skin/doc'
 import { BUILTIN_PALETTES } from '../../skin/palette'
 import { useEditor } from '../../store/editor'
@@ -12,9 +14,30 @@ export function PaletteManager() {
   const { palettes, savePalettes } = useEditor()
 
   const update = (id: string, p: Partial<(typeof palettes)[number]>) => savePalettes(palettes.map((x) => (x.id === id ? { ...x, ...p } : x)))
+  const [over, setOver] = useState(false)
 
   return (
-    <div className="palette-list">
+    <div
+      className={'palette-list drop-zone' + (over ? ' over' : '')}
+      onDragOver={(e) => {
+        if (![...e.dataTransfer.types].includes('Files')) return
+        e.preventDefault()
+        setOver(true)
+      }}
+      onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setOver(false)}
+      onDrop={async (e) => {
+        e.preventDefault()
+        setOver(false)
+        // every dropped picture becomes a palette of its main colours
+        const made = []
+        for (const f of await readDroppedImages(e.dataTransfer.files)) {
+          const p = await paletteFromDataUrl(f.name, f.dataUrl)
+          if (p) made.push(p)
+        }
+        if (made.length) savePalettes([...palettes, ...made])
+      }}
+    >
+      {over && <div className="drop-hint"><Icon name="image" size={28} />{t('color.dropHere')}</div>}
       <div className="row">
         <button className="btn primary" onClick={() => savePalettes([...palettes, { id: newId(), name: t('color.newPalette'), colors: [] }])}><Icon name="plus" />{t('color.newPalette')}</button>
         <button

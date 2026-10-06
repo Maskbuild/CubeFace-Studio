@@ -22,6 +22,7 @@ export const SHORTCUTS: { group: string; items: [string, string][] }[] = [
       ['B', 'brush'],
       ['E', 'eraser'],
       ['G', 'bucket'],
+      ['U', 'gradient'],
       ['I / Alt (hold)', 'picker'],
       ['O / Space (hold)', 'orbit'],
       ['[  ]', 'size'],
@@ -48,7 +49,7 @@ export const SHORTCUTS: { group: string; items: [string, string][] }[] = [
   }
 ]
 
-const TOOL_KEYS: Record<string, Tool> = { b: 'brush', e: 'eraser', g: 'bucket', i: 'picker', o: 'orbit' }
+const TOOL_KEYS: Record<string, Tool> = { b: 'brush', e: 'eraser', g: 'bucket', u: 'gradient', i: 'picker', o: 'orbit' }
 
 interface Actions {
   save(): void

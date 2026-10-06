@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { newId, type License } from '../../skin/doc'
 import type { Variant } from '../../skin/layout'
 import type { Img } from '../../skin/pixels'
 import { CATEGORIES, type WardrobeCategory, type WardrobeItem } from '../../lib/wardrobe'
-import { loadPresets, type FiguraPreset } from '../../lib/presets'
 import { renderThumbnail } from '../../three/thumbnail'
 import { Modal } from '../common/dialogs'
 
@@ -25,7 +24,6 @@ export function ItemDialog({
   onSave: (item: WardrobeItem, img?: Img) => void
 }) {
   const { t } = useTranslation()
-  const [presets, setPresets] = useState<FiguraPreset[]>([])
   const [f, setF] = useState<WardrobeItem>(
     () =>
       item ?? {
@@ -41,9 +39,6 @@ export function ItemDialog({
         thumb: renderThumbnail(upload!.img, upload!.variant, 160)
       }
   )
-  useEffect(() => {
-    loadPresets().then(setPresets)
-  }, [])
 
   return (
     <Modal
@@ -76,17 +71,6 @@ export function ItemDialog({
           </span>
         </div>
       </div>
-      {f.category === 'hair' && (
-        <label className="field">
-          <span className="label">{t('wardrobe.figuraHair')}</span>
-          <select className="select" value={f.figuraPresetId ?? ''} onChange={(e) => setF({ ...f, figuraPresetId: e.target.value || undefined })}>
-            <option value="">{t('wardrobe.noPreset')}</option>
-            {presets.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        </label>
-      )}
       <label className="field">
         <span className="label">{t('wardrobe.credit')}</span>
         <input className="input" placeholder={t('common.none')} value={f.credit} onChange={(e) => setF({ ...f, credit: e.target.value })} />

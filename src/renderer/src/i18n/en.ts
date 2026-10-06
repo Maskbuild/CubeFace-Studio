@@ -96,6 +96,13 @@ export const en = {
     exclusive: 'Exclusive (I own it)'
   },
   tools: {
+    gradient: "Gradient (U)",
+    smooth: "Smooth",
+    gradColors: "Start and end colour",
+    swapColors: "Swap colours",
+    gradSteps: "Bands",
+    gradSmooth: "smooth",
+    gradHint: "Drag across a face to fill it",
     brush: 'Brush (B)',
     eraser: 'Eraser (E)',
     bucket: 'Paint bucket (G)',
@@ -119,7 +126,7 @@ export const en = {
     resetView: 'Reset view',
     hint: 'LMB paint · RMB rotate · MMB pan · Wheel zoom · Space+LMB rotate'
   },
-  color: { title: 'Colour', hex: 'Hex', history: 'Recent', palette: 'Palette', addToPalette: 'Add current colour', importPalette: 'Palette from image', newPalette: 'New palette', paletteName: 'Palette name', colors: 'Colours', removeHint: 'Right-click a swatch to remove it' },
+  color: { dropHere: 'Drop pictures to make palettes from their colours', title: 'Colour', hex: 'Hex', history: 'Recent', palette: 'Palette', addToPalette: 'Add current colour', importPalette: 'Palette from image', newPalette: 'New palette', paletteName: 'Palette name', colors: 'Colours', removeHint: 'Right-click a swatch to remove it' },
   parts: {
     title: 'Model',
     head: 'Head',
@@ -133,6 +140,17 @@ export const en = {
     allOverlay: 'All overlays'
   },
   hair: {
+    texture: "Texture",
+    textureImport: "Import picture…",
+    textureMove: "Move texture (UV) / flip",
+    flipX: "Flip left-right",
+    flipY: "Flip top-bottom",
+    textureTitle: "Picture for {{name}}",
+    textureOther: "Other picture…",
+    textureApply: "Use",
+    texturePick: "Choose a picture",
+    texturePreview: "On the plane",
+    textureHint: "Drag the box to move the UV, drag its corner or use the wheel to resize. The plane texture is {{w}}×{{h}} px.",
     flow: 'Smoothness',
     flowHint: 'Left = snappy, right = slow and floaty',
     resetPhys: 'Reset',
@@ -179,7 +197,7 @@ export const en = {
     upload: 'Upload item',
     editItem: 'Edit item',
     all: 'All',
-    cat: { outfit: 'Full outfit', top: 'Top', bottom: 'Pants', skin: 'Skin tone', hair: 'Hair', eyes: 'Eyes', mouth: 'Mouth' },
+    cat: { outfit: 'Full outfit', top: 'Top', bottom: 'Pants', skin: 'Skin tone', head: 'Head (hair, eyes, mouth)' },
     empty: 'Nothing here yet. Upload a skin-format PNG (only the painted parts are used).',
     selected: 'Wearing',
     noneSelected: 'Click items to try them on. One per category.',
@@ -288,6 +306,7 @@ export const en = {
     previewOff: 'Turn on Preview (sparkle button in Hair planes) to see these in 3D.'
   },
   keys: {
+    gradient: "Gradient",
     title: 'Keyboard shortcuts',
     groups: { general: 'General', tools: 'Tools', layers: 'Layers' },
     undo: 'Undo', redo: 'Redo', save: 'Save', exportPng: 'Export PNG', mode: 'Skin / Figura mode', help: 'Show shortcuts', deselect: 'Deselect hair / face frame',
@@ -309,7 +328,7 @@ export const en = {
     scripts: 'Scripts',
     add: 'Add avatar folders…',
     hint: 'Figura avatar folders are copied into the library, so they can be merged with any skin.',
-    dropHere: 'Drop avatar folders here',
+    dropHere: 'Drop avatar folders or .zip files here (a folder holding several avatars works too)',
     empty: 'No avatars yet. Add or drop Figura avatar folders.',
     imported: 'Added {{n}} avatar(s)',
     notAvatar: 'Not a Figura avatar folder: {{names}}',
@@ -482,6 +501,14 @@ export const en = {
       zombie: "Zombie walk",
       dance: "Dance",
     },
+  },
+  glow: {
+    toggle: "Glow in the dark (Figura)",
+    on: "Make it glow (Figura)",
+    off: "Stop glowing",
+    hair: "Glows in the dark (Figura)",
+    frame: "This frame glows in the dark (Figura) — e.g. glowing eyes",
+    hint: "Exported as Figura's emissive texture: these pixels stay bright at night.",
   },
   icons: {
     title: "Choose an icon",

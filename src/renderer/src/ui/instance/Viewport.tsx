@@ -295,6 +295,8 @@ export function Viewport({ doc }: { doc: SkinDoc }) {
         hit = hitTexel(ev)
       }
       if (!hit) return
+      // the selection follows what you click: a hair plane selects itself, the skin deselects hair
+      if (!hit.hairId && doc.hairId) doc.selectHair(null)
       if (session.down(hit.x, hit.y, hit.clip, hit.hairId, !!hit.face)) renderer.domElement.setPointerCapture(ev.pointerId)
     }
     const onMove = (ev: PointerEvent) => {

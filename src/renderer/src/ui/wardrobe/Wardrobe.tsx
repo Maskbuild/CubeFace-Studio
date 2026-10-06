@@ -16,7 +16,6 @@ import {
   type WardrobeCategory,
   type WardrobeItem
 } from '../../lib/wardrobe'
-import { decodePreset, loadPresets } from '../../lib/presets'
 import { decodeSkin } from '../../lib/project'
 import { storage } from '../../lib/storage'
 import { readDroppedImages } from '../../lib/files'
@@ -249,12 +248,9 @@ export function WardrobeWindow({ doc, onClose, onCreate }: { doc?: SkinDoc; onCl
       const out = createImg(res, res)
       const base = doc ? [{ img: doc.composite, visible: true, opacity: 1 }] : []
       composite([...base, ...layers.map((l) => ({ img: l.img, visible: true, opacity: 1 }))], out)
-      const presetIds = picks.map((p) => p.item.figuraPresetId).filter(Boolean) as string[]
-      const presets = (await loadPresets()).filter((p) => presetIds.includes(p.id))
-      const planes = (await Promise.all(presets.map(decodePreset))).flat()
       if (!stale) {
         setPreview(out)
-        setHair(doc ? [...doc.hair, ...planes] : planes)
+        setHair(doc ? doc.hair : [])
       }
     })()
     return () => {
@@ -272,16 +268,13 @@ export function WardrobeWindow({ doc, onClose, onCreate }: { doc?: SkinDoc; onCl
       if (img) loaded.push({ ...p, img })
     }
     const layers = composeLayers(loaded, res)
-    const presets = (await loadPresets()).filter((p) => picks.some((k) => k.item.figuraPresetId === p.id))
     if (doc) {
       for (const l of layers) doc.addLayer(l.name, l.img, l.meta)
-      for (const p of presets) doc.applyPreset(p.id, await decodePreset(p))
       onClose()
       return
     }
     const d = new SkinDoc({ name: name.trim() || t('newSkin.defaultName'), res, variant })
     d.initLayers(layers.length ? layers.map((l) => d.makeLayer(l.name, l.img, l.meta)) : [d.makeLayer(t('layers.base'))])
-    for (const p of presets) d.applyPreset(p.id, await decodePreset(p))
     onCreate?.(d)
   }
 

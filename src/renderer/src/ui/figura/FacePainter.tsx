@@ -11,6 +11,7 @@ import { frameLabel } from './frameLabel'
 const TOOLS: [Tool, string][] = [
   ['brush', 'brush'],
   ['eraser', 'eraser'],
+  ['gradient', 'gradient'],
   ['picker', 'picker']
 ]
 
@@ -34,7 +35,7 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
   // painting a frame = selecting it (the 3D view shows it too)
   useEffect(() => {
     doc.selectFace(frame)
-    if (ed.tool !== 'brush' && ed.tool !== 'eraser' && ed.tool !== 'picker') ed.set({ tool: 'brush' })
+    if (!['brush', 'eraser', 'gradient', 'picker'].includes(ed.tool)) ed.set({ tool: 'brush' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frame])
 
@@ -217,6 +218,19 @@ export function FacePainter({ doc, frame: initial, onClose }: { doc: SkinDoc; fr
             <div style={{ background: toHex(ed.color, false) }} />
             <input type="color" value={toHex(ed.color, false)} onChange={(e) => ed.set({ color: parseHex(e.target.value) ?? ed.color })} style={{ opacity: 0, width: '100%', height: '100%', border: 0, padding: 0 }} />
           </label>
+          {ed.tool === 'gradient' && (
+            <label className="swatch-big checker" title={t('tools.gradColors')} style={{ width: 30, height: 30 }}>
+              <div style={{ background: toHex(ed.color2, false) }} />
+              <input type="color" value={toHex(ed.color2, false)} onChange={(e) => ed.set({ color2: parseHex(e.target.value) ?? ed.color2 })} style={{ opacity: 0, width: '100%', height: '100%', border: 0, padding: 0 }} />
+            </label>
+          )}
+          {(ed.tool === 'brush' || ed.tool === 'eraser') && (
+            <label className="slider">
+              <span className="muted">{t('tools.smooth')}</span>
+              <input type="range" min={0} max={1} step={0.05} value={b.smooth ?? 0} onChange={(e) => ed.setBrush({ smooth: Number(e.target.value) })} />
+              <span className="val">{Math.round((b.smooth ?? 0) * 100)}%</span>
+            </label>
+          )}
           <label className="slider">
             <span className="muted">{t('tools.size')}</span>
             <input type="range" min={1} max={Math.max(8, doc.res / 16)} value={b.size} onChange={(e) => ed.setBrush({ size: Number(e.target.value) })} />

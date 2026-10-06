@@ -35,6 +35,8 @@ export interface Layer {
   visible: boolean
   opacity: number
   locked: boolean
+  /** Glows in the dark in Figura (exported to the emissive texture). */
+  glow?: boolean
   meta: LayerMeta
   img: Img
 }
@@ -415,20 +417,7 @@ export class SkinDoc {
     }, `hair:${id}:${Object.keys(props).join(',')}`)
   }
 
-  /** Add a preset's planes (textures already decoded) tagged with the preset id. */
-  applyPreset(presetId: string, planes: HairPlane[]) {
-    this.change(() => {
-      for (const p of planes) {
-        const [tw, th] = hairTexSize(p.w, p.h, this.res)
-        this.hair.push({ ...cloneHair(p), id: newId(), presetId, img: p.img.w === tw && p.img.h === th ? cloneImg(p.img) : rescale(p.img, tw, th) })
-      }
-    })
-  }
 
-  removePreset(presetId: string) {
-    this.change(() => (this.hair = this.hair.filter((h) => h.presetId !== presetId)))
-    if (this.hairId && !this.hairPlane(this.hairId)) this.selectHair(null)
-  }
 
   beginHairStroke(id: string, color: RGBA, opacity: number, mode: 'paint' | 'erase'): Stroke | null {
     const h = this.hairPlane(id)
@@ -624,6 +613,41 @@ export class SkinDoc {
     if (!id) return
     this.push({ kind: 'pixels', targetId: id, rect: r, before: readRect(stroke.snapshot, r), after: readRect(stroke.target, r) })
     this.emit({ type: 'structure' })
+  }
+
+  /** Owner id of an image the doc holds (layer, hair plane or face frame), for undo entries. */
+  private imgId(img: Img): string | undefined {
+    const f = this.faceByImg(img)
+    return this.layers.find((l) => l.img === img)?.id ?? this.hair.find((h) => h.img === img)?.id ?? (f && faceId(f))
+  }
+
+  /** Tell the views that pixels of a doc image changed after a direct edit (gradient preview…). */
+  touched(img: Img, r: Rect) {
+    const hair = this.hair.find((h) => h.img === img)
+    if (hair) return this.emit({ type: 'hair', id: hair.id })
+    const face = this.faceByImg(img)
+    if (face) return this.emit({ type: 'face', frame: face })
+    composite(this.layers, this.composite, r)
+    this.emit({ type: 'pixels', rect: r })
+  }
+
+  /** Record a direct edit (compared with `snapshot`, inside `r`) as one undo step. */
+  commitEdit(img: Img, snapshot: Img, r: Rect) {
+    const id = this.imgId(img)
+    if (!id) return
+    this.push({ kind: 'pixels', targetId: id, rect: r, before: readRect(snapshot, r), after: readRect(img, r) })
+    this.emit({ type: 'structure' })
+  }
+
+  /** Replace a hair plane's texture (imported picture, shifted / flipped UV) as one undo step. */
+  setHairPixels(id: string, next: Img) {
+    const h = this.hairPlane(id)
+    if (!h || next.w !== h.img.w || next.h !== h.img.h) return
+    const snap = cloneImg(h.img)
+    h.img.data.set(next.data)
+    const r = { x: 0, y: 0, w: h.img.w, h: h.img.h }
+    this.touched(h.img, r)
+    this.commitEdit(h.img, snap, r)
   }
 
   /** Paint-bucket: 'face' fills the face under the texel, 'element' fills every face of its cuboid. */

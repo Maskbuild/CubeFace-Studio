@@ -5,6 +5,7 @@ import { DEFAULT_FLOW, LENGTH_PRESET, physFromFlow, type HairLength, type HairPl
 import { MOTION_MODES, type MotionMode } from '../../three/motion'
 import { useEditor } from '../../store/editor'
 import { Icon } from '../common/Icon'
+import { HairTextureTools } from './HairTexture'
 
 const SIDES: HairSide[] = ['front', 'back']
 const LENGTHS: HairLength[] = ['short', 'medium', 'long']
@@ -86,6 +87,13 @@ function HairProps({ doc, h }: { doc: SkinDoc; h: HairPlane }) {
       <Vec3 value={h.pos} onChange={(v) => up({ pos: v })} />
       <span className="muted">{t('hair.rot')}</span>
       <Vec3 value={h.rot} step={5} onChange={(v) => up({ rot: v })} />
+      <label className="row" style={{ fontSize: 12 }} title={t('glow.hint')}>
+        <input type="checkbox" checked={!!h.glow} onChange={(e) => up({ glow: e.target.checked })} />
+        <Icon name="sun" size={13} />
+        {t('glow.hair')}
+      </label>
+      <span className="label" style={{ marginTop: 4 }}>{t('hair.texture')}</span>
+      <HairTextureTools doc={doc} h={h} />
       <span className="label" style={{ marginTop: 4 }}>{t('hair.physics')}</span>
       {/* one setting: everything else is derived and always bounce-free */}
       <PhysSlider label={t('hair.flow')} value={flow} min={0} max={1} step={0.05} onChange={(v) => up({ phys: physFromFlow(v, h.length) })} />
@@ -100,7 +108,7 @@ function HairProps({ doc, h }: { doc: SkinDoc; h: HairPlane }) {
   )
 }
 
-export function HairPanel({ doc, onOpenPresets }: { doc: SkinDoc; onOpenPresets: () => void }) {
+export function HairPanel({ doc }: { doc: SkinDoc }) {
   const { t } = useTranslation()
   useEditor((s) => s.tick)
   const { figura, motion, hairOutlines, set } = useEditor()
@@ -116,9 +124,6 @@ export function HairPanel({ doc, onOpenPresets }: { doc: SkinDoc; onOpenPresets:
           <button className={'btn sm-btn' + (figura ? ' primary' : '')} title={t('hair.preview')} onClick={() => set({ figura: !figura })}>
             <Icon name="sparkle" size={14} />
             Preview
-          </button>
-          <button className="icon-btn sm" title={t('hair.presets')} onClick={onOpenPresets}>
-            <Icon name="settings" size={14} />
           </button>
         </div>
       </div>

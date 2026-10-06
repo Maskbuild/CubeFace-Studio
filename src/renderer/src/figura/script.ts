@@ -213,6 +213,7 @@ export function buildScript(name: string, cfg: FiguraConfig, info: ModelInfo, ha
   if (cfg.smoothHead) {
     add(
       'local sm, last = nil, client.getSystemTime()',
+      ...(chains.length ? ['-- hair reacts to the lagging head, so the two move together', `phys.followHead(${lua(cfg.headSpeed)})`] : []),
       'local function wrap(a) return (a + 180) % 360 - 180 end',
       'function events.render(delta, ctx)',
       '  if ctx ~= "RENDER" and ctx ~= "FIRST_PERSON" then return end',

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SkinDoc } from '../../skin/doc'
 import { toEnglish } from '../../skin/figura'
-import { buildAvatar } from '../../figura/avatar'
+import { buildAvatar, creditLine } from '../../figura/avatar'
 import { buildMcpack } from '../../bedrock/pack'
 import { exportFileName } from '../../lib/project'
 import { imgToDataUrl } from '../../lib/png'
@@ -49,7 +49,13 @@ export function ExportDialog({ doc, onClose }: { doc: SkinDoc; onClose: () => vo
           const r = await storage.mergeAvatars(include, { name: meta.name, files }, meta.name)
           if (r) toast(t('figura.merged', { n: r.count, dir: r.out, r: r.renamed.length ? r.renamed.map((x) => `${x.from} → ${x.to}`).join(', ') : t('figura.none') }))
         } else {
-          // the chosen Figura come out next to this one, each in its own folder
+          // the chosen Figura come out next to this one, each in its own folder; this avatar
+          // credits them after the owner as "<authors> - <avatar name>"
+          if (include.length) {
+            const info = JSON.parse(files['avatar.json'] as string)
+            const credits = include.map((id) => lib.find((a) => a.id === id)).filter((a): a is AvatarMeta => !!a).map((a) => creditLine(a.authors, a.name))
+            files['avatar.json'] = JSON.stringify({ ...info, authors: [...(info.authors ?? []), ...credits] }, null, 2)
+          }
           const dir = await storage.exportFigura(meta.name, files, include)
           if (dir) toast(t('figura.exported', { dir }))
         }

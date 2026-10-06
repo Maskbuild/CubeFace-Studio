@@ -126,3 +126,20 @@ describe('smooth (bounce-free) physics', () => {
     expect(physFromFlow(1, 'medium').stiffness).toBeLessThan(physFromFlow(0, 'medium').stiffness)
   })
 })
+
+import { rootWeight, HairSim as Sim2, physFromFlow as pf } from '../src/renderer/src/skin/hair'
+
+describe('hair stays on the head', () => {
+  it('the root swings much less than the tip, and the strand curves smoothly', () => {
+    const sim = new Sim2(4, 'back', pf(0.55, 'medium'))
+    for (let i = 0; i < 40; i++) sim.step({ vx: 0, vy: 0, vz: 0.28, pitch: 0, yawRate: 0 })
+    const abs: number[] = []
+    let sum = 0
+    for (let i = 0; i < 4; i++) abs.push((sum += sim.sample(i, 1)[0]))
+    expect(Math.abs(abs[0])).toBeLessThan(Math.abs(abs[3]) * 0.45)
+    // each joint bends a little, no sharp kink
+    for (let i = 1; i < 4; i++) expect(Math.abs(abs[i] - abs[i - 1])).toBeLessThan(Math.abs(abs[3]) * 0.6)
+    expect(rootWeight(0, 4)).toBeCloseTo(0.3)
+    expect(rootWeight(3, 4)).toBe(1)
+  })
+})

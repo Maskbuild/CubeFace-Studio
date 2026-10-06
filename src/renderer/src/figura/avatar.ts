@@ -2,13 +2,16 @@ import physicsLua from '../../../figura/nkw_physics.lua?raw'
 import type { SkinDoc } from '../skin/doc'
 import { allFrames, itemView, liveWheel, type FaceFrame } from '../skin/figura'
 import { cuboids } from '../skin/layout'
-import { cloneImg, composite, createImg, type Img } from '../skin/pixels'
+import { cloneImg, composite, createImg, writeRect, type Img } from '../skin/pixels'
 import { dataUrlToImg, imgToDataUrl } from '../lib/png'
 import { buildAtlas } from './atlas'
 import { usedCuboids, usedHeight } from '../skin/usage'
 import { buildModel } from './bbmodel'
 import { auriaConf, buildScript } from './script'
 import { AURIA_FILES } from './auria'
+
+/** How an included avatar is credited in avatar.json (same format as the desktop merge). */
+export const creditLine = (authors: string[], name: string) => `${authors.filter(Boolean).join(', ') || 'Unknown'} - ${name}`
 
 export interface AvatarMeta {
   name: string
@@ -91,7 +94,29 @@ export function prepareAtlas(doc: SkinDoc, target: 'figura' | 'bedrock' = 'bedro
   const h = usedHeight(doc.composite, doc.variant, used)
   const cropped = h < skin.h ? { w: skin.w, h, data: skin.data.slice(0, skin.w * h * 4) } : skin
   const atlas = buildAtlas(cropped, extras)
-  return { atlas, frames, used }
+
+  // glow layer: same layout, only the parts marked to glow (null when nothing glows)
+  let glow: Img | null = null
+  const glowLayers = doc.layers.filter((l) => l.glow && l.visible)
+  const glowHair = doc.hair.filter((x) => x.visible && x.glow)
+  const glowFrames = frames.filter((f) => cfg.glowFrames?.includes(f))
+  if (target === 'figura' && (glowLayers.length || glowHair.length || glowFrames.length)) {
+    glow = createImg(atlas.img.w, atlas.img.h)
+    if (glowLayers.length && h > 0) {
+      const g = createImg(skin.w, skin.h)
+      composite(glowLayers.map((l) => ({ img: l.img, visible: true, opacity: l.opacity })), g)
+      // only texels of shipped parts end up in the avatar
+      glow.data.set(g.data.subarray(0, skin.w * h * 4))
+    }
+    const put = (key: string, img: Img) => {
+      const s = atlas.slots[key]
+      if (s) writeRect(glow!, { x: s.x, y: s.y, w: img.w, h: img.h }, img.data)
+    }
+    for (const x of glowHair) put('hair_' + x.id, x.img)
+    for (const f of glowFrames) put('face_' + f, doc.faces[f]!)
+    if (!glow.data.some((v, i) => i % 4 === 3 && v > 0)) glow = null
+  }
+  return { atlas, frames, used, glow }
 }
 
 /** Build every file of the Figura avatar for a skin. English-only output. */
@@ -99,8 +124,9 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
   const cfg = doc.figura
   const pre = prepareAtlas(doc, 'figura')
   const icons = await wheelIcons(doc, pre.frames, hasPhysics(doc))
-  const { atlas, frames, used } = Object.keys(icons).length ? prepareAtlas(doc, 'figura', icons) : pre
+  const { atlas, frames, used, glow } = Object.keys(icons).length ? prepareAtlas(doc, 'figura', icons) : pre
   const atlasUrl = imgToDataUrl(atlas.img)
+  const glowUrl = glow ? imgToDataUrl(glow) : undefined
   const { model, info } = buildModel({
     name: meta.name,
     variant: doc.variant,
@@ -108,6 +134,7 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
     atlasW: atlas.img.w,
     atlasH: atlas.img.h,
     atlasDataUrl: atlasUrl,
+    glowDataUrl: glowUrl,
     slots: atlas.slots,
     hair: doc.hair,
     figura: cfg,
@@ -128,10 +155,11 @@ export async function buildAvatar(doc: SkinDoc, meta: AvatarMeta): Promise<Avata
 
   // Size estimate: Figura stores textures as PNG and models as compact data, then compresses.
   const png = pngBytes(atlasUrl)
+  const glowPng = glowUrl ? [pngBytes(glowUrl)] : []
   const modelNoTex = JSON.stringify({ ...model, textures: [] })
   const luaParts = Object.entries(files).filter(([p]) => p.endsWith('.lua')).map(([, v]) => v as string)
   const extraBin = Object.entries(files).filter(([p]) => p.startsWith('auria_wheel/') && !p.endsWith('.lua')).map(([, v]) => v)
-  const [texture, scriptSize, modelSize] = await Promise.all([gzipSize([png, ...extraBin]), gzipSize(luaParts), gzipSize([modelNoTex])])
+  const [texture, scriptSize, modelSize] = await Promise.all([gzipSize([png, ...glowPng, ...extraBin]), gzipSize(luaParts), gzipSize([modelNoTex])])
   // Figura's binary model is much smaller than Blockbench JSON; ~35% is a conservative ratio
   const model35 = Math.round(modelSize * 0.35)
   return { files, size: texture + scriptSize + model35, breakdown: { texture, scripts: scriptSize, model: model35 } }

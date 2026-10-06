@@ -1,11 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { useEditor, type PaintTarget, type Tool } from '../../store/editor'
 import { Icon } from '../common/Icon'
+import { parseHex, toHex } from '../../skin/color'
 
 const TOOLS: [Tool, string][] = [
   ['brush', 'brush'],
   ['eraser', 'eraser'],
   ['bucket', 'bucket'],
+  ['gradient', 'gradient'],
   ['picker', 'picker'],
   ['orbit', 'orbit']
 ]
@@ -52,10 +54,24 @@ export function Toolbar({ onResetView }: { onResetView: () => void }) {
           <Slider label={t('tools.size')} value={b.size} min={1} max={maxSize} onChange={(v) => s.setBrush({ size: v })} />
           <Slider label={t('tools.opacity')} value={b.opacity} min={0.05} max={1} step={0.05} fmt={pct} onChange={(v) => s.setBrush({ opacity: v })} />
           <Slider label={t('tools.softness')} value={b.softness} min={0} max={1} step={0.05} fmt={pct} onChange={(v) => s.setBrush({ softness: v })} />
+          <Slider label={t('tools.smooth')} value={b.smooth ?? 0} min={0} max={1} step={0.05} fmt={pct} onChange={(v) => s.setBrush({ smooth: v })} />
           <div className="seg" title={t('tools.shape')}>
             <button className={b.shape === 'square' ? 'on' : ''} onClick={() => s.setBrush({ shape: 'square' })}>{t('tools.square')}</button>
             <button className={b.shape === 'circle' ? 'on' : ''} onClick={() => s.setBrush({ shape: 'circle' })}>{t('tools.circle')}</button>
           </div>
+        </>
+      )}
+      {s.tool === 'gradient' && (
+        <>
+          <label className="grad-colors" title={t('tools.gradColors')}>
+            <input type="color" value={toHex(s.color, false)} onChange={(e) => s.set({ color: parseHex(e.target.value) ?? s.color })} />
+            <span className="grad-bar" style={{ background: `linear-gradient(90deg, ${toHex(s.color, false)}, ${toHex(s.color2, false)})` }} />
+            <input type="color" value={toHex(s.color2, false)} onChange={(e) => s.set({ color2: parseHex(e.target.value) ?? s.color2 })} />
+          </label>
+          <button className="icon-btn sm" title={t('tools.swapColors')} onClick={() => s.set({ color: s.color2, color2: s.color })}><Icon name="swap" size={15} /></button>
+          <Slider label={t('tools.gradSteps')} value={s.gradientSteps} min={0} max={16} fmt={(v) => (v ? String(v) : t('tools.gradSmooth'))} onChange={(v) => s.set({ gradientSteps: v === 1 ? 2 : v })} />
+          <Slider label={t('tools.opacity')} value={s.brush.opacity} min={0.05} max={1} step={0.05} fmt={pct} onChange={(v) => s.set({ brush: { ...s.brush, opacity: v } })} />
+          <span className="muted" style={{ fontSize: 11 }}>{t('tools.gradHint')}</span>
         </>
       )}
       {s.tool === 'bucket' && (

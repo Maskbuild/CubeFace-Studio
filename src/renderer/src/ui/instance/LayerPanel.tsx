@@ -110,6 +110,7 @@ export function LayerPanel({ doc }: { doc: SkinDoc }) {
       'sep',
       { label: l.visible ? t('layers.hide') : t('layers.show'), icon: l.visible ? 'eyeOff' : 'eye', onClick: () => doc.setLayerProps(l.id, { visible: !l.visible }) },
       { label: l.locked ? t('layers.unlock') : t('layers.lock'), icon: l.locked ? 'unlock' : 'lock', onClick: () => doc.setLayerProps(l.id, { locked: !l.locked }) },
+      { label: l.glow ? t('glow.off') : t('glow.on'), icon: 'sun', onClick: () => doc.setLayerProps(l.id, { glow: !l.glow }) },
       { label: t('layers.info'), icon: 'info', onClick: () => setInfo(l) },
       { label: t('layers.exportPng'), icon: 'download', onClick: () => exportLayer(doc, l.id) },
       'sep',
@@ -229,6 +230,9 @@ export function LayerPanel({ doc }: { doc: SkinDoc }) {
               )}
             </div>
             {isNoModify(l.meta) && <span className="warn" title={t('license.commercial-nomod')}><Icon name="warn" size={14} /></span>}
+            <button className={'icon-btn sm glow-btn' + (l.glow ? ' on' : '')} title={t('glow.toggle')} onClick={(e) => (e.stopPropagation(), doc.setLayerProps(l.id, { glow: !l.glow }))}>
+              <Icon name="sun" size={14} />
+            </button>
             <button className="icon-btn sm" title={t('layers.info')} onClick={(e) => (e.stopPropagation(), setInfo(l))}>
               <Icon name="info" size={14} />
             </button>

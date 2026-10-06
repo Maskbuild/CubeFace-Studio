@@ -27,11 +27,11 @@ describe('composeLayers', () => {
   const item = (category: WardrobeItem['category'], name: string): WardrobeItem => ({
     id: name, name, category, res: 64, variant: 'wide', credit: '', license: 'free', modifyPercent: 100, createdAt: 0, thumb: ''
   })
-  it('stacks skin under clothes under hair and rescales', () => {
+  it('stacks skin under clothes under the head and rescales', () => {
     const img = createImg(64, 64)
     const layers = composeLayers(
       [
-        { item: item('hair', 'H'), img, adjust: { mode: 'none' } },
+        { item: item('head', 'H'), img, adjust: { mode: 'none' } },
         { item: item('skin', 'S'), img, adjust: { mode: 'none' } },
         { item: item('top', 'T'), img, adjust: { mode: 'none' } }
       ],

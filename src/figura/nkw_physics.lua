@@ -1,4 +1,4 @@
---[[ NKW Physics v2.0 - smooth, bounce-free chain physics for Figura (hair, cloth, ribbons)
+--[[ NKW Physics v2.1 - smooth, bounce-free chain physics for Figura (hair, cloth, ribbons)
   Same model as the NKW Skin & Figura Custom editor preview (src/renderer/src/skin/hair.ts).
 
   local phys = require("nkw_physics")
@@ -12,6 +12,9 @@
 
   Each segment's absolute angle is its own critically damped spring (it never bounces past
   its target); lower segments follow a little slower, so the chain bends in a soft wave.
+  The root shows only part of its swing (ROOT), so hair stays on the scalp and curves smoothly.
+  With a smooth head, call P.followHead(speed) with the same speed so the hair reacts to the
+  lagging head instead of to where the player is already looking.
   Each segment must be the child of the previous one, with its pivot on its top edge.
   Physics runs at 20 ticks/s; rotations are interpolated every frame, so motion stays smooth
   at any FPS. Licensed with the NKW Skin & Figura Custom project.
@@ -20,7 +23,14 @@ local P = { enabled = true }
 local chains = {}
 local D2R, R2D = math.pi / 180, 180 / math.pi
 local LAG = 0.72 -- each lower segment follows at 72% of the stiffness above it
+local ROOT = 0.3 -- the top segment shows 30% of its swing, the tip 100%
+local function weight(i, n) return n <= 1 and 0.6 or ROOT + (1 - ROOT) * (i - 1) / (n - 1) end
 local prevYaw
+local smooth -- look direction smoothed like the smooth head (when followHead is used)
+local function wrap(a) return (a + 180) % 360 - 180 end
+
+--- Make the hair follow a smooth head that turns with this speed (0..1 per tick).
+function P.followHead(speed) P.headSpeed = speed end
 
 local function zeros(n)
   local t = {}
@@ -66,6 +76,11 @@ events.TICK:register(function()
   if not P.enabled or #chains == 0 then return end
   local vel = player:getVelocity()
   local rot = player:getRot()
+  if P.headSpeed then
+    smooth = smooth or rot
+    smooth = smooth + vec(wrap(rot.x - smooth.x), wrap(rot.y - smooth.y)) * P.headSpeed
+    rot = smooth
+  end
   local yaw = math.rad(player:getBodyYaw())
   local sn, cs = math.sin(yaw), math.cos(yaw)
   local m = {
@@ -85,8 +100,9 @@ events.RENDER:register(function(delta)
     local lastA, lastR = 0, 0
     for i = 1, c.n do
       -- interpolate absolute angles, then rotate each segment by the difference to its parent
-      local a = c.pa[i] + (c.a[i] - c.pa[i]) * delta
-      local r = c.pr[i] + (c.r[i] - c.pr[i]) * delta
+      local w = weight(i, c.n)
+      local a = (c.pa[i] + (c.a[i] - c.pa[i]) * delta) * w
+      local r = (c.pr[i] + (c.r[i] - c.pr[i]) * delta) * w
       c.parts[i]:setRot(c.rest[i] + vec((a - lastA) * R2D * c.axis, 0, -(r - lastR) * R2D))
       lastA, lastR = a, r
     end

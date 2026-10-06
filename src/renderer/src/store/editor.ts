@@ -9,7 +9,7 @@ import type { MotionMode } from '../three/motion'
 import type { ExprKey } from '../skin/figura'
 import type { Bone, Emote, PoseState } from '../pose/emote'
 
-export type Tool = 'brush' | 'eraser' | 'bucket' | 'picker' | 'orbit'
+export type Tool = 'brush' | 'eraser' | 'bucket' | 'gradient' | 'picker' | 'orbit'
 export type PaintTarget = 'auto' | 'base' | 'overlay'
 
 interface BrushSettings {
@@ -17,6 +17,8 @@ interface BrushSettings {
   softness: number
   shape: 'circle' | 'square'
   opacity: number
+  /** Stroke smoothing 0..1: the brush trails the pointer on a "rope" for steadier lines. */
+  smooth: number
 }
 
 interface EditorStore {
@@ -48,6 +50,10 @@ interface EditorStore {
   motion: MotionMode
   hairOutlines: boolean
   color: RGBA
+  /** Second colour (gradient end). */
+  color2: RGBA
+  /** Gradient bands (0 = smooth). */
+  gradientSteps: number
   recent: string[]
   hidden: Record<string, boolean> // cuboid key -> hidden
   palettes: Palette[] // user palettes (global, shared by all skins)
@@ -72,8 +78,8 @@ export const useEditor = create<EditorStore>((set, get) => ({
   doc: null,
   tick: 0,
   tool: 'brush',
-  brush: { size: 1, softness: 0, shape: 'square', opacity: 1 },
-  eraser: { size: 2, softness: 0, shape: 'square', opacity: 1 },
+  brush: { size: 1, softness: 0, shape: 'square', opacity: 1, smooth: 0 },
+  eraser: { size: 2, softness: 0, shape: 'square', opacity: 1, smooth: 0 },
   fillMode: 'face',
   grid: false,
   mirror: false,
@@ -92,6 +98,8 @@ export const useEditor = create<EditorStore>((set, get) => ({
   motion: 'off',
   hairOutlines: true,
   color: [64, 196, 200, 255],
+  color2: [255, 255, 255, 255],
+  gradientSteps: 0,
   recent: [],
   hidden: {},
   palettes: [],

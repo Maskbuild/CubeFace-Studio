@@ -30,7 +30,7 @@ describe('avatar library', () => {
     expect((await lib.list()).map((x) => x.name)).toEqual(['Cat'])
   })
 
-  it('merges with automatic renaming and combined authors', async () => {
+  it('merges with automatic renaming and credits each included avatar', async () => {
     const a = avatar('One', 'A', { 'script.lua': 'one', 'textures/skin.png': 'x' })
     const b = avatar('Two', 'B', { 'script.lua': 'two', 'textures/skin.png': 'y', 'extra.lua': 'e' })
     const out = path.join(tmp(), 'merged')
@@ -46,6 +46,33 @@ describe('avatar library', () => {
     expect(r.renamed).toHaveLength(3)
     const json = JSON.parse(readFileSync(path.join(out, 'avatar.json'), 'utf8'))
     expect(json.name).toBe('Mine')
-    expect(json.authors).toEqual(['Me', 'A', 'B'])
+    expect(json.authors).toEqual(['Me', 'A - One', 'B - Two']) // owner first, then "<author> - <figura>"
+  })
+})
+
+import { zip } from '../src/renderer/src/lib/zip'
+
+describe('dropping avatars', () => {
+  it('imports a .zip of an avatar (also when wrapped in a folder) and skips unsafe paths', async () => {
+    const lib = new AvatarLibrary(tmp())
+    const z = path.join(tmp(), 'Fox.zip')
+    writeFileSync(z, zip([
+      { name: 'Fox/avatar.json', data: JSON.stringify({ name: 'Fox', authors: ['B'] }) },
+      { name: 'Fox/script.lua', data: 'print(1)' },
+      { name: '../evil.txt', data: 'x' }
+    ]))
+    const added = await lib.importAny(z)
+    expect(added.map((m) => m.name)).toEqual(['Fox'])
+    expect(added[0].files).toBe(2)
+  })
+  it('imports every avatar inside a dropped folder', async () => {
+    const lib = new AvatarLibrary(tmp())
+    const root = tmp()
+    for (const n of ['A', 'B']) {
+      mkdirSync(path.join(root, n))
+      writeFileSync(path.join(root, n, 'avatar.json'), JSON.stringify({ name: n }))
+    }
+    mkdirSync(path.join(root, 'not-an-avatar'))
+    expect((await lib.importAny(root)).map((m) => m.name).sort()).toEqual(['A', 'B'])
   })
 })

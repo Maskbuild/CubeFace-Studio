@@ -33,7 +33,8 @@ export interface HairPlane {
   h: number
   segments: number
   phys: HairPhys
-  presetId?: string // set when the plane came from a Figura preset (toggled as a group)
+  presetId?: string // (older projects) the plane came from a removed Figura preset
+  glow?: boolean // glows in the dark in Figura
   img: Img // texture, (w*k) x (h*k) texels where k = skin res / 64
 }
 
@@ -60,9 +61,9 @@ export function physFromFlow(flow: number, length: HairLength): HairPhys {
 }
 
 export const LENGTH_PRESET: Record<HairLength, { h: number; segments: number; phys: HairPhys }> = {
-  short: { h: 4, segments: 2, phys: physFromFlow(DEFAULT_FLOW.short, 'short') },
-  medium: { h: 8, segments: 3, phys: physFromFlow(DEFAULT_FLOW.medium, 'medium') },
-  long: { h: 14, segments: 5, phys: physFromFlow(DEFAULT_FLOW.long, 'long') }
+  short: { h: 4, segments: 3, phys: physFromFlow(DEFAULT_FLOW.short, 'short') },
+  medium: { h: 8, segments: 4, phys: physFromFlow(DEFAULT_FLOW.medium, 'medium') },
+  long: { h: 14, segments: 6, phys: physFromFlow(DEFAULT_FLOW.long, 'long') }
 }
 
 export function hairDefaults(side: HairSide, length: HairLength): Omit<HairInfo, 'id' | 'name'> {
@@ -107,6 +108,12 @@ export interface Motion {
 const D2R = Math.PI / 180
 /** Each lower segment follows a little slower (stiffness x LAG per segment): a soft wave. */
 export const LAG = 0.72
+/**
+ * How much of its swing each segment shows: the root stays close to the head (so the hair
+ * never lifts off the scalp) and the tips move fully, which also curves the strand smoothly.
+ */
+export const ROOT = 0.3
+export const rootWeight = (i: number, n: number) => (n <= 1 ? 0.6 : ROOT + (1 - ROOT) * (i / (n - 1)))
 
 /**
  * Damping that makes a per-tick spring critically damped: it reaches its target as fast as
@@ -169,15 +176,17 @@ export class HairSim {
       if (this.a[i] > hi) (this.a[i] = hi), (this.va[i] = 0)
       this.r[i] = Math.max(-0.9, Math.min(0.9, this.r[i]))
     }
-    for (let i = 0; i < this.segments; i++) {
-      this.out[i] = this.a[i] - (i ? this.a[i - 1] : 0)
-      this.roll[i] = this.r[i] - (i ? this.r[i - 1] : 0)
+    const n = this.segments
+    for (let i = 0; i < n; i++) {
+      this.out[i] = this.a[i] * rootWeight(i, n) - (i ? this.a[i - 1] * rootWeight(i - 1, n) : 0)
+      this.roll[i] = this.r[i] * rootWeight(i, n) - (i ? this.r[i - 1] * rootWeight(i - 1, n) : 0)
     }
   }
 
   /** Interpolated relative angles between the previous and current tick (alpha 0..1). */
   sample(i: number, alpha: number): [number, number] {
-    const lerp = (prev: Float64Array, cur: Float64Array, j: number) => (j < 0 ? 0 : prev[j] + (cur[j] - prev[j]) * alpha)
+    const n = this.segments
+    const lerp = (prev: Float64Array, cur: Float64Array, j: number) => (j < 0 ? 0 : (prev[j] + (cur[j] - prev[j]) * alpha) * rootWeight(j, n))
     return [lerp(this.pa, this.a, i) - lerp(this.pa, this.a, i - 1), lerp(this.pr, this.r, i) - lerp(this.pr, this.r, i - 1)]
   }
 }

@@ -197,3 +197,24 @@ describe('layer import / clear', () => {
     expect(doc.pick(0, 0)).toEqual([9, 8, 7, 255])
   })
 })
+
+import { drawGradient, flipImg, shiftImg, getPixel as px2, createImg as ci2 } from '../src/renderer/src/skin/pixels'
+
+describe('gradient and texture tools', () => {
+  it('fills a rect from one colour to another, optionally in bands', () => {
+    const img = ci2(8, 1)
+    drawGradient(img, { x: 0, y: 0, w: 8, h: 1 }, [0, 0.5], [8, 0.5], [0, 0, 0, 255], [255, 255, 255, 255], 1)
+    expect(px2(img, 0, 0)[0]).toBeLessThan(30)
+    expect(px2(img, 7, 0)[0]).toBeGreaterThan(225)
+    const banded = ci2(8, 1)
+    drawGradient(banded, { x: 0, y: 0, w: 8, h: 1 }, [0, 0.5], [8, 0.5], [0, 0, 0, 255], [255, 255, 255, 255], 1, 2)
+    expect(new Set(Array.from({ length: 8 }, (_, x) => px2(banded, x, 0)[0])).size).toBe(2)
+  })
+  it('shifts with wrap-around and flips', () => {
+    const img = ci2(4, 1)
+    img.data.set([255, 0, 0, 255], 0)
+    expect(px2(shiftImg(img, 1, 0), 1, 0)[0]).toBe(255)
+    expect(px2(shiftImg(img, -1, 0), 3, 0)[0]).toBe(255)
+    expect(px2(flipImg(img, 'x'), 3, 0)[0]).toBe(255)
+  })
+})

@@ -8,7 +8,7 @@ import { DEFAULT_AURIA, figuraDefaults, FACE_FRAMES, itemView, liveWheel, migrat
 import { hairDefaults } from '../src/renderer/src/skin/hair'
 import { createImg } from '../src/renderer/src/skin/pixels'
 
-const hair = { ...hairDefaults('back', 'medium'), id: 'h1', name: 'Back' }
+const hair = { ...hairDefaults('back', 'medium'), segments: 3, id: 'h1', name: 'Back' }
 const input = (over: Partial<ModelInput> = {}): ModelInput => ({
   name: 'Test',
   variant: 'wide',

@@ -2,13 +2,14 @@ import type { Img } from '../skin/pixels'
 import type { WardrobeItem } from '../skin/wardrobe'
 import { dataUrlToImg, imgToDataUrl } from './png'
 import { storage } from './storage'
+import { normCategory } from '../skin/wardrobe'
 
 export * from '../skin/wardrobe'
 
 const KEY = 'wardrobe'
 const KIND = 'wardrobe'
 
-export const loadWardrobe = async () => (await storage.getGlobal<WardrobeItem[]>(KEY)) ?? []
+export const loadWardrobe = async () => ((await storage.getGlobal<WardrobeItem[]>(KEY)) ?? []).map((it) => ({ ...it, category: normCategory(it.category) }))
 export const saveWardrobe = (items: WardrobeItem[]) => storage.setGlobal(KEY, items)
 
 const cache = new Map<string, Img>()

@@ -62,6 +62,8 @@ export interface ModelInput {
   atlasW: number
   atlasH: number
   atlasDataUrl: string
+  /** Glow (emissive) texture with the same layout; Figura pairs "skin_e" with "skin". */
+  glowDataUrl?: string
   slots: Record<string, AtlasSlot>
   hair: HairInfo[]
   figura: FiguraConfig
@@ -217,7 +219,26 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
         saved: true,
         uuid: uid(),
         source: inp.atlasDataUrl
-      }
+      },
+      ...(inp.glowDataUrl
+        ? [
+            {
+              name: 'skin_e.png',
+              id: '1',
+              width: inp.atlasW,
+              height: inp.atlasH,
+              uv_width: 64,
+              uv_height: r4(64 * (inp.atlasH / inp.atlasW)),
+              particle: false,
+              render_mode: 'emissive',
+              render_sides: 'auto',
+              mode: 'bitmap',
+              saved: true,
+              uuid: uid(),
+              source: inp.glowDataUrl
+            }
+          ]
+        : [])
     ]
   }
   return { model, info }

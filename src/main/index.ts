@@ -146,8 +146,8 @@ function registerIpc() {
     const added = []
     const failed: string[] = []
     for (const p of paths) {
-      const m = await avatars.import(p)
-      if (m) added.push(m)
+      const ms = await avatars.importAny(p).catch(() => [])
+      if (ms.length) added.push(...ms)
       else failed.push(path.basename(p))
     }
     return { added, failed }
@@ -229,6 +229,8 @@ function createWindow() {
   })
   win.once('ready-to-show', () => win.show())
   // Keep the app offline: open external links in the system browser instead of in-app.
+  // a file dropped outside a drop zone must not replace the app page
+  win.webContents.on('will-navigate', (e) => e.preventDefault())
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url)
     return { action: 'deny' }

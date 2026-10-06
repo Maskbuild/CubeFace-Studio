@@ -107,3 +107,38 @@ describe('skin parts inside the avatar', () => {
     expect(partsOf(doc, 'figura')).toHaveLength(6)
   })
 })
+
+import { buildModel } from '../src/renderer/src/figura/bbmodel'
+
+describe('glowing parts', () => {
+  it('builds a glow texture only from parts marked to glow, named skin_e for Figura', () => {
+    const doc = make(64)
+    doc.generateFaces()
+    expect(prepareAtlas(doc, 'figura').glow).toBeNull()
+    doc.updateFigura({ glowFrames: ['blink'] })
+    const { atlas, glow, frames } = prepareAtlas(doc, 'figura')
+    expect(glow).not.toBeNull()
+    const s = atlas.slots.face_blink
+    // glowing pixels only inside the blink frame's slot
+    let inside = 0, outside = 0
+    for (let y = 0; y < glow!.h; y++)
+      for (let x = 0; x < glow!.w; x++) {
+        if (glow!.data[(y * glow!.w + x) * 4 + 3] === 0) continue
+        if (x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h) inside++
+        else outside++
+      }
+    expect(inside).toBeGreaterThan(0)
+    expect(outside).toBe(0)
+    const { model } = buildModel({ name: 'T', variant: 'wide', res: 64, atlasW: atlas.img.w, atlasH: atlas.img.h, atlasDataUrl: 'data:image/png;base64,', glowDataUrl: 'data:image/png;base64,', slots: atlas.slots, hair: [], figura: doc.figura, faceFrames: frames }) as { model: { textures: { name: string }[] } }
+    expect(model.textures.map((t) => t.name)).toEqual(['skin.png', 'skin_e.png'])
+    expect(prepareAtlas(doc, 'bedrock').glow).toBeNull() // Bedrock has no glow layer
+  })
+  it('glowing layers only count where the shipped parts are', () => {
+    const doc = make(64)
+    doc.setLayerProps(doc.layers[0].id, { glow: true })
+    doc.updateFigura({ smoothHead: false }) // nothing of the skin ships
+    expect(prepareAtlas(doc, 'figura').glow).toBeNull()
+    doc.updateFigura({ smoothHead: true }) // the head ships: its pixels glow
+    expect(prepareAtlas(doc, 'figura').glow).not.toBeNull()
+  })
+})

@@ -13,7 +13,7 @@ const input = (over: Partial<BedrockInput> = {}): BedrockInput => ({
   atlasW: 64,
   atlasH: 96,
   slots: { hair_h1: { x: 0, y: 64, w: 8, h: 8 }, face_blink: { x: 8, y: 64, w: 8, h: 8 }, face_shy: { x: 16, y: 64, w: 8, h: 8 }, fur: { x: 24, y: 64, w: 2, h: 2 }, inner: { x: 26, y: 64, w: 2, h: 2 } },
-  hair: [{ ...hairDefaults('back', 'medium'), id: 'h1', name: 'B' }],
+  hair: [{ ...hairDefaults('back', 'medium'), segments: 3, id: 'h1', name: 'B' }],
   figura: figuraDefaults(64),
   faceFrames: ['blink', 'shy'],
   used: all,
@@ -59,7 +59,7 @@ describe('bedrock pack', () => {
     const anim = parse(f, 'animations/nkw.animation.json').animations['animation.nkw.abc123'].bones
     expect(anim.head).toBeDefined() // smooth head
     expect(anim.nkw_hair1_1.rotation[0]).toContain('v.nkw_c0a0')
-    expect(anim.nkw_hair1_2.rotation[0]).toContain('v.nkw_c0a1 - v.nkw_c0a0') // relative to the parent
+    expect(anim.nkw_hair1_2.rotation[0]).toContain('v.nkw_c0a1 * 0.65 - v.nkw_c0a0 * 0.3') // relative to the parent
     const rc = parse(f, 'render_controllers/nkw.render_controllers.json').render_controllers
     expect(rc['controller.render.player.nkw'].geometry).toBe('Geometry.nkw')
   })

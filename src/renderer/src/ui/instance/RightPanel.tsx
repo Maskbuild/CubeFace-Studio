@@ -9,7 +9,6 @@ import { useState } from 'react'
 import type { SkinDoc } from '../../skin/doc'
 import { ColorPicker } from './ColorPicker'
 import { HairPanel } from './HairPanel'
-import { FiguraPresetsDialog } from '../common/FiguraPresets'
 import { WardrobeWindow } from '../wardrobe/Wardrobe'
 
 function PalettePanel() {
@@ -137,7 +136,6 @@ function Extras({ onWardrobe }: { onWardrobe: () => void }) {
 }
 
 export function RightPanel({ doc }: { doc: SkinDoc }) {
-  const [presets, setPresets] = useState(false)
   const [wardrobe, setWardrobe] = useState(false)
   return (
     <div className="panel-scroll">
@@ -145,8 +143,7 @@ export function RightPanel({ doc }: { doc: SkinDoc }) {
       <ColorPicker />
       <PalettePanel />
       <ModelParts />
-      <HairPanel doc={doc} onOpenPresets={() => setPresets(true)} />
-      {presets && <FiguraPresetsDialog doc={doc} onClose={() => setPresets(false)} />}
+      <HairPanel doc={doc} />
       {wardrobe && <WardrobeWindow doc={doc} onClose={() => setWardrobe(false)} />}
     </div>
   )
