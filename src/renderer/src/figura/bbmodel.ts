@@ -125,14 +125,17 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
     const r = sub ? { x: s.x + sub.x, y: s.y + sub.y, w: sub.w, h: sub.h } : s
     return [r4(r.x * k), r4(r.y * k), r4((r.x + r.w) * k), r4((r.y + r.h) * k)]
   }
-  /** A flat, two-sided plane facing north (front); back side mirrored so it reads correctly. */
+  /**
+   * A flat plane facing north (front), one face only: Figura draws it from both sides (no culling),
+   * and a second face at the same spot z-fights (flickering stripes on hair and eyes in game).
+   */
   const plane = (parent: BBGroup, name: string, x0: number, x1: number, y0: number, y1: number, z: number, uv: number[]) =>
     cube(parent, {
       name,
       from: [r4(Math.min(x0, x1)), r4(y0), r4(z)],
       to: [r4(Math.max(x0, x1)), r4(y1), r4(z)],
       origin: [0, 0, 0],
-      faces: { north: { uv, texture: 0 }, south: { uv: [uv[2], uv[1], uv[0], uv[3]], texture: 0 }, east: NO_FACE, west: NO_FACE, up: NO_FACE, down: NO_FACE }
+      faces: { north: { uv, texture: 0 }, south: NO_FACE, east: NO_FACE, west: NO_FACE, up: NO_FACE, down: NO_FACE }
     })
 
   // ---- player body ----------------------------------------------------------------------
@@ -182,7 +185,7 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
   // the base frame replaces the skin face (under the hat); the others sit on the face, or in front
   // of the hat (scaled to the hat, 9/8) when the eyes and mouth are painted on the hat
   const onHat = !!inp.faceOnHat
-  const front = (fr: FaceFrame, i: number) => (onHat && fr !== 'base' ? { a: -4.5, b: 4.5, y0: 23.5, y1: 32.5, z: r4(-4.52 - i * 0.001) } : { a: -4, b: 4, y0: 24, y1: 32, z: r4(-4.02 - i * 0.001) })
+  const front = (fr: FaceFrame, i: number) => (onHat && fr !== 'base' ? { a: -4.5, b: 4.5, y0: 23.5, y1: 32.5, z: r4(-4.52 - i * 0.01) } : { a: -4, b: 4, y0: 24, y1: 32, z: r4(-4.02 - i * 0.01) })
   inp.faceFrames.forEach((fr, i) => {
     const s = inp.slots[`face_${fr}`]
     if (!s) return
@@ -194,7 +197,7 @@ export function buildModel(inp: ModelInput): { model: object; info: ModelInfo } 
   // glowing eyes: the eye spots on their own plane just in front of the face (or the hat)
   const eyeSlot = inp.slots.eyes_glow
   if (eyeSlot) {
-    const q = onHat ? { a: -4.5, b: 4.5, y0: 23.5, y1: 32.5, z: -4.5205 } : { a: -4, b: 4, y0: 24, y1: 32, z: -4.0205 }
+    const q = onHat ? { a: -4.5, b: 4.5, y0: 23.5, y1: 32.5, z: -4.525 } : { a: -4, b: 4, y0: 24, y1: 32, z: -4.025 }
     plane(faceGroup, 'GlowEyes', q.a, q.b, q.y0, q.y1, q.z, slotUV(eyeSlot))
   }
   const glowLayers = !!inp.glowDataUrl

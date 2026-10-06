@@ -82,10 +82,10 @@ describe('face painted on the hat layer', () => {
     const on = buildModel({ ...base, faceFrames: ['base', 'blink'], faceOnHat: true }).model as any
     const off = buildModel({ ...base, faceFrames: ['base', 'blink'] }).model as any
     const el = (m: any, n: string) => m.elements.find((e: any) => e.name === n)
-    expect(el(on, 'F_blink').from).toEqual([-4.5, 23.5, -4.521])
-    expect(el(on, 'F_blink').to).toEqual([4.5, 32.5, -4.521])
+    expect(el(on, 'F_blink').from).toEqual([-4.5, 23.5, -4.53])
+    expect(el(on, 'F_blink').to).toEqual([4.5, 32.5, -4.53])
     expect(el(on, 'F_base').from[2]).toBeCloseTo(-4.02) // the base frame stays on the face, under the hat
-    expect(el(off, 'F_blink').from).toEqual([-4, 24, -4.021])
+    expect(el(off, 'F_blink').from).toEqual([-4, 24, -4.03])
   })
 })
 
@@ -99,5 +99,17 @@ describe('hair attached to the head', () => {
     expect(hairAttached(neck)).toBe(false)
     expect(attachedPos(neck)).toEqual([0, 8, -4.6])
     expect(hairAttached({ ...back, pos: [4.6, 7, 0] })).toBe(true) // on the side of the head
+  })
+})
+
+describe('no z-fighting in game', () => {
+  it('flat planes have one face and face frames are far enough apart', () => {
+    const slots = { face_base: { x: 0, y: 64, w: 8, h: 8 }, face_blink: { x: 8, y: 64, w: 8, h: 8 }, face_happy: { x: 16, y: 64, w: 8, h: 8 }, eyes_glow: { x: 24, y: 64, w: 8, h: 8 } }
+    const m = buildModel({ name: 'T', variant: 'wide', res: 64, atlasW: 64, atlasH: 96, atlasDataUrl: '', hair: [], figura: figuraDefaults(64), slots, faceFrames: ['base', 'blink', 'happy'] }).model as any
+    const planes = m.elements.filter((e: any) => e.from[2] === e.to[2])
+    expect(planes.length).toBe(4)
+    for (const p of planes) expect(p.faces.south.texture).toBeNull() // a back face at the same spot flickers
+    const zs = planes.map((p: any) => p.from[2]).sort((a: number, b: number) => a - b)
+    for (let i = 1; i < zs.length; i++) expect(zs[i] - zs[i - 1]).toBeGreaterThanOrEqual(0.0049)
   })
 })

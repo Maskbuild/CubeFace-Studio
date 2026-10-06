@@ -84,8 +84,8 @@ In short:
 
 Get the latest version from **[Releases](https://github.com/Maskbuild/CubeFace-Studio/releases/latest)** (Windows 10/11, 64-bit):
 
-- **CubeFace-Studio-Setup-1.0.2.exe**: installer (choose the folder, adds Start menu and desktop shortcuts).
-- **CubeFace-Studio-1.0.2-win-x64-portable.zip**: no install; unzip anywhere and run `CubeFace Studio.exe`.
+- **CubeFace-Studio-Setup-1.0.1.exe**: installer (choose the folder, adds Start menu and desktop shortcuts).
+- **CubeFace-Studio-1.0.1-win-x64-portable.zip**: no install; unzip anywhere and run `CubeFace Studio.exe`.
 
 The app is not code-signed, so Windows SmartScreen may warn the first time: click *More info → Run anyway*.
 

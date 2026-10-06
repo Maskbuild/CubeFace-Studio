@@ -57,7 +57,7 @@ export class FiguraRig {
         const img = doc.faces[f] as Img
         const t = tex(img)
         const hat = onHat && f !== 'base'
-        const m = new THREE.Mesh(facePlane((hat ? 4.52 : 4.02) + ++i * 0.002, hat ? 4.5 : 4), new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.02, depthWrite: false }))
+        const m = new THREE.Mesh(facePlane((hat ? 4.52 : 4.02) + i++ * 0.01, hat ? 4.5 : 4), new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.02, depthWrite: false }))
         m.renderOrder = 2
         this.disposables.push(t, m.geometry, m.material as THREE.Material)
         this.frames.set(f, m)

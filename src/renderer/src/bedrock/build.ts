@@ -106,7 +106,7 @@ export function buildBedrockPack(inp: BedrockInput): Record<string, string> {
     if (!s) return
     const name = `nkw_f_${f}`
     const hat = !!inp.faceOnHat && f !== 'base'
-    const z = (hat ? 4.52 : 4.02) + i * 0.002
+    const z = (hat ? 4.52 : 4.02) + i * 0.01
     const half = hat ? 4.5 : 4
     bone(name, 'head', [0, 24, 0], { cubes: [{ origin: [-half, 28 - half, -z], size: [half * 2, half * 2, 0], uv: plane(slotUV(s)) }] })
     frameBones[f] = name
